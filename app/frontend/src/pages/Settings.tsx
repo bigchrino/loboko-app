@@ -1,17 +1,27 @@
+import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, LogOut, User, Shield, HelpCircle } from 'lucide-react';
+import LogoutConfirm from '@/components/LogoutConfirm';
 
 export default function Settings() {
   const { logout, profile, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   return (
@@ -69,7 +79,7 @@ export default function Settings() {
       </div>
 
       <button
-        onClick={handleLogout}
+        onClick={() => setShowLogoutConfirm(true)}
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[rgba(239,68,68,0.1)] text-[#ef4444] font-semibold border border-[rgba(239,68,68,0.3)] hover:bg-[rgba(239,68,68,0.2)] transition"
       >
         <LogOut size={18} />
@@ -79,6 +89,13 @@ export default function Settings() {
       <div className="text-center mt-6 text-xs text-[var(--loboko-text-muted)]">
         LOBOKO v1.0 — © {new Date().getFullYear()}
       </div>
+
+      <LogoutConfirm
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        loading={loggingOut}
+      />
     </Layout>
   );
 }

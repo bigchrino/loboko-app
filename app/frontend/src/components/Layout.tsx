@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import LogoutConfirm from '@/components/LogoutConfirm';
 import {
   Home,
   Compass,
@@ -51,10 +52,18 @@ export default function Layout({ children, title }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   return (
@@ -111,7 +120,7 @@ export default function Layout({ children, title }: LayoutProps) {
             <span>{theme === 'dark' ? 'Mode clair' : 'Mode sombre'}</span>
           </button>
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)] hover:text-[var(--loboko-text)] transition-all"
           >
             <LogOut size={20} />
@@ -170,6 +179,13 @@ export default function Layout({ children, title }: LayoutProps) {
           ))}
         </div>
       </nav>
+
+      <LogoutConfirm
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        loading={loggingOut}
+      />
     </div>
   );
 }

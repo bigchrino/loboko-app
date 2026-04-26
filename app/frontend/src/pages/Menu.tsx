@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -13,6 +14,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import LogoutConfirm from '@/components/LogoutConfirm';
 
 const items = [
   { to: '/profile', label: 'Mon Profil', desc: 'Voir et modifier votre profil', icon: User, color: '#2563eb' },
@@ -27,10 +29,18 @@ const items = [
 export default function Menu() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/');
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   return (
@@ -65,7 +75,7 @@ export default function Menu() {
           ))}
 
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all text-left"
           >
             <div className="w-11 h-11 rounded-xl bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0">
@@ -81,6 +91,13 @@ export default function Menu() {
           </button>
         </div>
       </div>
+
+      <LogoutConfirm
+        open={showLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        loading={loggingOut}
+      />
     </Layout>
   );
 }

@@ -20,6 +20,10 @@ export default function OnboardingProfile() {
       toast.error("Nom d'utilisateur requis");
       return;
     }
+    if (role === 'prestataire' && !metier.trim()) {
+      toast.error('Veuillez indiquer le service que vous livrez');
+      return;
+    }
     setLoading(true);
     try {
       await client.entities.profiles.create({
@@ -109,14 +113,18 @@ export default function OnboardingProfile() {
           {role === 'prestataire' && (
             <div>
               <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
-                Votre métier
+                Service que vous livrez *
               </label>
               <input
                 value={metier}
                 onChange={(e) => setMetier(e.target.value)}
-                placeholder="ex: Coiffeur, Photographe, Développeur..."
+                placeholder="ex: Coiffeur, Menuisier, Photographe..."
+                required
                 className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
               />
+              <p className="mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
+                Indiquez clairement le service que vous proposez (ex: coiffeur, menuisier, plombier...)
+              </p>
             </div>
           )}
 
