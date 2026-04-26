@@ -33,7 +33,12 @@ export default function Layout({ children, title }: LayoutProps) {
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
         <div className="px-6 py-6 border-b border-[var(--loboko-border)]">
-          <Logo size="md" />
+          <div className="flex items-center gap-3">
+            <Logo size="md" />
+            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent">
+              LOBOKO
+            </span>
+          </div>
           {profile?.role && (
             <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-semibold bg-[rgba(37,99,235,0.15)] text-[#2563eb] capitalize">
               {profile.role}
@@ -91,8 +96,11 @@ export default function Layout({ children, title }: LayoutProps) {
 
       {/* Mobile top header */}
       <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-5 py-3 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <Logo size="sm" />
+          <span className="text-base font-bold tracking-tight bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent">
+            LOBOKO
+          </span>
           {title && title !== 'LOBOKO' && (
             <>
               <span className="h-5 w-px bg-[var(--loboko-border)]" />
