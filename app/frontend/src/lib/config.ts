@@ -7,8 +7,16 @@ let runtimeConfig: {
 let configLoading = true;
 
 // Default fallback configuration
+// Priority: VITE_ATOMS_API_URL > VITE_API_BASE_URL > localhost dev fallback
+const ENV_API_URL =
+  (import.meta.env.VITE_ATOMS_API_URL as string | undefined) ||
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  '';
+
 const defaultConfig = {
-  API_BASE_URL: 'http://127.0.0.1:8000', // Only used if runtime config fails to load
+  API_BASE_URL: ENV_API_URL
+    ? ENV_API_URL.replace(/\/+$/, '')
+    : 'http://127.0.0.1:8000',
 };
 
 // Function to load runtime configuration
@@ -58,12 +66,15 @@ export function getConfig() {
     return runtimeConfig;
   }
 
-  // Then try Vite environment variables (for local development)
-  if (import.meta.env.VITE_API_BASE_URL) {
+  // Then try Vite environment variables (for local development / Vercel)
+  const envUrl =
+    (import.meta.env.VITE_ATOMS_API_URL as string | undefined) ||
+    (import.meta.env.VITE_API_BASE_URL as string | undefined);
+  if (envUrl) {
     const viteConfig = {
-      API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+      API_BASE_URL: envUrl.replace(/\/+$/, ''),
     };
-    console.log('Using Vite environment config');
+    console.log('Using Vite environment config:', viteConfig.API_BASE_URL);
     return viteConfig;
   }
 
