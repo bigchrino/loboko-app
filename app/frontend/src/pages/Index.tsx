@@ -35,12 +35,7 @@ export default function Index() {
 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-12 py-5">
-        <div className="flex items-center gap-3">
-          <Logo size="md" />
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent">
-            LOBOKO
-          </span>
-        </div>
+        <Logo size="lg" />
         <button
           onClick={toggleTheme}
           className="p-2.5 rounded-full bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)] transition"
