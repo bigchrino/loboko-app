@@ -92,13 +92,19 @@ export default function Layout({ children, title }: LayoutProps) {
       </aside>
 
       {/* Mobile top header */}
-      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-5 py-3 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
-        <div className="flex items-center gap-2.5">
-          <Logo size="md" />
+      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img
+            src="/assets/logo.jpg"
+            alt="LOBOKO"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-contain bg-black p-0.5 shrink-0"
+          />
           {title && title !== 'LOBOKO' && (
             <>
-              <span className="h-5 w-px bg-[var(--loboko-border)]" />
-              <span className="text-sm font-semibold text-[var(--loboko-text-secondary)]">{title}</span>
+              <span className="h-5 w-px bg-[var(--loboko-border)] shrink-0" />
+              <span className="text-sm font-semibold text-[var(--loboko-text)] truncate">
+                {title}
+              </span>
             </>
           )}
         </div>
