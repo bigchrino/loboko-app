@@ -18,6 +18,7 @@ export interface LobokoAccount {
   email: string;
   role: 'client' | 'prestataire';
   display_name: string;
+  metier?: string;
 }
 
 interface AtomsUser {
@@ -39,6 +40,7 @@ interface AuthContextValue {
     password: string;
     role: 'client' | 'prestataire';
     display_name: string;
+    metier?: string;
   }) => Promise<LobokoAccount>;
   loginLoboko: (params: { email: string; password: string }) => Promise<LobokoAccount>;
   createLobokoProfile: (params: {
@@ -150,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password: params.password,
           role: params.role,
           display_name: params.display_name,
+          metier: params.metier,
         },
       });
       const account = res?.data as LobokoAccount;

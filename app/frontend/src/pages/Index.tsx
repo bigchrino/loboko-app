@@ -18,6 +18,7 @@ export default function Index() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'client' | 'prestataire'>('client');
+  const [metier, setMetier] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -42,6 +43,10 @@ export default function Index() {
         toast.error('Nom complet requis');
         return;
       }
+      if (role === 'prestataire' && !metier.trim()) {
+        toast.error('Veuillez indiquer le service que vous livrez');
+        return;
+      }
     }
     setSubmitting(true);
     try {
@@ -54,6 +59,7 @@ export default function Index() {
           password,
           role,
           display_name: displayName.trim(),
+          metier: role === 'prestataire' ? metier.trim() : undefined,
         });
         toast.success('Compte créé ! Complétez votre profil.');
       }
@@ -207,7 +213,7 @@ export default function Index() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
-                      Je suis
+                      Je suis *
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {(['client', 'prestataire'] as const).map((r) => (
@@ -221,11 +227,28 @@ export default function Index() {
                               : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
                           }`}
                         >
-                          {r}
+                          {r === 'client' ? 'Client' : 'Prestataire de service'}
                         </button>
                       ))}
                     </div>
                   </div>
+                  {role === 'prestataire' && (
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                        Service que vous livrez *
+                      </label>
+                      <input
+                        value={metier}
+                        onChange={(e) => setMetier(e.target.value)}
+                        placeholder="ex: Coiffeur, Menuisier, Plombier..."
+                        required
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                      />
+                      <p className="mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
+                        Indiquez clairement le service que vous proposez
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

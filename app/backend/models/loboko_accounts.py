@@ -12,6 +12,7 @@ class Loboko_accounts(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)
     display_name = Column(String, nullable=False)
+    metier = Column(String, nullable=True)
     atoms_user_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now)
     updated_at = Column(DateTime(timezone=True), default=datetime.now, onupdate=datetime.now)

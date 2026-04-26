@@ -56,6 +56,7 @@ class RegisterRequest(BaseModel):
     password: str
     role: str
     display_name: str
+    metier: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
@@ -68,6 +69,7 @@ class AccountResponse(BaseModel):
     email: str
     role: str
     display_name: str
+    metier: Optional[str] = None
 
 
 # ---------- Profile schemas ----------
@@ -127,6 +129,8 @@ async def register(
         raise HTTPException(status_code=400, detail="Invalid role")
     if len(data.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if data.role == "prestataire" and not (data.metier or "").strip():
+        raise HTTPException(status_code=400, detail="metier is required for prestataire")
 
     email = data.email.lower().strip()
 
@@ -142,6 +146,7 @@ async def register(
         password_hash=_hash_password(data.password),
         role=data.role,
         display_name=data.display_name.strip() or email,
+        metier=(data.metier or "").strip() or None,
         atoms_user_id=str(current_user.id),
     )
     db.add(account)
@@ -153,6 +158,7 @@ async def register(
         email=account.email,
         role=account.role,
         display_name=account.display_name,
+        metier=account.metier,
     )
 
 
@@ -177,6 +183,7 @@ async def login(
         email=account.email,
         role=account.role,
         display_name=account.display_name,
+        metier=account.metier,
     )
 
 

@@ -9,7 +9,7 @@ export default function OnboardingProfile() {
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [metier, setMetier] = useState('');
+  const [metier, setMetier] = useState(user?.metier || '');
   const [bio, setBio] = useState('');
   const [role, setRole] = useState<'client' | 'prestataire'>(user?.role || 'client');
 
