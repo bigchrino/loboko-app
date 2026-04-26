@@ -56,3 +56,13 @@
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
 - [x] CheckUI final
+
+### Phase 5 - Messagerie enrichie (emojis, notes vocales, appels)
+- [x] Créer `src/components/EmojiPicker.tsx` - sélecteur d'emojis simple et léger
+- [x] Créer `src/components/VoiceRecorder.tsx` - enregistrement audio (MediaRecorder API)
+- [x] Créer `src/components/VoiceMessage.tsx` - lecteur audio pour notes vocales
+- [x] Créer `src/components/CallModal.tsx` - interface d'appel vocal/vidéo plein écran (WebRTC)
+- [x] Créer `src/lib/message-format.ts` - helpers pour encoder/décoder les messages (texte/audio/call)
+- [x] Mettre à jour `src/pages/Messages.tsx` - intégrer emoji picker, voice recorder, boutons d'appel
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`
