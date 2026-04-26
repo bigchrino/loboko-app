@@ -1,0 +1,91 @@
+import { useEffect, useState } from 'react';
+import Layout from '@/components/Layout';
+import { client } from '@/lib/atoms-client';
+import { Bell, Heart, MessageCircle, UserPlus } from 'lucide-react';
+
+interface Notif {
+  id: number;
+  user_id: string;
+  from_user_id?: string;
+  type: string;
+  post_id?: number;
+  message?: string;
+  read?: boolean;
+  created_at?: string;
+}
+
+const iconFor = (type: string) => {
+  if (type === 'like') return Heart;
+  if (type === 'comment' || type === 'message') return MessageCircle;
+  if (type === 'follow') return UserPlus;
+  return Bell;
+};
+
+export default function Notifications() {
+  const [items, setItems] = useState<Notif[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await client.entities.notifications.query({
+          query: {},
+          sort: '-created_at',
+          limit: 100,
+        });
+        setItems((res?.data?.items as Notif[]) || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return (
+    <Layout title="Notifications">
+      <h1 className="text-2xl font-bold mb-4 hidden lg:block">Notifications</h1>
+      {loading ? (
+        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">Chargement...</div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
+          <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(139,92,246,0.15)] flex items-center justify-center mb-4">
+            <Bell size={24} className="text-[#8b5cf6]" />
+          </div>
+          <h3 className="font-semibold mb-1">Aucune notification</h3>
+          <p className="text-sm text-[var(--loboko-text-muted)]">
+            Vous serez prévenu ici des nouvelles activités
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((n) => {
+            const Icon = iconFor(n.type);
+            return (
+              <div
+                key={n.id}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  n.read
+                    ? 'bg-[var(--loboko-surface)] border-[var(--loboko-border)]'
+                    : 'bg-[rgba(139,92,246,0.08)] border-[#8b5cf6]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] flex items-center justify-center shrink-0">
+                  <Icon size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm">{n.message || `Nouvelle ${n.type}`}</div>
+                  {n.created_at && (
+                    <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">
+                      {new Date(n.created_at).toLocaleString('fr-FR')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Layout>
+  );
+}

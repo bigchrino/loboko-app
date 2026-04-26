@@ -1,0 +1,48 @@
+{
+    "title": "profiles",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "username": {
+            "type": "string",
+            "description": "Unique username"
+        },
+        "display_name": {
+            "type": "string",
+            "description": "Display name"
+        },
+        "bio": {
+            "type": "string",
+            "description": "User biography"
+        },
+        "metier": {
+            "type": "string",
+            "description": "Profession/job title"
+        },
+        "avatar_key": {
+            "type": "string",
+            "description": "Object storage key for avatar"
+        },
+        "role": {
+            "type": "string",
+            "description": "client or prestataire"
+        },
+        "theme": {
+            "type": "string",
+            "description": "light or dark"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "username",
+        "role"
+    ]
+}

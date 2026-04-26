@@ -1,0 +1,147 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { client } from '@/lib/atoms-client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+
+export default function OnboardingProfile() {
+  const { user, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [metier, setMetier] = useState('');
+  const [bio, setBio] = useState('');
+  const [role, setRole] = useState<'client' | 'prestataire'>('client');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim()) {
+      toast.error("Nom d'utilisateur requis");
+      return;
+    }
+    setLoading(true);
+    try {
+      await client.entities.profiles.create({
+        data: {
+          username: username.trim(),
+          display_name: displayName.trim() || username.trim(),
+          metier: metier.trim(),
+          bio: bio.trim(),
+          role,
+          theme: 'dark',
+        },
+      });
+      await refreshProfile();
+      toast.success('Profil créé avec succès !');
+      navigate('/home', { replace: true });
+    } catch (err) {
+      console.error(err);
+      toast.error('Erreur lors de la création du profil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)] text-[var(--loboko-text)] p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-2xl mb-4">
+            L
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Bienvenue sur LOBOKO 👋</h1>
+          <p className="text-sm text-[var(--loboko-text-secondary)]">
+            {user?.email ? `Connecté en tant que ${user.email}` : 'Complétez votre profil pour continuer'}
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 p-6 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]"
+        >
+          <div>
+            <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+              Je suis *
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {(['client', 'prestataire'] as const).map((r) => (
+                <button
+                  type="button"
+                  key={r}
+                  onClick={() => setRole(r)}
+                  className={`px-4 py-3 rounded-xl font-semibold capitalize transition ${
+                    role === r
+                      ? 'bg-[#8b5cf6] text-white'
+                      : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+              Nom d'utilisateur *
+            </label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+              placeholder="ex: kinshasa_dev"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+              Nom complet
+            </label>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Votre nom"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+            />
+          </div>
+
+          {role === 'prestataire' && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                Votre métier
+              </label>
+              <input
+                value={metier}
+                onChange={(e) => setMetier(e.target.value)}
+                placeholder="ex: Coiffeur, Photographe, Développeur..."
+                className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+              Bio
+            </label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Parlez-nous de vous..."
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6] resize-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+          >
+            {loading ? 'Création...' : 'Créer mon profil'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

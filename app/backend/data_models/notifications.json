@@ -1,0 +1,39 @@
+{
+    "title": "notifications",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "Recipient user ID"
+        },
+        "from_user_id": {
+            "type": "string",
+            "description": "Source user ID"
+        },
+        "type": {
+            "type": "string",
+            "description": "Type: like, comment, message, follow"
+        },
+        "post_id": {
+            "type": "integer",
+            "description": "Related post id"
+        },
+        "message": {
+            "type": "string",
+            "description": "Notification text"
+        },
+        "read": {
+            "type": "boolean",
+            "description": "Read status"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "type"
+    ]
+}

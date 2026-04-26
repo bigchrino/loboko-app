@@ -1,0 +1,39 @@
+{
+    "title": "posts",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "Author user ID"
+        },
+        "content": {
+            "type": "string",
+            "description": "Post text content"
+        },
+        "image_key": {
+            "type": "string",
+            "description": "Object storage key for post image"
+        },
+        "likes_count": {
+            "type": "integer",
+            "description": "Number of likes"
+        },
+        "comments_count": {
+            "type": "integer",
+            "description": "Number of comments"
+        },
+        "shares_count": {
+            "type": "integer",
+            "description": "Number of shares"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "content"
+    ]
+}

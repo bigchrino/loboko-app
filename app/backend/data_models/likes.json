@@ -1,0 +1,23 @@
+{
+    "title": "likes",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User who liked"
+        },
+        "post_id": {
+            "type": "integer",
+            "description": "Liked post id"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "post_id"
+    ]
+}

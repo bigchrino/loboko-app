@@ -1,0 +1,28 @@
+{
+    "title": "comments",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "Comment author"
+        },
+        "post_id": {
+            "type": "integer",
+            "description": "Post id"
+        },
+        "content": {
+            "type": "string",
+            "description": "Comment text"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "post_id",
+        "content"
+    ]
+}
