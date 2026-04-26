@@ -47,9 +47,6 @@ export default function Index() {
 
       <main className="relative z-10 flex flex-col items-center justify-center px-6 py-8 lg:py-16">
         <div className="max-w-3xl text-center">
-          <div className="mb-6 flex justify-center">
-            <Logo size="xl" />
-          </div>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] text-xs font-semibold mb-6">
             <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
             Connecter les talents du Congo

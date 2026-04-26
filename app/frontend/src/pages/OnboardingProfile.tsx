@@ -51,9 +51,6 @@ export default function OnboardingProfile() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)] text-[var(--loboko-text)] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-2xl mb-4">
-            L
-          </div>
           <h1 className="text-2xl font-bold mb-2">Bienvenue sur LOBOKO 👋</h1>
           <p className="text-sm text-[var(--loboko-text-secondary)]">
             {user?.email ? `Connecté en tant que ${user.email}` : 'Complétez votre profil pour continuer'}
