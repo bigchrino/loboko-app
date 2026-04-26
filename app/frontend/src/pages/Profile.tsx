@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import PostCard, { PostItem } from '@/components/PostCard';
 
 export default function Profile() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, updateLobokoProfile } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -18,7 +18,7 @@ export default function Profile() {
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const userId = (user?.id as string) || (user?.sub as string) || (user?.user_id as string) || '';
+  const userId = profile?.user_id || (user ? `loboko:${user.id}` : '');
 
   useEffect(() => {
     if (profile) {
@@ -26,6 +26,7 @@ export default function Profile() {
       setBio(profile.bio || '');
       setMetier(profile.metier || '');
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
+      else setAvatarUrl(null);
     }
   }, [profile]);
 
@@ -53,11 +54,7 @@ export default function Profile() {
       return;
     }
     try {
-      await client.entities.profiles.update({
-        id: String(profile.id),
-        data: { avatar_key: key },
-      });
-      await refreshProfile();
+      await updateLobokoProfile({ avatar_key: key });
       const url = await getMediaUrl(key);
       setAvatarUrl(url);
       toast.success('Photo mise à jour', { id: 'avatar' });
@@ -71,11 +68,7 @@ export default function Profile() {
     if (!profile) return;
     setSaving(true);
     try {
-      await client.entities.profiles.update({
-        id: String(profile.id),
-        data: { display_name: displayName, bio, metier },
-      });
-      await refreshProfile();
+      await updateLobokoProfile({ display_name: displayName, bio, metier });
       toast.success('Profil mis à jour');
       setEditing(false);
     } catch (e) {
@@ -135,6 +128,9 @@ export default function Profile() {
               </span>
             </div>
             <div className="text-sm text-[var(--loboko-text-muted)]">@{profile.username}</div>
+            {user?.email && (
+              <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">{user.email}</div>
+            )}
           </div>
           {!editing && (
             <button

@@ -1,0 +1,37 @@
+{
+    "title": "loboko_accounts",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "email": {
+            "type": "string",
+            "description": "Lowercase email, unique identifier"
+        },
+        "password_hash": {
+            "type": "string",
+            "description": "Hashed password"
+        },
+        "role": {
+            "type": "string",
+            "description": "client or prestataire"
+        },
+        "display_name": {
+            "type": "string",
+            "description": "Display name"
+        },
+        "atoms_user_id": {
+            "type": "string",
+            "description": "Linked Atoms user id (owner for DB writes)"
+        }
+    },
+    "required": [
+        "id",
+        "email",
+        "password_hash",
+        "role",
+        "display_name"
+    ]
+}

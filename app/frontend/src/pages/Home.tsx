@@ -6,12 +6,11 @@ import { client } from '@/lib/atoms-client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const userId =
-    (user?.id as string) || (user?.sub as string) || (user?.user_id as string) || '';
+  const userId = profile?.user_id || (user ? `loboko:${user.id}` : '');
 
   const loadPosts = useCallback(async () => {
     setLoading(true);

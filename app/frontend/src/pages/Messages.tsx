@@ -35,10 +35,10 @@ function Avatar({ profile }: { profile?: Profile }) {
 }
 
 export default function Messages() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [searchParams] = useSearchParams();
   const urlTo = searchParams.get('to');
-  const myId = (user?.id as string) || (user?.sub as string) || (user?.user_id as string) || '';
+  const myId = profile?.user_id || (user ? `loboko:${user.id}` : '');
 
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});

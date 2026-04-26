@@ -1,20 +1,74 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon, Users, MessageCircle, Briefcase, Heart } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { toast } from 'sonner';
+
+type Mode = 'login' | 'register';
 
 export default function Index() {
-  const { user, loading, login } = useAuth();
+  const { user, profile, loading, loginLoboko, registerLoboko } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<Mode>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<'client' | 'prestataire'>('client');
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
-    if (!loading && user) {
-      navigate('/home', { replace: true });
+    if (loading) return;
+    if (user && profile) navigate('/home', { replace: true });
+    else if (user && !profile) navigate('/onboarding', { replace: true });
+  }, [user, profile, loading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    if (!email.trim() || !password.trim()) {
+      toast.error('Email et mot de passe requis');
+      return;
     }
-  }, [user, loading, navigate]);
+    if (mode === 'register') {
+      if (password.length < 6) {
+        toast.error('Mot de passe : 6 caractères minimum');
+        return;
+      }
+      if (!displayName.trim()) {
+        toast.error('Nom complet requis');
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      if (mode === 'login') {
+        await loginLoboko({ email: email.trim().toLowerCase(), password });
+        toast.success('Connexion réussie');
+      } else {
+        await registerLoboko({
+          email: email.trim().toLowerCase(),
+          password,
+          role,
+          display_name: displayName.trim(),
+        });
+        toast.success('Compte créé ! Complétez votre profil.');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur inattendue';
+      const friendly = msg.includes('401') || msg.toLowerCase().includes('invalid')
+        ? 'Email ou mot de passe incorrect'
+        : msg.includes('409') || msg.toLowerCase().includes('already')
+        ? 'Cet email est déjà utilisé'
+        : msg;
+      toast.error(friendly);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -45,59 +99,153 @@ export default function Index() {
         </button>
       </header>
 
-      <main className="relative z-10 flex flex-col items-center justify-center px-6 py-8 lg:py-16">
-        <div className="max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] text-xs font-semibold mb-6">
-            <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
-            Connecter les talents du Congo
-          </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-5 leading-tight">
-            Bienvenue sur{' '}
-            <span className="bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent">
-              Loboko
-            </span>
-          </h1>
-          <p className="text-base md:text-lg text-[var(--loboko-text-secondary)] mb-8 max-w-2xl mx-auto leading-relaxed">
-            Le réseau social qui connecte clients et prestataires de services.
-            Découvrez des talents, échangez, partagez vos réalisations.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-16">
-            <button
-              onClick={login}
-              className="px-8 py-3.5 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold hover:opacity-90 transition shadow-lg shadow-[#2563eb]/30 w-full sm:w-auto"
-            >
-              Commencer maintenant
-            </button>
-            <button
-              onClick={login}
-              className="px-8 py-3.5 rounded-full !bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text)] font-semibold hover:border-[#2563eb] transition w-full sm:w-auto"
-            >
-              Se connecter
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {[
-              { icon: Users, label: 'Communauté', desc: 'Rencontrez des pros', color: '#2563eb' },
-              { icon: Briefcase, label: 'Services', desc: 'Trouvez des talents', color: '#22c55e' },
-              { icon: MessageCircle, label: 'Messagerie', desc: 'Échangez en direct', color: '#f59e0b' },
-              { icon: Heart, label: 'Partage', desc: 'Likez, commentez', color: '#2563eb' },
-            ].map(({ icon: Icon, label, desc, color }) => (
-              <div
-                key={label}
-                className="p-5 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[var(--loboko-accent)] transition-all"
-              >
+      <main className="relative z-10 flex flex-col items-center justify-center px-6 py-6 lg:py-10">
+        <div className="w-full max-w-5xl grid lg:grid-cols-2 gap-10 items-center">
+          {/* Hero text */}
+          <div className="text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] text-xs font-semibold mb-5">
+              <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
+              Connecter les talents du Congo
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4 leading-tight">
+              Bienvenue sur{' '}
+              <span className="bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent">
+                Loboko
+              </span>
+            </h1>
+            <p className="text-base md:text-lg text-[var(--loboko-text-secondary)] mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Le réseau social qui connecte clients et prestataires de services.
+              Créez votre compte avec un simple email et mot de passe.
+            </p>
+            <div className="grid grid-cols-2 gap-3 max-w-md mx-auto lg:mx-0">
+              {[
+                { icon: Users, label: 'Communauté', color: '#2563eb' },
+                { icon: Briefcase, label: 'Services', color: '#22c55e' },
+                { icon: MessageCircle, label: 'Messagerie', color: '#f59e0b' },
+                { icon: Heart, label: 'Partage', color: '#2563eb' },
+              ].map(({ icon: Icon, label, color }) => (
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3"
-                  style={{ backgroundColor: `${color}26`, color }}
+                  key={label}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]"
                 >
-                  <Icon size={20} />
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${color}26`, color }}
+                  >
+                    <Icon size={18} />
+                  </div>
+                  <span className="text-sm font-semibold">{label}</span>
                 </div>
-                <h3 className="font-semibold text-sm mb-1">{label}</h3>
-                <p className="text-xs text-[var(--loboko-text-muted)]">{desc}</p>
+              ))}
+            </div>
+          </div>
+
+          {/* Auth card */}
+          <div className="w-full max-w-md mx-auto lg:ml-auto p-6 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] shadow-xl">
+            <div className="flex gap-2 p-1 rounded-xl bg-[var(--loboko-elevated)] mb-5">
+              {(['login', 'register'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
+                    mode === m
+                      ? 'bg-[#2563eb] text-white shadow'
+                      : '!bg-transparent !hover:bg-transparent text-[var(--loboko-text-secondary)]'
+                  }`}
+                >
+                  {m === 'login' ? 'Connexion' : 'Inscription'}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="vous@exemple.com"
+                  autoComplete="email"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                />
               </div>
-            ))}
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                  Mot de passe
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Au moins 6 caractères"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                />
+              </div>
+
+              {mode === 'register' && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                      Nom complet
+                    </label>
+                    <input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Votre nom"
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
+                      Je suis
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['client', 'prestataire'] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRole(r)}
+                          className={`px-4 py-2.5 rounded-xl text-sm font-semibold capitalize transition ${
+                            role === r
+                              ? 'bg-[#2563eb] text-white'
+                              : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold hover:opacity-90 transition shadow-lg shadow-[#2563eb]/30 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+              >
+                {submitting
+                  ? 'Patientez…'
+                  : mode === 'login'
+                  ? 'Se connecter'
+                  : 'Créer mon compte'}
+              </button>
+            </form>
+
+            <p className="text-[11px] text-[var(--loboko-text-muted)] text-center mt-4">
+              Chaque compte LOBOKO est indépendant, vous pouvez créer plusieurs comptes
+              avec des emails différents pour les tester.
+            </p>
           </div>
         </div>
       </main>

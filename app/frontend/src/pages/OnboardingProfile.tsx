@@ -1,18 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { client } from '@/lib/atoms-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export default function OnboardingProfile() {
-  const { user, refreshProfile } = useAuth();
+  const { user, profile, createLobokoProfile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState(user?.display_name || '');
   const [metier, setMetier] = useState('');
   const [bio, setBio] = useState('');
-  const [role, setRole] = useState<'client' | 'prestataire'>('client');
+  const [role, setRole] = useState<'client' | 'prestataire'>(user?.role || 'client');
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/', { replace: true });
+    } else if (profile) {
+      navigate('/home', { replace: true });
+    }
+  }, [user, profile, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,22 +33,19 @@ export default function OnboardingProfile() {
     }
     setLoading(true);
     try {
-      await client.entities.profiles.create({
-        data: {
-          username: username.trim(),
-          display_name: displayName.trim() || username.trim(),
-          metier: metier.trim(),
-          bio: bio.trim(),
-          role,
-          theme: 'dark',
-        },
+      await createLobokoProfile({
+        username: username.trim(),
+        display_name: displayName.trim() || username.trim(),
+        metier: metier.trim(),
+        bio: bio.trim(),
+        role,
       });
-      await refreshProfile();
       toast.success('Profil créé avec succès !');
       navigate('/home', { replace: true });
     } catch (err) {
       console.error(err);
-      toast.error('Erreur lors de la création du profil');
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du profil';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
