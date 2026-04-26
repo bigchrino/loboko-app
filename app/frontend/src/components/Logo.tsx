@@ -5,22 +5,18 @@ interface LogoProps {
 }
 
 const sizeMap = {
-  sm: 'w-9 h-9',
-  md: 'w-11 h-11',
-  lg: 'w-14 h-14',
-  xl: 'w-24 h-24',
+  sm: 'h-10',
+  md: 'h-14',
+  lg: 'h-20',
+  xl: 'h-32',
 };
 
 export default function Logo({ className = '', size = 'md' }: LogoProps) {
   return (
-    <div
-      className={`${sizeMap[size]} rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/40 ${className}`}
-    >
-      <img
-        src="/assets/logo.jpg"
-        alt="LOBOKO"
-        className="w-full h-full object-cover"
-      />
-    </div>
+    <img
+      src="/assets/logo.jpg"
+      alt="LOBOKO"
+      className={`${sizeMap[size]} w-auto object-contain ${className}`}
+    />
   );
 }
