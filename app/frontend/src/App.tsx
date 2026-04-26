@@ -12,6 +12,17 @@ import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import OnboardingProfile from './pages/OnboardingProfile';
+import Suggestion from './pages/Suggestion';
+import Entreprise from './pages/Entreprise';
+import EntrepriseOffres from './pages/EntrepriseOffres';
+import EntrepriseMusala from './pages/EntrepriseMusala';
+import Panier from './pages/Panier';
+import Urgences from './pages/Urgences';
+import UrgencesHopitaux from './pages/UrgencesHopitaux';
+import UrgencesPolices from './pages/UrgencesPolices';
+import UrgencesCasernes from './pages/UrgencesCasernes';
+import Recherches from './pages/Recherches';
+import Menu from './pages/Menu';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -45,60 +56,39 @@ function OnboardingGate() {
   return <OnboardingProfile />;
 }
 
+const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
+  { path: '/home', element: <Home /> },
+  { path: '/discover', element: <Discover /> },
+  { path: '/messages', element: <Messages /> },
+  { path: '/profile', element: <Profile /> },
+  { path: '/notifications', element: <Notifications /> },
+  { path: '/settings', element: <Settings /> },
+  { path: '/suggestion', element: <Suggestion /> },
+  { path: '/entreprise', element: <Entreprise /> },
+  { path: '/entreprise/offres', element: <EntrepriseOffres /> },
+  { path: '/entreprise/musala', element: <EntrepriseMusala /> },
+  { path: '/panier', element: <Panier /> },
+  { path: '/urgences', element: <Urgences /> },
+  { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
+  { path: '/urgences/polices', element: <UrgencesPolices /> },
+  { path: '/urgences/casernes', element: <UrgencesCasernes /> },
+  { path: '/recherches', element: <Recherches /> },
+  { path: '/menu', element: <Menu /> },
+];
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Index />} />
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
     <Route path="/onboarding" element={<OnboardingGate />} />
-    <Route
-      path="/home"
-      element={
-        <ProtectedWithProfile>
-          <Home />
-        </ProtectedWithProfile>
-      }
-    />
-    <Route
-      path="/discover"
-      element={
-        <ProtectedWithProfile>
-          <Discover />
-        </ProtectedWithProfile>
-      }
-    />
-    <Route
-      path="/messages"
-      element={
-        <ProtectedWithProfile>
-          <Messages />
-        </ProtectedWithProfile>
-      }
-    />
-    <Route
-      path="/profile"
-      element={
-        <ProtectedWithProfile>
-          <Profile />
-        </ProtectedWithProfile>
-      }
-    />
-    <Route
-      path="/notifications"
-      element={
-        <ProtectedWithProfile>
-          <Notifications />
-        </ProtectedWithProfile>
-      }
-    />
-    <Route
-      path="/settings"
-      element={
-        <ProtectedWithProfile>
-          <Settings />
-        </ProtectedWithProfile>
-      }
-    />
+    {protectedRoutes.map(({ path, element }) => (
+      <Route
+        key={path}
+        path={path}
+        element={<ProtectedWithProfile>{element}</ProtectedWithProfile>}
+      />
+    ))}
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );

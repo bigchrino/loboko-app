@@ -1,6 +1,22 @@
 import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Compass, MessageCircle, Bell, User, Settings, LogOut, Moon, Sun } from 'lucide-react';
+import {
+  Home,
+  Compass,
+  MessageCircle,
+  Bell,
+  User,
+  Settings,
+  LogOut,
+  Moon,
+  Sun,
+  Menu as MenuIcon,
+  Lightbulb,
+  Building2,
+  ShoppingCart,
+  Siren,
+  Search,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Logo from '@/components/Logo';
@@ -10,11 +26,24 @@ interface LayoutProps {
   title?: string;
 }
 
-const navItems = [
+const mobileNavItems = [
   { to: '/home', label: 'Accueil', icon: Home },
   { to: '/discover', label: 'Découverte', icon: Compass },
   { to: '/messages', label: 'Messages', icon: MessageCircle },
   { to: '/notifications', label: 'Notifs', icon: Bell },
+  { to: '/menu', label: 'Menu', icon: MenuIcon },
+];
+
+const desktopNavItems = [
+  { to: '/home', label: 'Accueil', icon: Home },
+  { to: '/discover', label: 'Découverte', icon: Compass },
+  { to: '/messages', label: 'Messages', icon: MessageCircle },
+  { to: '/suggestion', label: 'Suggestion', icon: Lightbulb },
+  { to: '/entreprise', label: 'Entreprise', icon: Building2 },
+  { to: '/notifications', label: 'Notifications', icon: Bell },
+  { to: '/panier', label: 'Panier', icon: ShoppingCart },
+  { to: '/urgences', label: 'Urgences', icon: Siren },
+  { to: '/recherches', label: 'Recherches', icon: Search },
   { to: '/profile', label: 'Profil', icon: User },
 ];
 
@@ -43,7 +72,7 @@ export default function Layout({ children, title }: LayoutProps) {
           )}
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {desktopNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -125,7 +154,7 @@ export default function Layout({ children, title }: LayoutProps) {
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
         <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {mobileNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
