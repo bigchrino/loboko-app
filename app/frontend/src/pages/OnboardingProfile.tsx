@@ -47,7 +47,7 @@ export default function OnboardingProfile() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)] text-[var(--loboko-text)] p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-2xl mb-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-2xl mb-4">
             L
           </div>
           <h1 className="text-2xl font-bold mb-2">Bienvenue sur LOBOKO 👋</h1>
@@ -72,7 +72,7 @@ export default function OnboardingProfile() {
                   onClick={() => setRole(r)}
                   className={`px-4 py-3 rounded-xl font-semibold capitalize transition ${
                     role === r
-                      ? 'bg-[#8b5cf6] text-white'
+                      ? 'bg-[#2563eb] text-white'
                       : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
                   }`}
                 >
@@ -90,7 +90,7 @@ export default function OnboardingProfile() {
               value={username}
               onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
               placeholder="ex: kinshasa_dev"
-              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
             />
           </div>
 
@@ -102,7 +102,7 @@ export default function OnboardingProfile() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Votre nom"
-              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
             />
           </div>
 
@@ -115,7 +115,7 @@ export default function OnboardingProfile() {
                 value={metier}
                 onChange={(e) => setMetier(e.target.value)}
                 placeholder="ex: Coiffeur, Photographe, Développeur..."
-                className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6]"
+                className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
               />
             </div>
           )}
@@ -129,14 +129,14 @@ export default function OnboardingProfile() {
               onChange={(e) => setBio(e.target.value)}
               placeholder="Parlez-nous de vous..."
               rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#8b5cf6] resize-none"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb] resize-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
           >
             {loading ? 'Création...' : 'Créer mon profil'}
           </button>

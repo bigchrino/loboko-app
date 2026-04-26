@@ -20,7 +20,7 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
   const initials = name.slice(0, 2).toUpperCase();
   return (
     <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 flex gap-3 items-center">
-      <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold shrink-0">
+      <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold shrink-0">
         {avatarUrl ? (
           <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
@@ -30,12 +30,12 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold truncate">{name}</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] font-semibold capitalize shrink-0">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize shrink-0">
             {profile.role}
           </span>
         </div>
         {profile.metier && (
-          <div className="text-xs text-[#8b5cf6] font-medium truncate">{profile.metier}</div>
+          <div className="text-xs text-[#2563eb] font-medium truncate">{profile.metier}</div>
         )}
         {profile.bio && (
           <div className="text-xs text-[var(--loboko-text-muted)] line-clamp-2 mt-1">
@@ -45,7 +45,7 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
       </div>
       <button
         onClick={() => onMessage(profile.user_id)}
-        className="shrink-0 w-10 h-10 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] flex items-center justify-center hover:bg-[#8b5cf6] hover:text-white transition"
+        className="shrink-0 w-10 h-10 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] flex items-center justify-center hover:bg-[#2563eb] hover:text-white transition"
         aria-label="Envoyer message"
       >
         <MessageCircle size={18} />
@@ -111,7 +111,7 @@ export default function Discover() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un métier, un nom..."
-          className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#8b5cf6]"
+          className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
         />
       </div>
 
@@ -126,7 +126,7 @@ export default function Discover() {
             onClick={() => setFilter(v)}
             className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition ${
               filter === v
-                ? 'bg-[#8b5cf6] text-white'
+                ? 'bg-[#2563eb] text-white'
                 : 'bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)]'
             }`}
           >

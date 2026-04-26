@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Compass, MessageCircle, Bell, User, Settings, LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import Logo from '@/components/Logo';
 
 interface LayoutProps {
   children: ReactNode;
@@ -32,14 +33,9 @@ export default function Layout({ children, title }: LayoutProps) {
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
         <div className="px-6 py-6 border-b border-[var(--loboko-border)]">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold">
-              L
-            </div>
-            <span className="text-xl font-bold tracking-tight">LOBOKO</span>
-          </div>
+          <Logo size="md" />
           {profile?.role && (
-            <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-semibold bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] capitalize">
+            <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-semibold bg-[rgba(37,99,235,0.15)] text-[#2563eb] capitalize">
               {profile.role}
             </span>
           )}
@@ -52,7 +48,7 @@ export default function Layout({ children, title }: LayoutProps) {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-[rgba(139,92,246,0.15)] text-[#8b5cf6]'
+                    ? 'bg-[rgba(37,99,235,0.15)] text-[#2563eb]'
                     : 'text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)] hover:text-[var(--loboko-text)]'
                 }`
               }
@@ -66,7 +62,7 @@ export default function Layout({ children, title }: LayoutProps) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-[rgba(139,92,246,0.15)] text-[#8b5cf6]'
+                  ? 'bg-[rgba(37,99,235,0.15)] text-[#2563eb]'
                   : 'text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)] hover:text-[var(--loboko-text)]'
               }`
             }
@@ -95,11 +91,14 @@ export default function Layout({ children, title }: LayoutProps) {
 
       {/* Mobile top header */}
       <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-5 py-3 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-sm">
-            L
-          </div>
-          <span className="text-lg font-bold">{title || 'LOBOKO'}</span>
+        <div className="flex items-center gap-3">
+          <Logo size="sm" />
+          {title && title !== 'LOBOKO' && (
+            <>
+              <span className="h-5 w-px bg-[var(--loboko-border)]" />
+              <span className="text-sm font-semibold text-[var(--loboko-text-secondary)]">{title}</span>
+            </>
+          )}
         </div>
         <button
           onClick={toggleTheme}
@@ -124,7 +123,7 @@ export default function Layout({ children, title }: LayoutProps) {
               to={to}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
-                  isActive ? 'text-[#8b5cf6] bg-[rgba(139,92,246,0.15)]' : 'text-[var(--loboko-text-muted)]'
+                  isActive ? 'text-[#2563eb] bg-[rgba(37,99,235,0.15)]' : 'text-[var(--loboko-text-muted)]'
                 }`
               }
             >

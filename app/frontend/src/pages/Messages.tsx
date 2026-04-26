@@ -28,7 +28,7 @@ function Avatar({ profile }: { profile?: Profile }) {
   }, [profile?.avatar_key]);
   const name = profile?.display_name || profile?.username || '?';
   return (
-    <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-sm shrink-0">
+    <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm shrink-0">
       {url ? <img src={url} alt={name} className="w-full h-full object-cover" /> : name.slice(0, 2).toUpperCase()}
     </div>
   );
@@ -143,7 +143,7 @@ export default function Messages() {
           <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">Chargement...</div>
         ) : conversations.length === 0 ? (
           <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
-            <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(139,92,246,0.15)] flex items-center justify-center mb-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
               <span className="text-2xl">💬</span>
             </div>
             <h3 className="font-semibold mb-1">Aucune conversation</h3>
@@ -157,7 +157,7 @@ export default function Messages() {
               <button
                 key={c.userId}
                 onClick={() => setActiveUserId(c.userId)}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#8b5cf6] transition text-left"
+                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
               >
                 <Avatar profile={c.profile} />
                 <div className="flex-1 min-w-0">
@@ -188,7 +188,7 @@ export default function Messages() {
                 {activeProfile?.display_name || activeProfile?.username || 'Utilisateur'}
               </div>
               {activeProfile?.metier && (
-                <div className="text-xs text-[#8b5cf6] truncate">{activeProfile.metier}</div>
+                <div className="text-xs text-[#2563eb] truncate">{activeProfile.metier}</div>
               )}
             </div>
           </header>
@@ -209,7 +209,7 @@ export default function Messages() {
                     <div
                       className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
                         mine
-                          ? 'bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white rounded-br-md'
+                          ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
                           : 'bg-[var(--loboko-elevated)] text-[var(--loboko-text)] rounded-bl-md'
                       }`}
                     >
@@ -227,11 +227,11 @@ export default function Messages() {
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Votre message..."
-              className="flex-1 px-4 py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#8b5cf6]"
+              className="flex-1 px-4 py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
             />
             <button
               onClick={send}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] text-white flex items-center justify-center shrink-0"
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
             >
               <Send size={16} />
             </button>

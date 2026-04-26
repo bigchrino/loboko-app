@@ -22,7 +22,7 @@ function ProtectedWithProfile({ children }: { children: JSX.Element }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
-        <div className="w-10 h-10 border-4 border-[#8b5cf6] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -36,7 +36,7 @@ function OnboardingGate() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
-        <div className="w-10 h-10 border-4 border-[#8b5cf6] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

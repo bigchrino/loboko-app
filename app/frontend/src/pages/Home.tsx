@@ -44,7 +44,7 @@ export default function Home() {
         </div>
       ) : posts.length === 0 ? (
         <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
-          <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(139,92,246,0.15)] flex items-center justify-center mb-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
             <span className="text-2xl">✨</span>
           </div>
           <h3 className="font-semibold mb-1">Aucune publication pour l'instant</h3>

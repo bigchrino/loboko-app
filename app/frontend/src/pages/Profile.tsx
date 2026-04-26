@@ -101,7 +101,7 @@ export default function Profile() {
       <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-6 mb-4">
         <div className="flex items-start gap-4 mb-4">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-xl">
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -110,7 +110,7 @@ export default function Profile() {
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#8b5cf6] text-white flex items-center justify-center border-2 border-[var(--loboko-surface)]"
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#2563eb] text-white flex items-center justify-center border-2 border-[var(--loboko-surface)]"
             >
               <Camera size={14} />
             </button>
@@ -130,7 +130,7 @@ export default function Profile() {
               <h2 className="text-xl font-bold truncate">
                 {profile.display_name || profile.username}
               </h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] font-semibold capitalize">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
                 {profile.role}
               </span>
             </div>
@@ -153,7 +153,7 @@ export default function Profile() {
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#8b5cf6]"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
               />
             </div>
             <div>
@@ -161,7 +161,7 @@ export default function Profile() {
               <input
                 value={metier}
                 onChange={(e) => setMetier(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#8b5cf6]"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
               />
             </div>
             <div>
@@ -170,14 +170,14 @@ export default function Profile() {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#8b5cf6] resize-none"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb] resize-none"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={save}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white font-semibold text-sm disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
               >
                 <Save size={14} />
                 {saving ? 'Enregistrement...' : 'Enregistrer'}
@@ -194,7 +194,7 @@ export default function Profile() {
         ) : (
           <>
             {profile.metier && (
-              <div className="text-sm text-[#8b5cf6] font-medium mb-2">{profile.metier}</div>
+              <div className="text-sm text-[#2563eb] font-medium mb-2">{profile.metier}</div>
             )}
             {profile.bio && (
               <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap">

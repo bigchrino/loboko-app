@@ -84,7 +84,7 @@ export default function ComposePost({ onPosted }: Props) {
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--loboko-border)]">
         <button
           onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-2 px-3 py-2 rounded-full text-[#8b5cf6] hover:bg-[rgba(139,92,246,0.15)] transition text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 rounded-full text-[#2563eb] hover:bg-[rgba(37,99,235,0.15)] transition text-sm font-medium"
         >
           <ImageIcon size={18} />
           Image
@@ -102,7 +102,7 @@ export default function ComposePost({ onPosted }: Props) {
         <button
           onClick={submit}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition"
+          className="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition"
         >
           <Send size={16} />
           {loading ? 'Envoi...' : 'Publier'}

@@ -106,7 +106,7 @@ export default function PostCard({ post, currentUserId }: Props) {
   return (
     <article className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4">
       <header className="flex items-center gap-3 mb-3">
-        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold text-sm">
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm">
           {avatarUrl ? (
             <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
           ) : (
@@ -117,7 +117,7 @@ export default function PostCard({ post, currentUserId }: Props) {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm truncate">{authorName}</span>
             {author?.role === 'prestataire' && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] font-semibold">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
                 PRO
               </span>
             )}

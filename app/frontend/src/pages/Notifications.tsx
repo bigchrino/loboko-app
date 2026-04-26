@@ -49,8 +49,8 @@ export default function Notifications() {
         <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">Chargement...</div>
       ) : items.length === 0 ? (
         <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
-          <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(139,92,246,0.15)] flex items-center justify-center mb-4">
-            <Bell size={24} className="text-[#8b5cf6]" />
+          <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
+            <Bell size={24} className="text-[#2563eb]" />
           </div>
           <h3 className="font-semibold mb-1">Aucune notification</h3>
           <p className="text-sm text-[var(--loboko-text-muted)]">
@@ -67,10 +67,10 @@ export default function Notifications() {
                 className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
                   n.read
                     ? 'bg-[var(--loboko-surface)] border-[var(--loboko-border)]'
-                    : 'bg-[rgba(139,92,246,0.08)] border-[#8b5cf6]'
+                    : 'bg-[rgba(37,99,235,0.08)] border-[#2563eb]'
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-[rgba(139,92,246,0.15)] text-[#8b5cf6] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] flex items-center justify-center shrink-0">
                   <Icon size={18} />
                 </div>
                 <div className="flex-1 min-w-0">

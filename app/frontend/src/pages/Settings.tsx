@@ -20,7 +20,7 @@ export default function Settings() {
 
       <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] flex items-center justify-center text-white font-bold">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold">
             {(profile?.display_name || profile?.username || 'L').slice(0, 2).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -39,7 +39,7 @@ export default function Settings() {
           onClick={() => navigate('/profile')}
           className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
         >
-          <User size={18} className="text-[#8b5cf6]" />
+          <User size={18} className="text-[#2563eb]" />
           <span className="flex-1 text-left text-sm font-medium">Modifier le profil</span>
           <span className="text-[var(--loboko-text-muted)]">›</span>
         </button>
@@ -48,21 +48,21 @@ export default function Settings() {
           className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
         >
           {theme === 'dark' ? (
-            <Sun size={18} className="text-[#8b5cf6]" />
+            <Sun size={18} className="text-[#2563eb]" />
           ) : (
-            <Moon size={18} className="text-[#8b5cf6]" />
+            <Moon size={18} className="text-[#2563eb]" />
           )}
           <span className="flex-1 text-left text-sm font-medium">
             {theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
           </span>
         </button>
         <div className="w-full flex items-center gap-3 px-4 py-4 border-b border-[var(--loboko-border)]">
-          <Shield size={18} className="text-[#8b5cf6]" />
+          <Shield size={18} className="text-[#2563eb]" />
           <span className="flex-1 text-left text-sm font-medium">Confidentialité</span>
           <span className="text-xs text-[var(--loboko-text-muted)]">Bientôt</span>
         </div>
         <div className="w-full flex items-center gap-3 px-4 py-4">
-          <HelpCircle size={18} className="text-[#8b5cf6]" />
+          <HelpCircle size={18} className="text-[#2563eb]" />
           <span className="flex-1 text-left text-sm font-medium">Aide & support</span>
           <span className="text-xs text-[var(--loboko-text-muted)]">Bientôt</span>
         </div>
