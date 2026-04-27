@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { getMediaUrl, uploadMedia } from '@/lib/storage-helpers';
 import { Camera, Edit2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ export default function Profile() {
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const userId = profile?.user_id || (user ? `loboko:${user.id}` : '');
+  const userId = user?.id || '';
 
   useEffect(() => {
     if (profile) {
@@ -32,18 +32,21 @@ export default function Profile() {
 
   useEffect(() => {
     (async () => {
+      if (!userId) return;
       try {
-        const res = await client.entities.posts.query({
-          query: {},
-          sort: '-created_at',
-          limit: 50,
-        });
-        setMyPosts((res?.data?.items as PostItem[]) || []);
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        setMyPosts((data as PostItem[]) || []);
       } catch (e) {
         console.error(e);
       }
     })();
-  }, [profile?.id]);
+  }, [userId, profile?.id]);
 
   const handleAvatar = async (file: File) => {
     if (!profile) return;

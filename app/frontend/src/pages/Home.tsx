@@ -2,26 +2,26 @@ import { useCallback, useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import ComposePost from '@/components/ComposePost';
 import PostCard, { PostItem } from '@/components/PostCard';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const userId = profile?.user_id || (user ? `loboko:${user.id}` : '');
+  const userId = user?.id || '';
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await client.entities.posts.queryAll({
-        query: {},
-        sort: '-created_at',
-        limit: 50,
-      });
-      const items = (res?.data?.items as PostItem[]) || [];
-      setPosts(items);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setPosts((data as PostItem[]) || []);
     } catch (e) {
       console.error(e);
     } finally {

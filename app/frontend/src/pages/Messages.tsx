@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { Send, ArrowLeft, Smile, Mic, Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
@@ -12,7 +12,7 @@ import CallModal from '@/components/CallModal';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 
 interface Message {
-  id: number;
+  id: string;
   user_id: string;
   receiver_id: string;
   content: string;
@@ -31,7 +31,7 @@ interface IncomingCall {
   peerId: string;
   mode: 'voice' | 'video';
   sdp: string;
-  messageId: number;
+  messageId: string;
 }
 
 function Avatar({ profile }: { profile?: Profile }) {
@@ -52,10 +52,10 @@ function randomCallId(): string {
 }
 
 export default function Messages() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const urlTo = searchParams.get('to');
-  const myId = profile?.user_id || (user ? `loboko:${user.id}` : '');
+  const myId = user?.id || '';
 
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
@@ -80,14 +80,15 @@ export default function Messages() {
   const loadMessages = useCallback(async () => {
     if (!myId) return;
     try {
-      const res = await client.entities.messages.query({
-        query: {},
-        sort: '-created_at',
-        limit: 400,
-      });
-      const items = (res?.data?.items as Message[]) || [];
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`user_id.eq.${myId},receiver_id.eq.${myId}`)
+        .order('created_at', { ascending: false })
+        .limit(400);
+      if (error) throw error;
+      const items = (data as Message[]) || [];
       setAllMessages(items);
-      // Detect incoming calls: offer signals addressed to me, not yet seen.
       if (!call) {
         for (const m of items) {
           if (m.receiver_id !== myId) continue;
@@ -95,9 +96,9 @@ export default function Messages() {
           if (p.kind !== 'signal') continue;
           if (p.signal.type !== 'offer') continue;
           if (seenOffersRef.current.has(p.callId)) continue;
-          // Check if call already ended/rejected by scanning newer items.
           const ended = items.some((x) => {
-            if (x.id <= m.id) return false;
+            if (!x.created_at || !m.created_at) return false;
+            if (x.created_at <= m.created_at) return false;
             const xp = decodePayload(x.content);
             if (xp.kind !== 'signal') return false;
             return (
@@ -109,7 +110,6 @@ export default function Messages() {
             seenOffersRef.current.add(p.callId);
             continue;
           }
-          // Only treat as incoming if offer is recent (last 60s).
           const ageMs = m.created_at
             ? Date.now() - new Date(m.created_at).getTime()
             : 0;
@@ -138,8 +138,9 @@ export default function Messages() {
       setLoading(true);
       await loadMessages();
       try {
-        const res = await client.entities.profiles.queryAll({ query: {}, limit: 200 });
-        const list = (res?.data?.items as Profile[]) || [];
+        const { data, error } = await supabase.from('profiles').select('*').limit(200);
+        if (error) throw error;
+        const list = (data as Profile[]) || [];
         const map: Record<string, Profile> = {};
         list.forEach((p) => (map[p.user_id] = p));
         setProfilesMap(map);
@@ -150,8 +151,6 @@ export default function Messages() {
     })();
   }, [loadMessages]);
 
-  // Global short-interval polling so incoming calls are detected everywhere
-  // on the Messages page.
   useEffect(() => {
     const t = setInterval(loadMessages, 2500);
     return () => clearInterval(t);
@@ -160,7 +159,6 @@ export default function Messages() {
   const conversations: Conversation[] = useMemo(() => {
     const byUser: Record<string, Message> = {};
     allMessages.forEach((m) => {
-      // Skip signaling noise from conversation list
       const p = decodePayload(m.content);
       if (p.kind === 'signal') return;
       const other = m.user_id === myId ? m.receiver_id : m.user_id;
@@ -182,7 +180,6 @@ export default function Messages() {
           (m.user_id === activeUserId && m.receiver_id === myId);
         if (!involved) return false;
         const p = decodePayload(m.content);
-        // Hide raw WebRTC signaling, only show call_event summaries.
         return p.kind !== 'signal';
       })
       .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
@@ -192,19 +189,28 @@ export default function Messages() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages]);
 
+  const insertMessage = async (payload: {
+    receiver_id: string;
+    content: string;
+    read?: boolean;
+  }) => {
+    if (!myId) return;
+    const { error } = await supabase.from('messages').insert({
+      user_id: myId,
+      receiver_id: payload.receiver_id,
+      content: payload.content,
+      read: payload.read ?? false,
+    });
+    if (error) throw error;
+  };
+
   const sendText = async () => {
     if (!draft.trim() || !activeUserId) return;
     const text = draft.trim();
     setDraft('');
     setShowEmoji(false);
     try {
-      await client.entities.messages.create({
-        data: {
-          receiver_id: activeUserId,
-          content: text,
-          read: false,
-        },
-      });
+      await insertMessage({ receiver_id: activeUserId, content: text });
       await loadMessages();
     } catch (e) {
       console.error(e);
@@ -214,12 +220,9 @@ export default function Messages() {
   const sendVoiceNote = async (objectKey: string, duration: number) => {
     if (!activeUserId) return;
     try {
-      await client.entities.messages.create({
-        data: {
-          receiver_id: activeUserId,
-          content: encodePayload({ kind: 'audio', object_key: objectKey, duration }),
-          read: false,
-        },
+      await insertMessage({
+        receiver_id: activeUserId,
+        content: encodePayload({ kind: 'audio', object_key: objectKey, duration }),
       });
       await loadMessages();
     } catch (e) {
@@ -235,18 +238,15 @@ export default function Messages() {
     duration: number,
   ) => {
     try {
-      await client.entities.messages.create({
-        data: {
-          receiver_id: peerId,
-          content: encodePayload({
-            kind: 'call_event',
-            mode,
-            event,
-            callId,
-            duration,
-          }),
-          read: false,
-        },
+      await insertMessage({
+        receiver_id: peerId,
+        content: encodePayload({
+          kind: 'call_event',
+          mode,
+          event,
+          callId,
+          duration,
+        }),
       });
     } catch (e) {
       console.error(e);
@@ -286,17 +286,14 @@ export default function Messages() {
   const rejectIncoming = async () => {
     if (!incoming) return;
     try {
-      await client.entities.messages.create({
-        data: {
-          receiver_id: incoming.peerId,
-          content: encodePayload({
-            kind: 'signal',
-            callId: incoming.callId,
-            mode: incoming.mode,
-            signal: { type: 'reject' },
-          }),
-          read: false,
-        },
+      await insertMessage({
+        receiver_id: incoming.peerId,
+        content: encodePayload({
+          kind: 'signal',
+          callId: incoming.callId,
+          mode: incoming.mode,
+          signal: { type: 'reject' },
+        }),
       });
       await sendCallEvent(incoming.peerId, incoming.mode, incoming.callId, 'rejected', 0);
     } catch (e) {

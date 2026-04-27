@@ -1,10 +1,23 @@
 import { useEffect } from 'react';
-import { client } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 
 export default function AuthCallback() {
+  const navigate = useNavigate();
+
   useEffect(() => {
-    client.auth.login();
-  }, []);
+    // Supabase auto-detects the session from URL hash on client init.
+    // Give it a brief moment then redirect the user into the app.
+    const t = setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate('/', { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

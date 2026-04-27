@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Bell, Heart, MessageCircle, UserPlus } from 'lucide-react';
 
 interface Notif {
-  id: number;
+  id: string;
   user_id: string;
   from_user_id?: string;
   type: string;
-  post_id?: number;
+  post_id?: string;
   message?: string;
   read?: boolean;
   created_at?: string;
@@ -22,25 +23,32 @@ const iconFor = (type: string) => {
 };
 
 export default function Notifications() {
+  const { user } = useAuth();
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await client.entities.notifications.query({
-          query: {},
-          sort: '-created_at',
-          limit: 100,
-        });
-        setItems((res?.data?.items as Notif[]) || []);
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) throw error;
+        setItems((data as Notif[]) || []);
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [user]);
 
   return (
     <Layout title="Notifications">

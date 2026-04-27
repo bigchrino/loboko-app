@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone } from 'lucide-react';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { encodePayload, decodePayload, SignalPayload, formatDuration } from '@/lib/message-format';
 
 type Direction = 'outgoing' | 'incoming';
@@ -45,7 +45,7 @@ export default function CallModal({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const lastSignalIdRef = useRef<number>(0);
+  const lastSignalAtRef = useRef<string>('1970-01-01T00:00:00Z');
   const pollingRef = useRef<number | null>(null);
   const startedAtRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
@@ -59,12 +59,11 @@ export default function CallModal({
 
   const sendSignal = async (signal: SignalPayload['signal']) => {
     try {
-      await client.entities.messages.create({
-        data: {
-          receiver_id: peerId,
-          content: encodePayload({ kind: 'signal', callId, mode, signal }),
-          read: false,
-        },
+      await supabase.from('messages').insert({
+        user_id: myId,
+        receiver_id: peerId,
+        content: encodePayload({ kind: 'signal', callId, mode, signal }),
+        read: false,
       });
     } catch (e) {
       console.error('sendSignal error', e);
@@ -190,18 +189,21 @@ export default function CallModal({
 
   const pollSignals = async () => {
     try {
-      const res = await client.entities.messages.query({
-        query: { user_id: peerId, receiver_id: myId },
-        sort: '-id',
-        limit: 50,
-      });
-      type Row = { id: number; content: string };
-      const items = (res?.data?.items as Row[]) || [];
-      const fresh = items
-        .filter((it) => it.id > lastSignalIdRef.current)
-        .reverse();
-      for (const it of fresh) {
-        lastSignalIdRef.current = Math.max(lastSignalIdRef.current, it.id);
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id,content,created_at')
+        .eq('user_id', peerId)
+        .eq('receiver_id', myId)
+        .gt('created_at', lastSignalAtRef.current)
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (error) throw error;
+      type Row = { id: string; content: string; created_at: string };
+      const items = (data as Row[]) || [];
+      for (const it of items) {
+        if (it.created_at > lastSignalAtRef.current) {
+          lastSignalAtRef.current = it.created_at;
+        }
         const payload = decodePayload(it.content);
         if (payload.kind !== 'signal' || payload.callId !== callId) continue;
         const pc = pcRef.current;
@@ -232,18 +234,17 @@ export default function CallModal({
   };
 
   useEffect(() => {
-    // Initialize last seen signal id to highest current id so we don't
-    // re-process the offer that triggered this modal.
     (async () => {
       try {
-        const res = await client.entities.messages.query({
-          query: { user_id: peerId, receiver_id: myId },
-          sort: '-id',
-          limit: 1,
-        });
-        type Row = { id: number };
-        const items = (res?.data?.items as Row[]) || [];
-        if (items.length > 0) lastSignalIdRef.current = items[0].id;
+        const { data } = await supabase
+          .from('messages')
+          .select('created_at')
+          .eq('user_id', peerId)
+          .eq('receiver_id', myId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const rows = (data as { created_at: string }[]) || [];
+        if (rows.length > 0) lastSignalAtRef.current = rows[0].created_at;
       } catch {
         // ignore
       }

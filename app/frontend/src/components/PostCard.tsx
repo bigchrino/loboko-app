@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Heart, MessageCircle, Share2, MoreHorizontal } from 'lucide-react';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
 
 export interface PostItem {
-  id: number;
+  id: string;
   user_id: string;
   content: string;
   image_key?: string;
@@ -33,21 +33,21 @@ export default function PostCard({ post, currentUserId }: Props) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
-  const [likeId, setLikeId] = useState<number | null>(null);
+  const [likeId, setLikeId] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await client.entities.profiles.queryAll({
-          query: { user_id: post.user_id },
-          limit: 1,
-        });
-        const items = res?.data?.items as Author[] | undefined;
-        if (items && items.length > 0) {
-          setAuthor(items[0]);
-          if (items[0].avatar_key) {
-            const url = await getMediaUrl(items[0].avatar_key);
+        const { data } = await supabase
+          .from('profiles')
+          .select('username,display_name,metier,avatar_key,role')
+          .eq('user_id', post.user_id)
+          .maybeSingle();
+        if (data) {
+          setAuthor(data as Author);
+          if ((data as Author).avatar_key) {
+            const url = await getMediaUrl((data as Author).avatar_key!);
             setAvatarUrl(url);
           }
         }
@@ -58,17 +58,17 @@ export default function PostCard({ post, currentUserId }: Props) {
         const url = await getMediaUrl(post.image_key);
         setImageUrl(url);
       }
-      // Check if current user has liked
       if (currentUserId) {
         try {
-          const res = await client.entities.likes.query({
-            query: { post_id: post.id, user_id: currentUserId },
-            limit: 1,
-          });
-          const items = res?.data?.items as { id: number }[] | undefined;
-          if (items && items.length > 0) {
+          const { data } = await supabase
+            .from('likes')
+            .select('id')
+            .eq('post_id', post.id)
+            .eq('user_id', currentUserId)
+            .maybeSingle();
+          if (data?.id) {
             setLiked(true);
-            setLikeId(items[0].id);
+            setLikeId(data.id as string);
           }
         } catch (e) {
           console.error(e);
@@ -80,18 +80,21 @@ export default function PostCard({ post, currentUserId }: Props) {
   const toggleLike = async () => {
     if (!currentUserId) return;
     try {
-      if (liked && likeId != null) {
-        await client.entities.likes.delete({ id: String(likeId) });
+      if (liked && likeId) {
+        const { error } = await supabase.from('likes').delete().eq('id', likeId);
+        if (error) throw error;
         setLiked(false);
         setLikeId(null);
         setLikesCount((c) => Math.max(0, c - 1));
       } else {
-        const res = await client.entities.likes.create({
-          data: { post_id: post.id },
-        });
-        const created = res?.data as { id: number } | undefined;
+        const { data, error } = await supabase
+          .from('likes')
+          .insert({ post_id: post.id, user_id: currentUserId })
+          .select()
+          .single();
+        if (error) throw error;
         setLiked(true);
-        if (created?.id) setLikeId(created.id);
+        if (data?.id) setLikeId(data.id as string);
         setLikesCount((c) => c + 1);
       }
     } catch (e) {

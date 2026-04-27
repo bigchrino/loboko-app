@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
 
 export interface Profile {
-  id: number;
+  id: string;
   user_id: string;
   username: string;
   display_name?: string;
@@ -14,23 +15,16 @@ export interface Profile {
 }
 
 export interface LobokoAccount {
-  id: number;
+  id: string;
   email: string;
   role: 'client' | 'prestataire';
   display_name: string;
   metier?: string;
 }
 
-interface AtomsUser {
-  id?: string;
-  sub?: string;
-  email?: string;
-  name?: string;
-  [key: string]: unknown;
-}
-
 interface AuthContextValue {
   user: LobokoAccount | null;
+  session: Session | null;
   profile: Profile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
@@ -51,208 +45,177 @@ interface AuthContextValue {
     role: 'client' | 'prestataire';
   }) => Promise<Profile>;
   updateLobokoProfile: (params: Partial<Omit<Profile, 'id' | 'user_id'>>) => Promise<Profile>;
-  ensureAtomsSession: () => Promise<AtomsUser | null>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const LOBOKO_STORAGE_KEY = 'loboko_account_v1';
-
-function loadStoredAccount(): LobokoAccount | null {
-  try {
-    const raw = localStorage.getItem(LOBOKO_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.id === 'number' && parsed.email) {
-      return parsed as LobokoAccount;
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function persistAccount(account: LobokoAccount | null) {
-  try {
-    if (account) {
-      localStorage.setItem(LOBOKO_STORAGE_KEY, JSON.stringify(account));
-    } else {
-      localStorage.removeItem(LOBOKO_STORAGE_KEY);
-    }
-  } catch {
-    /* ignore */
-  }
+function accountFromUser(u: User | null): LobokoAccount | null {
+  if (!u) return null;
+  const meta = (u.user_metadata || {}) as Record<string, unknown>;
+  return {
+    id: u.id,
+    email: u.email || '',
+    role: (meta.role as 'client' | 'prestataire') || 'client',
+    display_name: (meta.display_name as string) || (u.email?.split('@')[0] ?? 'Utilisateur'),
+    metier: (meta.metier as string) || undefined,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<LobokoAccount | null>(() => loadStoredAccount());
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<LobokoAccount | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfileFor = useCallback(async (account: LobokoAccount | null) => {
-    if (!account) {
+  const loadProfileFor = useCallback(async (u: User | null) => {
+    if (!u) {
       setProfile(null);
       return;
     }
     try {
-      const res = await client.apiCall.invoke({
-        url: `/api/v1/loboko_auth/profile?account_id=${account.id}`,
-        method: 'GET',
-      });
-      const items = (res?.data?.items as Profile[]) || [];
-      setProfile(items.length > 0 ? items[0] : null);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', u.id)
+        .maybeSingle();
+      if (error) {
+        console.error('loadProfile error', error);
+        setProfile(null);
+        return;
+      }
+      setProfile((data as Profile) || null);
     } catch (e) {
-      console.error('loadProfile error', e);
+      console.error('loadProfile exception', e);
       setProfile(null);
     }
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    await loadProfileFor(user);
-  }, [user, loadProfileFor]);
+    const { data } = await supabase.auth.getUser();
+    await loadProfileFor(data.user || null);
+  }, [loadProfileFor]);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       setLoading(true);
-      const stored = loadStoredAccount();
-      if (stored) {
-        await loadProfileFor(stored);
-      }
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setSession(data.session);
+      setUser(accountFromUser(data.session?.user || null));
+      await loadProfileFor(data.session?.user || null);
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  const ensureAtomsSession = useCallback(async (): Promise<AtomsUser | null> => {
-    try {
-      const me = await client.auth.me();
-      const atomsUser = (me?.data as AtomsUser) || null;
-      if (atomsUser && (atomsUser.id || atomsUser.sub)) {
-        return atomsUser;
-      }
-    } catch {
-      /* not logged in */
-    }
-    await client.auth.toLogin();
-    return null;
-  }, []);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setUser(accountFromUser(newSession?.user || null));
+      loadProfileFor(newSession?.user || null);
+    });
 
-  const registerLoboko: AuthContextValue['registerLoboko'] = useCallback(
-    async (params) => {
-      const atomsUser = await ensureAtomsSession();
-      if (!atomsUser) {
-        throw new Error('Session requise, redirection en cours.');
-      }
-      const res = await client.apiCall.invoke({
-        url: '/api/v1/loboko_auth/register',
-        method: 'POST',
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [loadProfileFor]);
+
+  const registerLoboko: AuthContextValue['registerLoboko'] = useCallback(async (params) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: params.email,
+      password: params.password,
+      options: {
         data: {
-          email: params.email,
-          password: params.password,
           role: params.role,
           display_name: params.display_name,
-          metier: params.metier,
+          metier: params.metier || null,
         },
-      });
-      const account = res?.data as LobokoAccount;
-      if (!account || typeof account.id !== 'number') {
-        throw new Error("Échec de l'inscription");
-      }
-      persistAccount(account);
-      setUser(account);
-      await loadProfileFor(account);
-      return account;
-    },
-    [ensureAtomsSession, loadProfileFor],
-  );
+      },
+    });
+    if (error) throw new Error(error.message);
+    const u = data.user;
+    if (!u) throw new Error("Échec de l'inscription");
+    const account = accountFromUser(u)!;
+    setUser(account);
+    return account;
+  }, []);
 
-  const loginLoboko: AuthContextValue['loginLoboko'] = useCallback(
-    async (params) => {
-      const atomsUser = await ensureAtomsSession();
-      if (!atomsUser) {
-        throw new Error('Session requise, redirection en cours.');
-      }
-      const res = await client.apiCall.invoke({
-        url: '/api/v1/loboko_auth/login',
-        method: 'POST',
-        data: { email: params.email, password: params.password },
-      });
-      const account = res?.data as LobokoAccount;
-      if (!account || typeof account.id !== 'number') {
-        throw new Error('Identifiants invalides');
-      }
-      persistAccount(account);
-      setUser(account);
-      await loadProfileFor(account);
-      return account;
-    },
-    [ensureAtomsSession, loadProfileFor],
-  );
+  const loginLoboko: AuthContextValue['loginLoboko'] = useCallback(async (params) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: params.email,
+      password: params.password,
+    });
+    if (error) throw new Error(error.message);
+    const u = data.user;
+    if (!u) throw new Error('Identifiants invalides');
+    const account = accountFromUser(u)!;
+    setUser(account);
+    await loadProfileFor(u);
+    return account;
+  }, [loadProfileFor]);
 
   const createLobokoProfile: AuthContextValue['createLobokoProfile'] = useCallback(
     async (params) => {
-      if (!user) {
-        throw new Error('Aucun compte LOBOKO connecté');
-      }
-      const res = await client.apiCall.invoke({
-        url: '/api/v1/loboko_auth/profile',
-        method: 'POST',
-        data: {
-          account_id: user.id,
-          username: params.username,
-          display_name: params.display_name,
-          bio: params.bio,
-          metier: params.metier,
-          role: params.role,
-          theme: 'dark',
-        },
-      });
-      const created = res?.data as Profile;
-      if (!created || typeof created.id !== 'number') {
-        throw new Error('Échec de la création du profil');
-      }
+      const { data: userData } = await supabase.auth.getUser();
+      const u = userData.user;
+      if (!u) throw new Error('Aucun compte LOBOKO connecté');
+      const payload = {
+        user_id: u.id,
+        username: params.username,
+        display_name: params.display_name || null,
+        bio: params.bio || null,
+        metier: params.metier || null,
+        role: params.role,
+        theme: 'dark',
+      };
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      const created = data as Profile;
       setProfile(created);
       return created;
     },
-    [user],
+    [],
   );
 
   const updateLobokoProfile: AuthContextValue['updateLobokoProfile'] = useCallback(
     async (params) => {
-      if (!user) {
-        throw new Error('Aucun compte LOBOKO connecté');
-      }
-      const res = await client.apiCall.invoke({
-        url: '/api/v1/loboko_auth/profile',
-        method: 'PUT',
-        data: { account_id: user.id, ...params },
-      });
-      const updated = res?.data as Profile;
-      if (!updated || typeof updated.id !== 'number') {
-        throw new Error('Échec de la mise à jour du profil');
-      }
+      const { data: userData } = await supabase.auth.getUser();
+      const u = userData.user;
+      if (!u) throw new Error('Aucun compte LOBOKO connecté');
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(params)
+        .eq('user_id', u.id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      const updated = data as Profile;
       setProfile(updated);
       return updated;
     },
-    [user],
+    [],
   );
 
   const logout = useCallback(async () => {
-    persistAccount(null);
-    setUser(null);
-    setProfile(null);
     try {
-      await client.auth.logout();
+      await supabase.auth.signOut();
     } catch (e) {
       console.error(e);
     }
+    setUser(null);
+    setProfile(null);
+    setSession(null);
   }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        session,
         profile,
         loading,
         refreshProfile,
@@ -261,7 +224,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginLoboko,
         createLobokoProfile,
         updateLobokoProfile,
-        ensureAtomsSession,
         logout,
       }}
     >

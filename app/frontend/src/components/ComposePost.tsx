@@ -1,14 +1,16 @@
 import { useRef, useState } from 'react';
 import { Image as ImageIcon, Send, X } from 'lucide-react';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { uploadMedia } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   onPosted: () => void;
 }
 
 export default function ComposePost({ onPosted }: Props) {
+  const { user } = useAuth();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -29,6 +31,10 @@ export default function ComposePost({ onPosted }: Props) {
   };
 
   const submit = async () => {
+    if (!user) {
+      toast.error('Vous devez être connecté');
+      return;
+    }
     if (!content.trim() && !file) {
       toast.error('Ajoutez du texte ou une image');
       return;
@@ -40,15 +46,15 @@ export default function ComposePost({ onPosted }: Props) {
         const key = await uploadMedia(file, 'posts');
         if (key) image_key = key;
       }
-      await client.entities.posts.create({
-        data: {
-          content: content.trim(),
-          image_key: image_key || '',
-          likes_count: 0,
-          comments_count: 0,
-          shares_count: 0,
-        },
+      const { error } = await supabase.from('posts').insert({
+        user_id: user.id,
+        content: content.trim(),
+        image_key: image_key || null,
+        likes_count: 0,
+        comments_count: 0,
+        shares_count: 0,
       });
+      if (error) throw error;
       setContent('');
       resetImage();
       toast.success('Publication partagée !');

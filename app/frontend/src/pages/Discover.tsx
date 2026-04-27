@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Search, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { client } from '@/lib/atoms-client';
+import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { Profile } from '@/contexts/AuthContext';
 
@@ -65,13 +65,13 @@ export default function Discover() {
     (async () => {
       setLoading(true);
       try {
-        const res = await client.entities.profiles.queryAll({
-          query: {},
-          sort: '-created_at',
-          limit: 100,
-        });
-        const items = (res?.data?.items as Profile[]) || [];
-        setProfiles(items);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) throw error;
+        setProfiles((data as Profile[]) || []);
       } catch (e) {
         console.error(e);
       } finally {
