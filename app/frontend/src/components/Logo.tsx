@@ -1,5 +1,3 @@
-import logo from '@/assets/logo.png';
-
 interface LogoProps {
   variant?: 'full' | 'icon';
   className?: string;
@@ -7,18 +5,18 @@ interface LogoProps {
 }
 
 const sizeMap = {
-  sm: 'h-10',
-  md: 'h-14',
-  lg: 'h-20',
-  xl: 'h-32',
+  sm: 'text-xl',
+  md: 'text-2xl',
+  lg: 'text-3xl',
+  xl: 'text-5xl',
 };
 
 export default function Logo({ className = '', size = 'md' }: LogoProps) {
   return (
-    <img
-      src={logo}
-      alt="LOBOKO"
-      className={`${sizeMap[size]} w-auto object-contain ${className}`}
-    />
+    <span
+      className={`font-extrabold tracking-tight leading-none bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent select-none ${sizeMap[size]} ${className}`}
+    >
+      LOBOKO
+    </span>
   );
 }
