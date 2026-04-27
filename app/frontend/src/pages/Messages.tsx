@@ -11,6 +11,7 @@ import VoiceMessage from '@/components/VoiceMessage';
 import CallModal from '@/components/CallModal';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import { createNotification } from '@/lib/notifications';
+import { useMessages } from '@/contexts/MessagesContext';
 
 interface Message {
   id: string;
@@ -54,6 +55,7 @@ function randomCallId(): string {
 
 export default function Messages() {
   const { user } = useAuth();
+  const { changeTick, refresh: refreshMessagesBadge } = useMessages();
   const [searchParams] = useSearchParams();
   const urlTo = searchParams.get('to');
   const myId = user?.id || '';
@@ -152,8 +154,15 @@ export default function Messages() {
     })();
   }, [loadMessages]);
 
+  // Realtime-driven refresh: whenever the MessagesContext reports a change
+  // affecting this user, reload the thread list. A safety-net low-frequency
+  // poll keeps things consistent if a realtime event was missed.
   useEffect(() => {
-    const t = setInterval(loadMessages, 2500);
+    loadMessages();
+  }, [changeTick, loadMessages]);
+
+  useEffect(() => {
+    const t = setInterval(loadMessages, 30_000);
     return () => clearInterval(t);
   }, [loadMessages]);
 
@@ -189,6 +198,27 @@ export default function Messages() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages]);
+
+  // Mark incoming messages from the active peer as read (updates unread badge)
+  useEffect(() => {
+    if (!myId || !activeUserId) return;
+    const unreadIds = activeMessages
+      .filter((m) => m.user_id === activeUserId && m.receiver_id === myId && m.read === false)
+      .map((m) => m.id);
+    if (unreadIds.length === 0) return;
+    (async () => {
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({ read: true })
+          .in('id', unreadIds);
+        if (error) throw error;
+        await refreshMessagesBadge();
+      } catch (e) {
+        console.error('[messages] mark read failed', e);
+      }
+    })();
+  }, [activeUserId, activeMessages, myId, refreshMessagesBadge]);
 
   const insertMessage = async (payload: {
     receiver_id: string;

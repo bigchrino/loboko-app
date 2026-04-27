@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
   countUnreadNotifications,
   markAllNotificationsRead,
@@ -25,7 +26,9 @@ const NotificationsContext = createContext<NotificationsContextValue>({
   markAllRead: async () => {},
 });
 
-const POLL_INTERVAL_MS = 15_000;
+// Safety-net polling in case a realtime event is missed. The realtime
+// subscription does most of the work; this just reconciles periodically.
+const FALLBACK_POLL_MS = 60_000;
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -47,14 +50,70 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setUnreadCount(0);
   }, [user?.id]);
 
+  // Initial load + realtime subscription + fallback polling
   useEffect(() => {
     refresh();
+
     if (timerRef.current) clearInterval(timerRef.current);
-    if (user?.id) {
-      timerRef.current = setInterval(refresh, POLL_INTERVAL_MS);
-    }
+    if (!user?.id) return;
+
+    timerRef.current = setInterval(refresh, FALLBACK_POLL_MS);
+
+    const channel = supabase
+      .channel(`notifications-user-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as { read?: boolean } | null;
+          if (row && !row.read) {
+            setUnreadCount((c) => c + 1);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as { read?: boolean } | null;
+          const newRow = payload.new as { read?: boolean } | null;
+          if (oldRow?.read === false && newRow?.read === true) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          } else if (oldRow?.read === true && newRow?.read === false) {
+            setUnreadCount((c) => c + 1);
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as { read?: boolean } | null;
+          if (oldRow && !oldRow.read) {
+            setUnreadCount((c) => Math.max(0, c - 1));
+          }
+        },
+      )
+      .subscribe();
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      supabase.removeChannel(channel);
     };
   }, [user?.id, refresh]);
 

@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useMessages } from '@/contexts/MessagesContext';
 import Logo from '@/components/Logo';
 
 interface LayoutProps {
@@ -53,11 +54,22 @@ export default function Layout({ children, title }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
+  const { unreadCount: unreadMessagesCount } = useMessages();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
+  const unreadMessagesLabel =
+    unreadMessagesCount > 99 ? '99+' : String(unreadMessagesCount);
+
+  const badgeFor = (to: string): { count: number; label: string } | null => {
+    if (to === '/notifications' && unreadCount > 0)
+      return { count: unreadCount, label: unreadLabel };
+    if (to === '/messages' && unreadMessagesCount > 0)
+      return { count: unreadMessagesCount, label: unreadMessagesLabel };
+    return null;
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -86,7 +98,7 @@ export default function Layout({ children, title }: LayoutProps) {
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {desktopNavItems.map(({ to, label, icon: Icon }) => {
-            const isNotifLink = to === '/notifications';
+            const badge = badgeFor(to);
             return (
               <NavLink
                 key={to}
@@ -101,9 +113,9 @@ export default function Layout({ children, title }: LayoutProps) {
               >
                 <div className="relative">
                   <Icon size={20} />
-                  {isNotifLink && unreadCount > 0 && (
+                  {badge && (
                     <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {unreadLabel}
+                      {badge.label}
                     </span>
                   )}
                 </div>
@@ -174,7 +186,7 @@ export default function Layout({ children, title }: LayoutProps) {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
         <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
           {mobileNavItems.map(({ to, label, icon: Icon }) => {
-            const isNotifLink = to === '/notifications';
+            const badge = badgeFor(to);
             return (
               <NavLink
                 key={to}
@@ -187,9 +199,9 @@ export default function Layout({ children, title }: LayoutProps) {
               >
                 <div className="relative">
                   <Icon size={20} />
-                  {isNotifLink && unreadCount > 0 && (
+                  {badge && (
                     <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {unreadLabel}
+                      {badge.label}
                     </span>
                   )}
                 </div>
