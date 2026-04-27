@@ -1,3 +1,5 @@
+import logoUrl from '@/assets/logo.jpg';
+
 interface LogoProps {
   variant?: 'full' | 'icon';
   className?: string;
@@ -14,7 +16,7 @@ const sizeMap = {
 export default function Logo({ className = '', size = 'md' }: LogoProps) {
   return (
     <img
-      src="/assets/logo.jpg"
+      src={logoUrl}
       alt="LOBOKO"
       className={`${sizeMap[size]} w-auto object-contain ${className}`}
     />
