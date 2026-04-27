@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Logo from '@/components/Logo';
+import logo from '@/assets/logo.png';
 
 interface LayoutProps {
   children: ReactNode;
@@ -133,7 +134,7 @@ export default function Layout({ children, title }: LayoutProps) {
       <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
         <div className="flex items-center gap-2.5 min-w-0">
           <img
-            src="/assets/logo.jpg"
+            src={logo}
             alt="LOBOKO"
             className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-contain bg-black p-0.5 shrink-0"
           />
