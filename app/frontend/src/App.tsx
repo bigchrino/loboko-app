@@ -25,6 +25,7 @@ import Recherches from './pages/Recherches';
 import Menu from './pages/Menu';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { NotificationsProvider } from './contexts/NotificationsContext';
 
 const queryClient = new QueryClient();
 
@@ -97,12 +98,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
+        <NotificationsProvider>
+          <TooltipProvider>
+            <Toaster />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </NotificationsProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

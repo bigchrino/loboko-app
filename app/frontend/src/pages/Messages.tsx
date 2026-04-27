@@ -10,6 +10,7 @@ import VoiceRecorder from '@/components/VoiceRecorder';
 import VoiceMessage from '@/components/VoiceMessage';
 import CallModal from '@/components/CallModal';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
+import { createNotification } from '@/lib/notifications';
 
 interface Message {
   id: string;
@@ -211,6 +212,12 @@ export default function Messages() {
     setShowEmoji(false);
     try {
       await insertMessage({ receiver_id: activeUserId, content: text });
+      await createNotification({
+        recipientId: activeUserId,
+        fromUserId: myId,
+        type: 'message',
+        message: text.length > 80 ? `${text.slice(0, 80)}…` : text,
+      });
       await loadMessages();
     } catch (e) {
       console.error(e);
@@ -223,6 +230,12 @@ export default function Messages() {
       await insertMessage({
         receiver_id: activeUserId,
         content: encodePayload({ kind: 'audio', object_key: objectKey, duration }),
+      });
+      await createNotification({
+        recipientId: activeUserId,
+        fromUserId: myId,
+        type: 'message',
+        message: '🎤 Nouvelle note vocale',
       });
       await loadMessages();
     } catch (e) {

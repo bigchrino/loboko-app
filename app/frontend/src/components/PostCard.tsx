@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import LikesModal from './LikesModal';
 import CommentsModal from './CommentsModal';
 import PostMenu from './PostMenu';
+import { createNotification } from '@/lib/notifications';
 
 export interface PostItem {
   id: string;
@@ -122,6 +123,14 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         setLiked(true);
         if (data?.id) setLikeId(data.id as string);
         setLikesCount((c) => c + 1);
+        // Create a notification for the post author (no-op if self)
+        await createNotification({
+          recipientId: post.user_id,
+          fromUserId: currentUserId,
+          type: 'like',
+          postId: post.id,
+          message: 'a aimé votre publication',
+        });
       }
     } catch (e) {
       console.error(e);
@@ -241,6 +250,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
       <LikesModal postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />
       <CommentsModal
         postId={post.id}
+        postAuthorId={post.user_id}
         open={showComments}
         onClose={() => setShowComments(false)}
         currentUserId={currentUserId}

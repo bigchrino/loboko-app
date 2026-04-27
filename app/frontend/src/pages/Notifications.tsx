@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Bell, Heart, MessageCircle, UserPlus } from 'lucide-react';
+import { useNotifications } from '@/contexts/NotificationsContext';
+import { getMediaUrl } from '@/lib/storage-helpers';
+import { Bell, Heart, MessageCircle, UserPlus, MessageSquare } from 'lucide-react';
 
 interface Notif {
   id: string;
@@ -15,16 +18,51 @@ interface Notif {
   created_at?: string;
 }
 
+interface SenderProfile {
+  user_id: string;
+  username?: string;
+  display_name?: string;
+  avatar_key?: string;
+  avatar_url?: string;
+}
+
 const iconFor = (type: string) => {
   if (type === 'like') return Heart;
-  if (type === 'comment' || type === 'message') return MessageCircle;
+  if (type === 'comment') return MessageSquare;
+  if (type === 'message') return MessageCircle;
   if (type === 'follow') return UserPlus;
   return Bell;
 };
 
+const colorFor = (type: string) => {
+  if (type === 'like') return 'text-[#ec4899]';
+  if (type === 'comment') return 'text-[#2563eb]';
+  if (type === 'message') return 'text-[#10b981]';
+  if (type === 'follow') return 'text-[#f59e0b]';
+  return 'text-[#2563eb]';
+};
+
+const formatRelative = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "À l'instant";
+  if (mins < 60) return `Il y a ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Il y a ${days} j`;
+  return d.toLocaleDateString('fr-FR');
+};
+
 export default function Notifications() {
   const { user } = useAuth();
+  const { markAllRead, refresh } = useNotifications();
+  const navigate = useNavigate();
   const [items, setItems] = useState<Notif[]>([]);
+  const [senders, setSenders] = useState<Record<string, SenderProfile>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,14 +79,53 @@ export default function Notifications() {
           .order('created_at', { ascending: false })
           .limit(100);
         if (error) throw error;
-        setItems((data as Notif[]) || []);
+        const rows = (data as Notif[]) || [];
+        setItems(rows);
+
+        const fromIds = Array.from(
+          new Set(rows.map((n) => n.from_user_id).filter((v): v is string => !!v)),
+        );
+        if (fromIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, username, display_name, avatar_key')
+            .in('user_id', fromIds);
+          const map: Record<string, SenderProfile> = {};
+          await Promise.all(
+            (profiles || []).map(async (p: SenderProfile) => {
+              let avatar_url: string | undefined;
+              if (p.avatar_key) {
+                try {
+                  avatar_url = (await getMediaUrl(p.avatar_key)) || undefined;
+                } catch {
+                  /* ignore */
+                }
+              }
+              map[p.user_id] = { ...p, avatar_url };
+            }),
+          );
+          setSenders(map);
+        }
+
+        // Mark all as read once the page is viewed
+        await markAllRead();
+        await refresh();
       } catch (e) {
         console.error(e);
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  const handleClick = (n: Notif) => {
+    if (n.type === 'message' && n.from_user_id) {
+      navigate(`/messages?to=${n.from_user_id}`);
+    } else if ((n.type === 'like' || n.type === 'comment') && n.post_id) {
+      navigate('/home');
+    }
+  };
 
   return (
     <Layout title="Notifications">
@@ -69,27 +146,57 @@ export default function Notifications() {
         <div className="space-y-2">
           {items.map((n) => {
             const Icon = iconFor(n.type);
+            const sender = n.from_user_id ? senders[n.from_user_id] : undefined;
+            const senderName =
+              sender?.display_name || sender?.username || 'Quelqu\'un';
+            const initials = senderName.slice(0, 2).toUpperCase();
+            const text = n.message || `Nouvelle ${n.type}`;
+            const clickable = n.type === 'message' || n.type === 'like' || n.type === 'comment';
+
             return (
-              <div
+              <button
                 key={n.id}
-                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                onClick={() => clickable && handleClick(n)}
+                disabled={!clickable}
+                className={`w-full text-left flex items-center gap-3 p-3 rounded-2xl border transition ${
                   n.read
                     ? 'bg-[var(--loboko-surface)] border-[var(--loboko-border)]'
                     : 'bg-[rgba(37,99,235,0.08)] border-[#2563eb]'
-                }`}
+                } ${clickable ? 'hover:border-[#2563eb] cursor-pointer' : 'cursor-default'}`}
               >
-                <div className="w-10 h-10 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] flex items-center justify-center shrink-0">
-                  <Icon size={18} />
+                <div className="relative shrink-0">
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xs">
+                    {sender?.avatar_url ? (
+                      <img
+                        src={sender.avatar_url}
+                        alt={senderName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                  <div
+                    className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] flex items-center justify-center ${colorFor(
+                      n.type,
+                    )}`}
+                  >
+                    <Icon size={11} />
+                  </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm">{n.message || `Nouvelle ${n.type}`}</div>
-                  {n.created_at && (
-                    <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">
-                      {new Date(n.created_at).toLocaleString('fr-FR')}
-                    </div>
-                  )}
+                  <div className="text-sm">
+                    <span className="font-semibold">{senderName}</span>{' '}
+                    <span className="text-[var(--loboko-text-secondary)]">{text}</span>
+                  </div>
+                  <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">
+                    {formatRelative(n.created_at)}
+                  </div>
                 </div>
-              </div>
+                {!n.read && (
+                  <span className="w-2 h-2 rounded-full bg-[#2563eb] shrink-0" aria-hidden />
+                )}
+              </button>
             );
           })}
         </div>

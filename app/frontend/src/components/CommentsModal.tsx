@@ -3,6 +3,7 @@ import { X, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
+import { createNotification } from '@/lib/notifications';
 
 interface CommentRow {
   id: string;
@@ -21,13 +22,21 @@ interface Author {
 
 interface Props {
   postId: string;
+  postAuthorId?: string;
   open: boolean;
   onClose: () => void;
   currentUserId?: string;
   onCommentAdded?: () => void;
 }
 
-export default function CommentsModal({ postId, open, onClose, currentUserId, onCommentAdded }: Props) {
+export default function CommentsModal({
+  postId,
+  postAuthorId,
+  open,
+  onClose,
+  currentUserId,
+  onCommentAdded,
+}: Props) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [authors, setAuthors] = useState<Record<string, Author>>({});
   const [loading, setLoading] = useState(false);
@@ -101,6 +110,16 @@ export default function CommentsModal({ postId, open, onClose, currentUserId, on
       setContent('');
       await loadComments();
       onCommentAdded?.();
+      // Notify the post author (no-op if commenter is the author)
+      if (postAuthorId) {
+        await createNotification({
+          recipientId: postAuthorId,
+          fromUserId: currentUserId,
+          type: 'comment',
+          postId,
+          message: 'a commenté votre publication',
+        });
+      }
       setTimeout(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
       }, 100);

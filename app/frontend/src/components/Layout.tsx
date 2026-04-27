@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import Logo from '@/components/Logo';
 
 interface LayoutProps {
@@ -51,9 +52,12 @@ const desktopNavItems = [
 export default function Layout({ children, title }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -81,22 +85,32 @@ export default function Layout({ children, title }: LayoutProps) {
           )}
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {desktopNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-[rgba(37,99,235,0.15)] text-[#2563eb]'
-                    : 'text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)] hover:text-[var(--loboko-text)]'
-                }`
-              }
-            >
-              <Icon size={20} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+          {desktopNavItems.map(({ to, label, icon: Icon }) => {
+            const isNotifLink = to === '/notifications';
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-[rgba(37,99,235,0.15)] text-[#2563eb]'
+                      : 'text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)] hover:text-[var(--loboko-text)]'
+                  }`
+                }
+              >
+                <div className="relative">
+                  <Icon size={20} />
+                  {isNotifLink && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {unreadLabel}
+                    </span>
+                  )}
+                </div>
+                <span>{label}</span>
+              </NavLink>
+            );
+          })}
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -159,20 +173,30 @@ export default function Layout({ children, title }: LayoutProps) {
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
         <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
-          {mobileNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
-                  isActive ? 'text-[#2563eb] bg-[rgba(37,99,235,0.15)]' : 'text-[var(--loboko-text-muted)]'
-                }`
-              }
-            >
-              <Icon size={20} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </NavLink>
-          ))}
+          {mobileNavItems.map(({ to, label, icon: Icon }) => {
+            const isNotifLink = to === '/notifications';
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
+                    isActive ? 'text-[#2563eb] bg-[rgba(37,99,235,0.15)]' : 'text-[var(--loboko-text-muted)]'
+                  }`
+                }
+              >
+                <div className="relative">
+                  <Icon size={20} />
+                  {isNotifLink && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {unreadLabel}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-medium">{label}</span>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
 
