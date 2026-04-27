@@ -52,7 +52,9 @@ export default function Home() {
           </p>
         </div>
       ) : (
-        posts.map((p) => <PostCard key={p.id} post={p} currentUserId={userId} />)
+        posts.map((p) => (
+          <PostCard key={p.id} post={p} currentUserId={userId} onDeleted={loadPosts} />
+        ))
       )}
     </Layout>
   );
