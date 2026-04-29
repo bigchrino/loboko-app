@@ -35,9 +35,9 @@ export interface GroupMessage {
   created_at?: string;
 }
 
-const SETUP_HINT = "Exécutez le SQL de GROUPS_SETUP.md dans Supabase.";
+const SETUP_HINT = "Exécutez le SQL de GROUPS_SETUP_FIXED.md dans Supabase.";
 
-function humanize(error: { message?: string; code?: string } | null | undefined): string {
+function humanize(error: { message?: string; code?: string; details?: string } | null | undefined): string {
   if (!error) return 'Action impossible';
   const code = error.code;
   const msg = (error.message || '').toLowerCase();
@@ -45,10 +45,13 @@ function humanize(error: { message?: string; code?: string } | null | undefined)
     return `Table manquante. ${SETUP_HINT}`;
   }
   if (code === '42703' || msg.includes('column')) {
-    return `Colonne manquante. ${SETUP_HINT}`;
+    return `Colonne manquante (ex: reply_to_message_id). ${SETUP_HINT}`;
   }
-  if (code === '42501' || msg.includes('row-level security')) {
-    return `Permission refusée. ${SETUP_HINT}`;
+  if (code === '42501' || msg.includes('row-level security') || msg.includes('policy')) {
+    return `Permission refusée par les policies RLS. ${SETUP_HINT}`;
+  }
+  if (code === '23505') {
+    return 'Entrée déjà existante.';
   }
   return error.message || 'Action impossible';
 }
@@ -107,6 +110,8 @@ export async function createGroup(params: {
   creatorId: string;
 }): Promise<Group> {
   const { name, avatarKey, memberIds, creatorId } = params;
+
+  // Step 1 — insert the group itself (creator must be auth.uid()).
   const { data: g, error } = await supabase
     .from('groups')
     .insert({
@@ -116,10 +121,15 @@ export async function createGroup(params: {
     })
     .select()
     .single();
-  if (error) throw new Error(humanize(error));
+  if (error) {
+    console.error('[groups] create step1 (insert groups)', error);
+    throw new Error(humanize(error));
+  }
   const group = g as Group;
 
-  // Insert creator as owner
+  // Step 2 — bulk insert the full membership (creator as owner + invitees).
+  // The policy `group_members_insert_creator_batch` in GROUPS_SETUP_FIXED.md
+  // allows the creator to insert any row as long as they own the group.
   const rows: Array<{ group_id: string; user_id: string; role: GroupRole }> = [
     { group_id: group.id, user_id: creatorId, role: 'owner' },
     ...memberIds
@@ -131,7 +141,33 @@ export async function createGroup(params: {
       })),
   ];
   const { error: mErr } = await supabase.from('group_members').insert(rows);
-  if (mErr) throw new Error(humanize(mErr));
+  if (!mErr) return group;
+
+  // Fallback for older policies: insert creator alone first, then invitees.
+  console.warn('[groups] batch insert failed, falling back', mErr);
+  const { error: ownerErr } = await supabase.from('group_members').insert({
+    group_id: group.id,
+    user_id: creatorId,
+    role: 'owner',
+  });
+  if (ownerErr && ownerErr.code !== '23505') {
+    console.error('[groups] create step2a (owner row)', ownerErr);
+    throw new Error(humanize(ownerErr));
+  }
+  const invitees = memberIds
+    .filter((id) => id !== creatorId)
+    .map((id) => ({
+      group_id: group.id,
+      user_id: id,
+      role: 'member' as GroupRole,
+    }));
+  if (invitees.length > 0) {
+    const { error: invErr } = await supabase.from('group_members').insert(invitees);
+    if (invErr) {
+      console.error('[groups] create step2b (invitees)', invErr);
+      throw new Error(humanize(invErr));
+    }
+  }
   return group;
 }
 
