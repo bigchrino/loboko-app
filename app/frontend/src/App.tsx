@@ -23,6 +23,7 @@ import UrgencesPolices from './pages/UrgencesPolices';
 import UrgencesCasernes from './pages/UrgencesCasernes';
 import Recherches from './pages/Recherches';
 import Menu from './pages/Menu';
+import UserProfilePage from './pages/UserProfile';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -77,6 +78,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/urgences/casernes', element: <UrgencesCasernes /> },
   { path: '/recherches', element: <Recherches /> },
   { path: '/menu', element: <Menu /> },
+  { path: '/u/:userId', element: <UserProfilePage /> },
 ];
 
 const AppRoutes = () => (

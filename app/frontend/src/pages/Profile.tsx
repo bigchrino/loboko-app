@@ -3,9 +3,10 @@ import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl, uploadMedia } from '@/lib/storage-helpers';
-import { Camera, Edit2, Save, X } from 'lucide-react';
+import { Camera, Edit2, Save, X, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard, { PostItem } from '@/components/PostCard';
+import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
 
 export default function Profile() {
   const { profile, user, updateLobokoProfile } = useAuth();
@@ -16,6 +17,7 @@ export default function Profile() {
   const [bio, setBio] = useState('');
   const [metier, setMetier] = useState('');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
+  const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const userId = user?.id || '';
@@ -47,6 +49,14 @@ export default function Profile() {
       }
     })();
   }, [userId, profile?.id]);
+
+  useEffect(() => {
+    if (!userId || profile?.role !== 'prestataire') {
+      setRatingSummary({ average: 0, count: 0 });
+      return;
+    }
+    fetchRatingSummary(userId).then(setRatingSummary);
+  }, [userId, profile?.role]);
 
   const handleAvatar = async (file: File) => {
     if (!profile) return;
@@ -196,9 +206,22 @@ export default function Profile() {
               <div className="text-sm text-[#2563eb] font-medium mb-2">{profile.metier}</div>
             )}
             {profile.bio && (
-              <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap">
+              <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap mb-3">
                 {profile.bio}
               </p>
+            )}
+            {profile.role === 'prestataire' && (
+              <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] w-fit">
+                <Star size={16} fill="#f59e0b" color="#f59e0b" />
+                {ratingSummary.count > 0 ? (
+                  <span className="text-sm">
+                    <span className="font-bold">{ratingSummary.average.toFixed(1)}</span>
+                    <span className="text-[var(--loboko-text-muted)]">/5 · {ratingSummary.count} avis</span>
+                  </span>
+                ) : (
+                  <span className="text-sm text-[var(--loboko-text-muted)]">Aucun avis</span>
+                )}
+              </div>
             )}
           </>
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
-import { Search, MessageCircle } from 'lucide-react';
+import { Search, MessageCircle, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -9,17 +9,23 @@ import { Profile } from '@/contexts/AuthContext';
 interface ProfileCardProps {
   profile: Profile;
   onMessage: (userId: string) => void;
+  onOpen: (userId: string) => void;
+  summary?: { average: number; count: number };
 }
 
-function ProfileCard({ profile, onMessage }: ProfileCardProps) {
+function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   useEffect(() => {
     if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
   }, [profile.avatar_key]);
   const name = profile.display_name || profile.username;
   const initials = name.slice(0, 2).toUpperCase();
+  const isPrestataire = profile.role === 'prestataire';
   return (
-    <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 flex gap-3 items-center">
+    <div
+      className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 flex gap-3 items-center cursor-pointer hover:border-[#2563eb] transition"
+      onClick={() => onOpen(profile.user_id)}
+    >
       <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold shrink-0">
         {avatarUrl ? (
           <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
@@ -37,6 +43,15 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
         {profile.metier && (
           <div className="text-xs text-[#2563eb] font-medium truncate">{profile.metier}</div>
         )}
+        {isPrestataire && summary && summary.count > 0 && (
+          <div className="flex items-center gap-1 mt-1">
+            <Star size={11} fill="#f59e0b" color="#f59e0b" />
+            <span className="text-xs font-semibold">{summary.average.toFixed(1)}</span>
+            <span className="text-[10px] text-[var(--loboko-text-muted)]">
+              · {summary.count} avis
+            </span>
+          </div>
+        )}
         {profile.bio && (
           <div className="text-xs text-[var(--loboko-text-muted)] line-clamp-2 mt-1">
             {profile.bio}
@@ -44,7 +59,10 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
         )}
       </div>
       <button
-        onClick={() => onMessage(profile.user_id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMessage(profile.user_id);
+        }}
         className="shrink-0 w-10 h-10 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] flex items-center justify-center hover:bg-[#2563eb] hover:text-white transition"
         aria-label="Envoyer message"
       >
@@ -57,6 +75,7 @@ function ProfileCard({ profile, onMessage }: ProfileCardProps) {
 export default function Discover() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [ratingMap, setRatingMap] = useState<Record<string, { average: number; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>('all');
@@ -71,7 +90,29 @@ export default function Discover() {
           .order('created_at', { ascending: false })
           .limit(100);
         if (error) throw error;
-        setProfiles((data as Profile[]) || []);
+        const list = (data as Profile[]) || [];
+        setProfiles(list);
+
+        const presIds = list
+          .filter((p) => p.role === 'prestataire')
+          .map((p) => p.user_id);
+        if (presIds.length) {
+          const { data: ratings } = await supabase
+            .from('ratings')
+            .select('to_user_id, rating')
+            .in('to_user_id', presIds);
+          const acc: Record<string, { sum: number; count: number }> = {};
+          ((ratings as { to_user_id: string; rating: number }[]) || []).forEach((r) => {
+            if (!acc[r.to_user_id]) acc[r.to_user_id] = { sum: 0, count: 0 };
+            acc[r.to_user_id].sum += Number(r.rating);
+            acc[r.to_user_id].count += 1;
+          });
+          const map: Record<string, { average: number; count: number }> = {};
+          Object.entries(acc).forEach(([uid, v]) => {
+            map[uid] = { average: v.sum / v.count, count: v.count };
+          });
+          setRatingMap(map);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -96,6 +137,10 @@ export default function Discover() {
 
   const handleMessage = (userId: string) => {
     navigate(`/messages?to=${encodeURIComponent(userId)}`);
+  };
+
+  const handleOpen = (userId: string) => {
+    navigate(`/u/${encodeURIComponent(userId)}`);
   };
 
   return (
@@ -146,7 +191,13 @@ export default function Discover() {
       ) : (
         <div className="space-y-3">
           {filtered.map((p) => (
-            <ProfileCard key={p.id} profile={p} onMessage={handleMessage} />
+            <ProfileCard
+              key={p.id}
+              profile={p}
+              onMessage={handleMessage}
+              onOpen={handleOpen}
+              summary={ratingMap[p.user_id]}
+            />
           ))}
         </div>
       )}
