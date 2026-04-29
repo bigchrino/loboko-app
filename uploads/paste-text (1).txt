@@ -1,0 +1,57 @@
+Amélioration du système de commentaires LOBOKO.
+
+Objectif :
+Rendre les commentaires plus sociaux et interactifs, proche de Facebook/TikTok, sans casser les posts.
+
+Fonctions à ajouter :
+
+1. Date des commentaires
+- Afficher la date/temps sous chaque commentaire avec la même logique que les posts :
+  À l’instant, il y a X min, il y a X h, il y a 1 jour, puis DD/MM ou DD/MM/YY.
+
+2. Likes sur commentaires
+- Ajouter “J’aime” sous chaque commentaire.
+- Ajouter compteur de likes.
+- Un utilisateur peut aimer/retirer son like.
+- Même chose pour les réponses aux commentaires.
+
+3. Réponses aux commentaires
+- Ajouter “Répondre” en texte gris cliquable, pas un gros bouton.
+- Si B commente le post de A, c’est un commentaire normal.
+- Si C répond à B, afficher la réponse sous B, légèrement décalée à droite.
+- Afficher à côté du pseudo : “C — B” pour montrer que C répond à B.
+- Si D répond à C, afficher “D — C”, mais ne pas décaler davantage. Garder un seul niveau de décalage maximum.
+- Si quelqu’un répond directement au post, afficher comme commentaire normal.
+
+4. Afficher / masquer les réponses
+- Sous chaque commentaire qui a des réponses, afficher :
+  “Afficher X réponses”
+- Quand les réponses sont ouvertes, afficher :
+  “Masquer les réponses”
+- Texte gris cliquable, pas bouton.
+
+5. Menu trois points sur commentaires et réponses
+- À droite de chaque commentaire/réponse, ajouter trois points.
+- Au clic, afficher :
+  - Signaler le commentaire
+  - Masquer
+  - Copier le texte
+- Même menu pour les réponses.
+
+6. Emojis dans les commentaires
+- Ajouter un bouton emoji à côté du champ texte.
+- Permettre d’insérer un emoji dans le texte avant l’envoi.
+- Garder une solution simple et légère.
+
+Base de données :
+Si nécessaire, créer un fichier COMMENTS_SOCIAL_SETUP.md avec le SQL complet pour :
+- likes de commentaires
+- parent_comment_id ou reply_to_comment_id
+- compteur de réponses si besoin
+- politiques RLS
+
+Contraintes :
+- Ne pas toucher aux messages, appels, médias, ratings, pubs.
+- Ne pas casser l’envoi actuel des commentaires.
+- Garder un affichage mobile-first.
+- Build + lint à la fin.
