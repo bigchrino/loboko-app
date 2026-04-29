@@ -50,7 +50,8 @@ export async function countUnreadNotifications(userId: string): Promise<number> 
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .eq('read', false);
+      .eq('read', false)
+      .neq('type', 'message');
     if (error) throw error;
     return typeof count === 'number' ? count : 0;
   } catch (e) {

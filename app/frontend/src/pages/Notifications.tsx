@@ -76,6 +76,7 @@ export default function Notifications() {
           .from('notifications')
           .select('*')
           .eq('user_id', user.id)
+          .neq('type', 'message')
           .order('created_at', { ascending: false })
           .limit(100);
         if (error) throw error;
@@ -120,9 +121,7 @@ export default function Notifications() {
   }, [user]);
 
   const handleClick = (n: Notif) => {
-    if (n.type === 'message' && n.from_user_id) {
-      navigate(`/messages?to=${n.from_user_id}`);
-    } else if ((n.type === 'like' || n.type === 'comment') && n.post_id) {
+    if ((n.type === 'like' || n.type === 'comment') && n.post_id) {
       navigate('/home');
     }
   };
@@ -151,7 +150,7 @@ export default function Notifications() {
               sender?.display_name || sender?.username || 'Quelqu\'un';
             const initials = senderName.slice(0, 2).toUpperCase();
             const text = n.message || `Nouvelle ${n.type}`;
-            const clickable = n.type === 'message' || n.type === 'like' || n.type === 'comment';
+            const clickable = n.type === 'like' || n.type === 'comment';
 
             return (
               <button
