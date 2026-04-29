@@ -397,6 +397,40 @@ export default function CommentsModal({
     toast.success('Merci, votre signalement a été envoyé');
   };
 
+  const deleteComment = async (id: string) => {
+    if (!currentUserId) return;
+    const ok = window.confirm('Supprimer ce commentaire ? Cette action est irréversible.');
+    if (!ok) return;
+    try {
+      const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', currentUserId);
+      if (error) throw error;
+      setComments((prev) => prev.filter((c) => c.id !== id && c.parent_comment_id !== id));
+      setLikeCounts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setMyLikes((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      toast.success('Commentaire supprimé');
+    } catch (e) {
+      const err = e as { message?: string; code?: string };
+      console.error('[comments] delete error:', err);
+      if (err?.code === '42501' || err?.message?.toLowerCase().includes('row-level security')) {
+        toast.error('Permissions insuffisantes pour supprimer ce commentaire.');
+      } else {
+        toast.error(err?.message || 'Impossible de supprimer');
+      }
+    }
+  };
+
   const insertEmoji = (e: string) => {
     setContent((c) => c + e);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -448,8 +482,10 @@ export default function CommentsModal({
               </div>
               <CommentMenu
                 content={c.content}
+                isOwner={!!currentUserId && c.user_id === currentUserId}
                 onHide={() => hideComment(c.id)}
                 onReport={reportComment}
+                onDelete={() => deleteComment(c.id)}
               />
             </div>
           </div>
