@@ -296,9 +296,26 @@ export default function Messages() {
     }
   };
 
-  const startCall = (mode: 'voice' | 'video') => {
+  const startCall = async (mode: 'voice' | 'video') => {
     if (!activeUserId) return;
     const callId = randomCallId();
+    // Write a lightweight "offer" notice to the messages table so the callee
+    // can detect an incoming call even if their Messages page isn't mounted
+    // (it's polled + realtime-refreshed). Actual WebRTC signalling happens
+    // over the per-call Realtime broadcast channel inside CallModal.
+    try {
+      await insertMessage({
+        receiver_id: activeUserId,
+        content: encodePayload({
+          kind: 'signal',
+          callId,
+          mode,
+          signal: { type: 'offer', sdp: '' },
+        }),
+      });
+    } catch (e) {
+      console.error('[call] offer notice insert failed', e);
+    }
     setCall({
       peerId: activeUserId,
       peerName:

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { encodePayload, decodePayload, SignalPayload, formatDuration } from '@/lib/message-format';
+import { formatDuration } from '@/lib/message-format';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type Direction = 'outgoing' | 'incoming';
 type Status = 'calling' | 'ringing' | 'connected' | 'ended';
@@ -13,14 +14,31 @@ interface Props {
   mode: 'voice' | 'video';
   direction: Direction;
   callId: string;
+  /** Offer SDP received via the messages table when this is an incoming call. */
   initialOffer?: { sdp: string } | null;
-  onClose: (result: { status: 'accepted' | 'rejected' | 'missed' | 'ended'; duration: number }) => void;
+  onClose: (result: {
+    status: 'accepted' | 'rejected' | 'missed' | 'ended';
+    duration: number;
+  }) => void;
 }
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
+
+// Realtime event types exchanged over the per-call broadcast channel.
+// Keeping them in one union makes the flow very explicit.
+type CallEvent =
+  | { type: 'ringing'; from: string }
+  | { type: 'accepted'; from: string }
+  | { type: 'rejected'; from: string }
+  | { type: 'hangup'; from: string }
+  | { type: 'offer'; from: string; sdp: string }
+  | { type: 'answer'; from: string; sdp: string }
+  | { type: 'ice'; from: string; candidate: RTCIceCandidateInit };
+
+const channelName = (callId: string) => `call:${callId}`;
 
 export default function CallModal({
   myId,
@@ -45,65 +63,111 @@ export default function CallModal({
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const lastSignalAtRef = useRef<string>('1970-01-01T00:00:00Z');
-  const pollingRef = useRef<number | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelReadyRef = useRef(false);
   const startedAtRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
   const closedRef = useRef(false);
   const acceptedRef = useRef(false);
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+  const hasRemoteDescRef = useRef(false);
+  // Buffer for ICE candidates generated before the channel is subscribed.
+  const outboundIceBufferRef = useRef<RTCIceCandidateInit[]>([]);
+  // Callee has pressed "accept" but is still waiting for the real SDP offer.
+  const answerPendingRef = useRef(false);
 
   const constraints = useMemo(
     () => ({ audio: true, video: mode === 'video' }),
     [mode],
   );
 
-  const sendSignal = async (signal: SignalPayload['signal']) => {
-    try {
-      await supabase.from('messages').insert({
-        user_id: myId,
-        receiver_id: peerId,
-        content: encodePayload({ kind: 'signal', callId, mode, signal }),
-        read: false,
-      });
-    } catch (e) {
-      console.error('sendSignal error', e);
-    }
-  };
+  const sendEvent = useCallback(
+    (event: CallEvent) => {
+      const ch = channelRef.current;
+      if (!ch) return;
+      ch.send({ type: 'broadcast', event: 'call', payload: event }).catch(
+        (e) => console.warn('[call] send failed', e),
+      );
+    },
+    [],
+  );
 
-  const cleanup = (result: { status: 'accepted' | 'rejected' | 'missed' | 'ended'; duration: number }) => {
-    if (closedRef.current) return;
-    closedRef.current = true;
-    if (pollingRef.current) window.clearInterval(pollingRef.current);
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    try {
-      pcRef.current?.getSenders().forEach((s) => s.track?.stop());
-      pcRef.current?.close();
-    } catch {
-      // ignore
+  const flushOutboundIce = useCallback(() => {
+    if (!channelReadyRef.current) return;
+    const pending = outboundIceBufferRef.current;
+    outboundIceBufferRef.current = [];
+    for (const c of pending) {
+      sendEvent({ type: 'ice', from: myId, candidate: c });
     }
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    onClose(result);
-  };
+  }, [sendEvent, myId]);
 
-  const endCall = async (kind: 'hangup' | 'reject') => {
-    await sendSignal({ type: kind });
-    if (kind === 'reject') {
-      cleanup({ status: 'rejected', duration: 0 });
-    } else {
-      const duration = acceptedRef.current
-        ? Math.floor((Date.now() - startedAtRef.current) / 1000)
-        : 0;
-      cleanup({ status: acceptedRef.current ? 'ended' : 'missed', duration });
-    }
-  };
+  const cleanup = useCallback(
+    (result: {
+      status: 'accepted' | 'rejected' | 'missed' | 'ended';
+      duration: number;
+    }) => {
+      if (closedRef.current) return;
+      closedRef.current = true;
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      try {
+        pcRef.current?.getSenders().forEach((s) => s.track?.stop());
+        pcRef.current?.close();
+      } catch {
+        // ignore
+      }
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (channelRef.current) {
+        try {
+          supabase.removeChannel(channelRef.current);
+        } catch {
+          // ignore
+        }
+        channelRef.current = null;
+      }
+      onClose(result);
+    },
+    [onClose],
+  );
 
-  const setupPeer = () => {
+  const endCall = useCallback(
+    async (kind: 'hangup' | 'reject') => {
+      if (kind === 'reject') {
+        sendEvent({ type: 'rejected', from: myId });
+        cleanup({ status: 'rejected', duration: 0 });
+      } else {
+        sendEvent({ type: 'hangup', from: myId });
+        const duration = acceptedRef.current
+          ? Math.floor((Date.now() - startedAtRef.current) / 1000)
+          : 0;
+        cleanup({
+          status: acceptedRef.current ? 'ended' : 'missed',
+          duration,
+        });
+      }
+    },
+    [sendEvent, myId, cleanup],
+  );
+
+  const startTimer = useCallback(() => {
+    if (acceptedRef.current) return;
+    acceptedRef.current = true;
+    startedAtRef.current = Date.now();
+    timerRef.current = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    }, 500);
+  }, []);
+
+  const setupPeer = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
 
     pc.onicecandidate = (ev) => {
-      if (ev.candidate) {
-        sendSignal({ type: 'ice', candidate: ev.candidate.toJSON() });
+      if (!ev.candidate) return;
+      const cand = ev.candidate.toJSON();
+      if (channelReadyRef.current) {
+        sendEvent({ type: 'ice', from: myId, candidate: cand });
+      } else {
+        outboundIceBufferRef.current.push(cand);
       }
     };
 
@@ -120,16 +184,7 @@ export default function CallModal({
 
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
-      if (st === 'connected') {
-        if (!acceptedRef.current) {
-          acceptedRef.current = true;
-          startedAtRef.current = Date.now();
-          timerRef.current = window.setInterval(() => {
-            setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
-          }, 500);
-        }
-        setStatus('connected');
-      } else if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+      if (st === 'failed' || st === 'disconnected' || st === 'closed') {
         if (!closedRef.current && acceptedRef.current) {
           cleanup({
             status: 'ended',
@@ -140,9 +195,9 @@ export default function CallModal({
     };
 
     return pc;
-  };
+  }, [sendEvent, myId, mode, cleanup]);
 
-  const getMedia = async () => {
+  const getMedia = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
@@ -153,106 +208,187 @@ export default function CallModal({
       if (pc) stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       return stream;
     } catch (e) {
-      console.error(e);
+      console.error('[call] getUserMedia failed', e);
       setError("Impossible d'accéder au micro/caméra");
       return null;
     }
-  };
+  }, [constraints, mode]);
 
-  const startOutgoing = async () => {
+  const applyPendingIce = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc || !hasRemoteDescRef.current) return;
+    const pending = pendingIceRef.current;
+    pendingIceRef.current = [];
+    for (const c of pending) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+      } catch (e) {
+        console.warn('[call] addIceCandidate (buffered) failed', e);
+      }
+    }
+  }, []);
+
+  // Handle an incoming realtime event from the peer.
+  const handleEvent = useCallback(
+    async (ev: CallEvent) => {
+      if (ev.from === myId) return; // ignore self
+      const pc = pcRef.current;
+      if (ev.type === 'ringing') {
+        // Peer phone is ringing. Keep caller in 'calling' state with label update.
+        setStatus('calling');
+      } else if (ev.type === 'accepted') {
+        // Peer pressed accept. Actual media connection will be driven by answer+ice.
+        // This marks the call as accepted even if SDP answer takes a bit.
+        if (!acceptedRef.current) startTimer();
+        setStatus('connected');
+      } else if (ev.type === 'rejected') {
+        cleanup({ status: 'rejected', duration: 0 });
+      } else if (ev.type === 'hangup') {
+        const duration = acceptedRef.current
+          ? Math.floor((Date.now() - startedAtRef.current) / 1000)
+          : 0;
+        cleanup({
+          status: acceptedRef.current ? 'ended' : 'missed',
+          duration,
+        });
+      } else if (ev.type === 'offer') {
+        // Only meaningful if we're the callee. If the user already pressed
+        // "accept" and was waiting for the real SDP, finish the handshake.
+        if (!pc || direction !== 'incoming') return;
+        try {
+          await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
+          hasRemoteDescRef.current = true;
+          await applyPendingIce();
+          if (answerPendingRef.current) {
+            answerPendingRef.current = false;
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
+            flushOutboundIce();
+          }
+        } catch (e) {
+          console.error('[call] setRemoteDescription offer failed', e);
+        }
+      } else if (ev.type === 'answer') {
+        if (!pc) return;
+        try {
+          await pc.setRemoteDescription({ type: 'answer', sdp: ev.sdp });
+          hasRemoteDescRef.current = true;
+          await applyPendingIce();
+          if (!acceptedRef.current) startTimer();
+          setStatus('connected');
+        } catch (e) {
+          console.error('[call] setRemoteDescription answer failed', e);
+        }
+      } else if (ev.type === 'ice') {
+        if (!pc) return;
+        if (!hasRemoteDescRef.current) {
+          pendingIceRef.current.push(ev.candidate);
+          return;
+        }
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(ev.candidate));
+        } catch (e) {
+          console.warn('[call] addIceCandidate failed', e);
+        }
+      }
+    },
+    [myId, direction, cleanup, startTimer, applyPendingIce],
+  );
+
+  // Outgoing caller: create & send offer once channel is ready.
+  const startOutgoing = useCallback(async () => {
     setupPeer();
     const stream = await getMedia();
     if (!stream) return;
     const pc = pcRef.current!;
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await sendSignal({ type: 'offer', sdp: offer.sdp || '' });
-  };
+    sendEvent({ type: 'offer', from: myId, sdp: offer.sdp || '' });
+    flushOutboundIce();
+  }, [setupPeer, getMedia, sendEvent, myId, flushOutboundIce]);
 
-  const acceptIncoming = async () => {
-    if (!initialOffer) return;
+  // Incoming callee: on user "accept". If we already have a real SDP offer
+  // (either via `initialOffer` or received over realtime during ringing),
+  // apply it and answer. Otherwise, prepare the peer connection and let the
+  // 'offer' event handler finish the answering step automatically once it
+  // arrives.
+  const acceptIncoming = useCallback(async () => {
     setupPeer();
     const stream = await getMedia();
     if (!stream) return;
-    const pc = pcRef.current!;
-    await pc.setRemoteDescription({ type: 'offer', sdp: initialOffer.sdp });
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await sendSignal({ type: 'answer', sdp: answer.sdp || '' });
-    acceptedRef.current = true;
-    startedAtRef.current = Date.now();
+    // Signal "accepted" immediately so the caller's UI can flip to connected.
+    sendEvent({ type: 'accepted', from: myId });
+    flushOutboundIce();
+    startTimer();
     setStatus('connected');
-    timerRef.current = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
-    }, 500);
-  };
 
-  const pollSignals = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('id,content,created_at')
-        .eq('user_id', peerId)
-        .eq('receiver_id', myId)
-        .gt('created_at', lastSignalAtRef.current)
-        .order('created_at', { ascending: true })
-        .limit(50);
-      if (error) throw error;
-      type Row = { id: string; content: string; created_at: string };
-      const items = (data as Row[]) || [];
-      for (const it of items) {
-        if (it.created_at > lastSignalAtRef.current) {
-          lastSignalAtRef.current = it.created_at;
-        }
-        const payload = decodePayload(it.content);
-        if (payload.kind !== 'signal' || payload.callId !== callId) continue;
-        const pc = pcRef.current;
-        if (!pc) continue;
-        const sig = payload.signal;
-        if (sig.type === 'answer') {
-          await pc.setRemoteDescription({ type: 'answer', sdp: sig.sdp });
-        } else if (sig.type === 'ice') {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
-          } catch (e) {
-            console.error('ice err', e);
-          }
-        } else if (sig.type === 'hangup' || sig.type === 'reject') {
-          const duration = acceptedRef.current
-            ? Math.floor((Date.now() - startedAtRef.current) / 1000)
-            : 0;
-          cleanup({
-            status: sig.type === 'reject' ? 'rejected' : acceptedRef.current ? 'ended' : 'missed',
-            duration,
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      console.error('poll err', e);
-    }
-  };
+    const pc = pcRef.current!;
 
-  useEffect(() => {
-    (async () => {
+    const tryAnswer = async (sdp: string) => {
       try {
-        const { data } = await supabase
-          .from('messages')
-          .select('created_at')
-          .eq('user_id', peerId)
-          .eq('receiver_id', myId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        const rows = (data as { created_at: string }[]) || [];
-        if (rows.length > 0) lastSignalAtRef.current = rows[0].created_at;
-      } catch {
-        // ignore
+        await pc.setRemoteDescription({ type: 'offer', sdp });
+        hasRemoteDescRef.current = true;
+        await applyPendingIce();
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
+        flushOutboundIce();
+      } catch (e) {
+        console.error('[call] answer creation failed', e);
+        setError('Échec de la connexion');
       }
-      if (direction === 'outgoing') {
-        await startOutgoing();
+    };
+
+    if (initialOffer && initialOffer.sdp) {
+      await tryAnswer(initialOffer.sdp);
+    } else {
+      // SDP will come through the realtime 'offer' event; flag that we're
+      // ready to answer as soon as it lands.
+      answerPendingRef.current = true;
+    }
+  }, [
+    initialOffer,
+    setupPeer,
+    getMedia,
+    sendEvent,
+    myId,
+    applyPendingIce,
+    flushOutboundIce,
+    startTimer,
+  ]);
+
+  const reject = useCallback(() => {
+    endCall('reject');
+  }, [endCall]);
+
+  // Subscribe to the per-call Realtime channel, then either initiate (outgoing)
+  // or announce "ringing" (incoming).
+  useEffect(() => {
+    const ch = supabase.channel(channelName(callId), {
+      config: { broadcast: { self: false, ack: false } },
+    });
+    channelRef.current = ch;
+
+    ch.on('broadcast', { event: 'call' }, (msg) => {
+      const payload = msg.payload as CallEvent | undefined;
+      if (payload) {
+        void handleEvent(payload);
       }
-      pollingRef.current = window.setInterval(pollSignals, 1500);
-    })();
+    });
+
+    ch.subscribe((state) => {
+      if (state === 'SUBSCRIBED') {
+        channelReadyRef.current = true;
+        if (direction === 'outgoing') {
+          void startOutgoing();
+        } else {
+          // Tell the caller we're alerting the user.
+          sendEvent({ type: 'ringing', from: myId });
+        }
+      }
+    });
+
     return () => {
       if (!closedRef.current) {
         cleanup({ status: 'missed', duration: 0 });
@@ -277,10 +413,6 @@ export default function CallModal({
     setCamOff(next);
   };
 
-  const reject = () => {
-    endCall('reject');
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col">
       {mode === 'video' && status === 'connected' && (
@@ -300,10 +432,13 @@ export default function CallModal({
               {peerName.slice(0, 2).toUpperCase()}
             </div>
             <div className="text-2xl font-semibold mb-2">{peerName}</div>
-            <div className="text-sm text-white/70 mb-6">
-              {status === 'calling' && `Appel ${mode === 'video' ? 'vidéo' : 'vocal'}...`}
-              {status === 'ringing' && `Appel ${mode === 'video' ? 'vidéo' : 'vocal'} entrant`}
-              {status === 'connected' && (mode === 'voice' ? formatDuration(elapsed) : '')}
+            <div className="text-sm text-white/70 mb-6 text-center">
+              {status === 'calling' &&
+                `Appel ${mode === 'video' ? 'vidéo' : 'vocal'} en cours...`}
+              {status === 'ringing' &&
+                `Appel ${mode === 'video' ? 'vidéo' : 'vocal'} entrant`}
+              {status === 'connected' &&
+                (mode === 'voice' ? formatDuration(elapsed) : '')}
               {error && <div className="text-red-400 mt-2">{error}</div>}
             </div>
           </>
