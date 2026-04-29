@@ -7,6 +7,7 @@ import LikesModal from './LikesModal';
 import CommentsModal from './CommentsModal';
 import PostMenu from './PostMenu';
 import { createNotification } from '@/lib/notifications';
+import { formatPostTime } from '@/lib/format-time';
 
 export interface PostItem {
   id: string;
@@ -196,8 +197,22 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
                 </span>
               )}
             </div>
-            <div className="text-xs text-[var(--loboko-text-muted)] truncate">
-              {author?.metier || `@${author?.username || 'user'}`}
+            <div className="text-xs text-[var(--loboko-text-muted)] truncate flex items-center gap-1.5">
+              <span className="truncate">
+                {author?.metier || `@${author?.username || 'user'}`}
+              </span>
+              {post.created_at && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <time
+                    dateTime={post.created_at}
+                    title={new Date(post.created_at).toLocaleString('fr-FR')}
+                    className="shrink-0"
+                  >
+                    {formatPostTime(post.created_at)}
+                  </time>
+                </>
+              )}
             </div>
           </div>
           <PostMenu
