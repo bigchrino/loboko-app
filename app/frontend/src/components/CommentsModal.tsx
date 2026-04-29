@@ -98,34 +98,92 @@ export default function CommentsModal({
 
   const handleSend = async () => {
     const text = content.trim();
-    if (!text || !currentUserId) return;
+    if (!text) return;
+    if (!currentUserId) {
+      toast.error('Vous devez être connecté pour commenter');
+      return;
+    }
     setSending(true);
     try {
-      const { error } = await supabase.from('comments').insert({
-        post_id: postId,
-        user_id: currentUserId,
-        content: text,
+      // Diagnostic: verify authenticated session matches currentUserId
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr) {
+        console.error('[comments] auth.getUser error:', authErr);
+      }
+      const authUid = authData?.user?.id;
+      console.log('[comments] insert attempt', {
+        postId,
+        currentUserId,
+        authUid,
+        match: authUid === currentUserId,
       });
-      if (error) throw error;
+      if (!authUid) {
+        toast.error('Session expirée, reconnectez-vous');
+        return;
+      }
+      const payload = {
+        post_id: postId,
+        user_id: authUid,
+        content: text,
+      };
+      const { data: inserted, error } = await supabase
+        .from('comments')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) {
+        console.error('[comments] insert error:', {
+          message: error.message,
+          code: (error as { code?: string }).code,
+          details: (error as { details?: string }).details,
+          hint: (error as { hint?: string }).hint,
+          payload,
+        });
+        const code = (error as { code?: string }).code;
+        let userMsg = "Impossible d'envoyer le commentaire";
+        if (error.message?.toLowerCase().includes('row-level security') || code === '42501') {
+          userMsg =
+            "Erreur de permissions (RLS). Exécutez le SQL de COMMENTS_SETUP.md dans Supabase.";
+        } else if (code === '42P01' || error.message?.toLowerCase().includes('does not exist')) {
+          userMsg =
+            "La table 'comments' n'existe pas. Exécutez le SQL de COMMENTS_SETUP.md dans Supabase.";
+        } else if (error.message) {
+          userMsg = `Erreur: ${error.message}`;
+        }
+        toast.error(userMsg);
+        return;
+      }
+      console.log('[comments] inserted:', inserted);
       setContent('');
       await loadComments();
       onCommentAdded?.();
       // Notify the post author (no-op if commenter is the author)
       if (postAuthorId) {
-        await createNotification({
-          recipientId: postAuthorId,
-          fromUserId: currentUserId,
-          type: 'comment',
-          postId,
-          message: 'a commenté votre publication',
-        });
+        try {
+          await createNotification({
+            recipientId: postAuthorId,
+            fromUserId: authUid,
+            type: 'comment',
+            postId,
+            message: 'a commenté votre publication',
+          });
+        } catch (nErr) {
+          console.error('[comments] notification error (non-blocking):', nErr);
+        }
       }
       setTimeout(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
       }, 100);
     } catch (e) {
-      console.error(e);
-      toast.error("Impossible d'envoyer le commentaire");
+      const err = e as { message?: string; code?: string; details?: string; hint?: string };
+      console.error('[comments] unexpected error:', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint,
+        raw: e,
+      });
+      toast.error(err?.message || "Impossible d'envoyer le commentaire");
     } finally {
       setSending(false);
     }
