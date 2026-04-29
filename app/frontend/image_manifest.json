@@ -40,9 +40,39 @@
       "description": "Wide cinematic hero banner showing a diverse team of professional African local workers — carpenter, painter, mechanic, and cleaner — standing together in neat uniforms, soft natural light, clean urban background with slight bokeh, confident warm smiles, conveying trust reliability and professionalism",
       "style": "photorealistic",
       "filename": "hero-workers-team.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusj2yaafmq/ad-home-renovation.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusj2yaafmq/ad-home-renovation.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusj2yaafmq/ad-home-renovation.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Modern professional advertisement banner showing a clean home renovation scene with tools, paint and a skilled African worker finishing a wall, bright daylight, warm inviting colors, space for text overlay on the right, high quality commercial photography",
+      "style": "photorealistic",
+      "filename": "ad-home-renovation.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusmcyaafna/ad-cleaning-service.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusmcyaafna/ad-cleaning-service.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusmcyaafna/ad-cleaning-service.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Professional advertisement banner showing modern cleaning service, African woman in clean uniform smiling while holding cleaning tools in a bright modern living room, fresh and trustworthy atmosphere, commercial advertising style",
+      "style": "photorealistic",
+      "filename": "ad-cleaning-service.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusk2qaafnq/ad-mobile-mechanic.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusk2qaafnq/ad-mobile-mechanic.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusk2qaafnq/ad-mobile-mechanic.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Professional advertisement banner showing a mobile mechanic service, African mechanic in clean branded uniform working on a car engine outdoors with professional tools, modern dynamic composition, warm natural lighting, trustworthy commercial photography",
+      "style": "photorealistic",
+      "filename": "ad-mobile-mechanic.jpg"
     }
   ],
-  "success_count": 4,
+  "success_count": 3,
   "failed_count": 0,
-  "message": "Generated 4/4 images"
+  "message": "Generated 3/3 images"
 }
