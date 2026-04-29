@@ -1,0 +1,60 @@
+Nouvelle étape messagerie, phase 1 uniquement.
+
+Objectif :
+Améliorer la page Messages sans casser les messages existants.
+
+À faire maintenant :
+
+1. Barre de recherche dans la page Messages
+- Ajouter une barre de recherche en haut.
+- Permettre de rechercher :
+  - un contact
+  - un pseudo
+  - un mot dans les messages
+  - un chiffre dans les messages
+- Afficher les résultats proprement.
+
+2. Recherche dans une conversation
+- Ajouter un bouton recherche dans l’en-tête de la conversation.
+- Permettre de rechercher un mot/chiffre dans cette conversation.
+- Afficher les messages trouvés.
+
+3. Options conversation
+Sur une conversation, via appui long ou bouton trois points :
+- Archiver
+- Supprimer la discussion
+- Bloquer
+- Bloquer et signaler
+
+Chaque action sensible doit afficher une confirmation avant exécution.
+
+4. Page Archivées
+- Créer une page/section “Archivées”.
+- Elle doit apparaître sous la barre de recherche dans Messages.
+- Les conversations archivées ne doivent plus apparaître dans la liste principale.
+- On doit pouvoir les désarchiver.
+
+5. Infos du contact
+Quand on clique sur le profil ou le pseudo dans une conversation :
+Créer une page “Infos du contact” avec :
+- photo de profil au centre
+- nom de la personne en dessous
+- boutons : Audio, Vidéo, Rechercher
+- bouton “Voir son profil public LOBOKO”
+- section Médias
+- section Messages importants
+- section Thème de la discussion
+- section Messages éphémères
+- section Verrouiller la discussion
+- section Créer un groupe avec cette personne
+- section Ajouter aux favoris
+- section Effacer la discussion
+- section Bloquer
+
+Important :
+- Ne pas ajouter encore les groupes.
+- Ne pas ajouter encore les réactions emoji sur messages.
+- Ne pas ajouter encore transfert / important / supprimer pour tout le monde.
+- Ne pas modifier les appels, posts, ratings, médias.
+- Si un SQL est nécessaire, créer MESSAGING_PHASE1_SETUP.md avec le SQL complet.
+- Build + lint à la fin.
