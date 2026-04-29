@@ -1,6 +1,13 @@
 import { supabase } from '@/lib/supabase';
 
-export type NotificationType = 'like' | 'comment' | 'message' | 'follow';
+export type NotificationType =
+  | 'like'
+  | 'comment'
+  | 'message'
+  | 'follow'
+  | 'post_shared'
+  | 'comment_liked'
+  | 'comment_replied';
 
 interface CreateNotificationParams {
   recipientId: string;

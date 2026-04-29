@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
-import { Bell, Heart, MessageCircle, UserPlus, MessageSquare } from 'lucide-react';
+import { Bell, Heart, MessageCircle, UserPlus, MessageSquare, Share2, Reply } from 'lucide-react';
 
 interface Notif {
   id: string;
@@ -28,18 +28,41 @@ interface SenderProfile {
 
 const iconFor = (type: string) => {
   if (type === 'like') return Heart;
+  if (type === 'comment_liked') return Heart;
   if (type === 'comment') return MessageSquare;
+  if (type === 'comment_replied') return Reply;
+  if (type === 'post_shared') return Share2;
   if (type === 'message') return MessageCircle;
   if (type === 'follow') return UserPlus;
   return Bell;
 };
 
 const colorFor = (type: string) => {
-  if (type === 'like') return 'text-[#ec4899]';
-  if (type === 'comment') return 'text-[#2563eb]';
+  if (type === 'like' || type === 'comment_liked') return 'text-[#ec4899]';
+  if (type === 'comment' || type === 'comment_replied') return 'text-[#2563eb]';
+  if (type === 'post_shared') return 'text-[#8b5cf6]';
   if (type === 'message') return 'text-[#10b981]';
   if (type === 'follow') return 'text-[#f59e0b]';
   return 'text-[#2563eb]';
+};
+
+const defaultTextFor = (type: string): string => {
+  switch (type) {
+    case 'like':
+      return 'a aimé votre publication';
+    case 'comment':
+      return 'a commenté votre publication';
+    case 'comment_liked':
+      return 'a aimé votre commentaire';
+    case 'comment_replied':
+      return 'a répondu à votre commentaire';
+    case 'post_shared':
+      return 'a partagé votre publication';
+    case 'follow':
+      return 'vous suit désormais';
+    default:
+      return `Nouvelle ${type}`;
+  }
 };
 
 const formatRelative = (iso?: string) => {
@@ -121,7 +144,8 @@ export default function Notifications() {
   }, [user]);
 
   const handleClick = (n: Notif) => {
-    if ((n.type === 'like' || n.type === 'comment') && n.post_id) {
+    const postTypes = ['like', 'comment', 'comment_liked', 'comment_replied', 'post_shared'];
+    if (postTypes.includes(n.type) && n.post_id) {
       navigate('/home');
     }
   };
@@ -149,8 +173,11 @@ export default function Notifications() {
             const senderName =
               sender?.display_name || sender?.username || 'Quelqu\'un';
             const initials = senderName.slice(0, 2).toUpperCase();
-            const text = n.message || `Nouvelle ${n.type}`;
-            const clickable = n.type === 'like' || n.type === 'comment';
+            const text = n.message || defaultTextFor(n.type);
+            const clickable =
+              ['like', 'comment', 'comment_liked', 'comment_replied', 'post_shared'].includes(
+                n.type,
+              ) && !!n.post_id;
 
             return (
               <button

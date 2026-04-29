@@ -287,7 +287,23 @@ export default function CommentsModal({
         });
       }
       onCommentAdded?.();
-      if (postAuthorId) {
+      if (wasReply && replyTo) {
+        // Notify the owner of the specific comment/reply being answered.
+        const target = comments.find((c) => c.id === replyTo.targetCommentId);
+        if (target && target.user_id !== authUid) {
+          try {
+            await createNotification({
+              recipientId: target.user_id,
+              fromUserId: authUid,
+              type: 'comment_replied',
+              postId,
+              message: 'a répondu à votre commentaire',
+            });
+          } catch (nErr) {
+            console.error('[comments] reply notification error:', nErr);
+          }
+        }
+      } else if (postAuthorId) {
         try {
           await createNotification({
             recipientId: postAuthorId,
@@ -348,6 +364,17 @@ export default function CommentsModal({
           .from('comment_likes')
           .insert({ comment_id: commentId, user_id: currentUserId });
         if (error && (error as { code?: string }).code !== '23505') throw error;
+        // Notify comment owner (no-op if self).
+        const target = comments.find((c) => c.id === commentId);
+        if (target && target.user_id !== currentUserId) {
+          await createNotification({
+            recipientId: target.user_id,
+            fromUserId: currentUserId,
+            type: 'comment_liked',
+            postId,
+            message: 'a aimé votre commentaire',
+          });
+        }
       }
     } catch (e) {
       const err = e as { message?: string; code?: string };

@@ -44,6 +44,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
   const [likeId, setLikeId] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
+  const [sharesCount, setSharesCount] = useState(post.shares_count || 0);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
@@ -86,6 +87,17 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           .select('*', { count: 'exact', head: true })
           .eq('post_id', post.id);
         if (typeof cc === 'number') setCommentsCount(cc);
+
+        // Shares count: prefer post_shares count, fallback to stored value.
+        try {
+          const { count: sc, error: scErr } = await supabase
+            .from('post_shares')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', post.id);
+          if (!scErr && typeof sc === 'number') setSharesCount(sc);
+        } catch {
+          /* ignore, table may not exist yet */
+        }
       } catch (e) {
         console.error(e);
       }
@@ -145,6 +157,36 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
     }
   };
 
+  const recordShare = async () => {
+    if (!currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from('post_shares')
+        .insert({ post_id: post.id, user_id: currentUserId });
+      if (error) {
+        const code = (error as { code?: string }).code;
+        // Table missing → silently skip counting, still notify via notifications table.
+        if (code === '42P01' || error.message?.toLowerCase().includes('does not exist')) {
+          console.warn('[post] post_shares table missing; run SOCIAL_NOTIFICATIONS_SETUP.md');
+        } else {
+          console.error('[post] share insert error:', error);
+        }
+      } else {
+        setSharesCount((c) => c + 1);
+      }
+    } catch (e) {
+      console.error('[post] share insert unexpected error:', e);
+    }
+    // Notify post author (no-op if self).
+    await createNotification({
+      recipientId: post.user_id,
+      fromUserId: currentUserId,
+      type: 'post_shared',
+      postId: post.id,
+      message: 'a partagé votre publication',
+    });
+  };
+
   const handleShare = async () => {
     const url = `${window.location.origin}/post/${post.id}`;
     const shareData = {
@@ -152,25 +194,31 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
       text: post.content.slice(0, 120),
       url,
     };
+    let shared = false;
     try {
       if (navigator.share && typeof navigator.canShare !== 'function') {
         await navigator.share(shareData);
-        return;
-      }
-      if (navigator.share && navigator.canShare?.(shareData)) {
+        shared = true;
+      } else if (navigator.share && navigator.canShare?.(shareData)) {
         await navigator.share(shareData);
-        return;
+        shared = true;
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Lien copié dans le presse-papier');
+        shared = true;
       }
-      await navigator.clipboard.writeText(url);
-      toast.success('Lien copié dans le presse-papier');
-    } catch (e) {
+    } catch {
       // User cancelled or share failed
       try {
         await navigator.clipboard.writeText(url);
         toast.success('Lien copié');
+        shared = true;
       } catch {
         toast.error('Partage impossible');
       }
+    }
+    if (shared) {
+      await recordShare();
     }
   };
 
@@ -276,6 +324,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
             aria-label="Partager"
           >
             <Share2 size={18} />
+            <span className="text-xs font-medium">{sharesCount}</span>
           </button>
         </footer>
       </article>
