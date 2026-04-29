@@ -1,0 +1,65 @@
+Nouvelle étape messagerie, Phase 2 uniquement.
+
+Objectif :
+Ajouter les interactions avancées sur les messages, sans toucher aux groupes.
+
+À faire :
+
+1. Appui long sur un message
+Afficher un menu d’actions selon le type de message et selon l’utilisateur.
+
+Pour l’envoyeur :
+- Répondre
+- Transférer
+- Copier, seulement si message texte
+- Ajouter aux messages importants
+- Supprimer pour moi
+- Supprimer pour tout le monde, avec confirmation
+
+Pour le receveur :
+- Répondre
+- Transférer
+- Copier, seulement si message texte
+- Ajouter aux messages importants
+- Supprimer pour moi uniquement
+
+2. Réactions emoji
+- Appui long sur message → afficher emojis rapides :
+  ❤️ 😂 😮 😢 👍 👎
+- Permettre d’ajouter ou retirer une réaction
+- Afficher les réactions sous le message avec compteur
+- Fonctionner pour texte, note vocale, photo et vidéo
+
+3. Réponse à un message
+- Quand on clique “Répondre”, afficher un petit encadré au-dessus du champ de saisie :
+  “Réponse à [nom] : extrait du message”
+- Le message envoyé doit garder la référence au message original
+- Dans la conversation, afficher le message cité au-dessus de la bulle
+
+4. Messages importants
+- Permettre de marquer un message comme important
+- Afficher une petite étoile sur le message
+- Préparer la structure pour une page “Messages importants” plus tard
+
+5. Suppression
+- Supprimer pour moi : masquer le message seulement pour l’utilisateur actuel
+- Supprimer pour tout le monde : remplacer le contenu par “Ce message a été supprimé”
+- Toujours demander confirmation avant suppression
+
+Base de données :
+Si nécessaire, créer MESSAGING_PHASE2_SETUP.md avec le SQL complet pour :
+- message_reactions
+- starred_messages
+- message_deletions
+- reply_to_message_id dans messages
+- deleted_for_everyone_at dans messages
+- policies RLS
+
+Contraintes :
+- Ne pas ajouter les groupes maintenant
+- Ne pas modifier les appels
+- Ne pas modifier les posts
+- Ne pas modifier les commentaires
+- Ne pas modifier les ratings
+- Ne pas casser les messages texte, vocaux, photos ou vidéos
+- Build + lint à la fin

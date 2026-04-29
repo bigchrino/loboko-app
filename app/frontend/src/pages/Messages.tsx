@@ -33,7 +33,20 @@ import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import ConversationMenu, { ConversationMenuAction } from '@/components/ConversationMenu';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
+import ForwardDialog from '@/components/ForwardDialog';
+import { Star as StarIcon, X as XIcon, Reply as ReplyIcon } from 'lucide-react';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
+import {
+  deleteForEveryone,
+  deleteForMe,
+  loadDeletedForMeIds,
+  loadReactionsForMessages,
+  loadStarredIds,
+  Reaction,
+  toggleReaction,
+  toggleStar,
+} from '@/lib/message-actions';
 import { useMessages } from '@/contexts/MessagesContext';
 import { useCall } from '@/contexts/CallContext';
 import { usePresence } from '@/contexts/PresenceContext';
@@ -59,6 +72,8 @@ interface Message {
   read_at?: string | null;
   status?: 'sent' | 'delivered' | 'read' | null;
   created_at?: string;
+  reply_to_message_id?: string | null;
+  deleted_for_everyone_at?: string | null;
 }
 
 interface Conversation {
@@ -194,6 +209,23 @@ export default function Messages() {
   } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 
+  // Phase 2 state
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [starred, setStarred] = useState<Set<string>>(new Set());
+  const [deletedForMe, setDeletedForMe] = useState<Set<string>>(new Set());
+  const [actionsMenu, setActionsMenu] = useState<{
+    message: Message;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [pendingMessageDelete, setPendingMessageDelete] = useState<{
+    message: Message;
+    mode: 'me' | 'everyone';
+  } | null>(null);
+  const [messageDeleteBusy, setMessageDeleteBusy] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,6 +260,16 @@ export default function Messages() {
     setBlocked(b);
   }, [myId]);
 
+  const loadPhase2 = useCallback(async () => {
+    if (!myId) return;
+    const [star, del] = await Promise.all([
+      loadStarredIds(myId),
+      loadDeletedForMeIds(myId),
+    ]);
+    setStarred(star);
+    setDeletedForMe(del);
+  }, [myId]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -243,9 +285,10 @@ export default function Messages() {
         console.error(e);
       }
       await loadStates();
+      await loadPhase2();
       setLoading(false);
     })();
-  }, [loadMessages, loadStates]);
+  }, [loadMessages, loadStates, loadPhase2]);
 
   useEffect(() => {
     loadMessages();
@@ -255,6 +298,22 @@ export default function Messages() {
     const t = setInterval(loadMessages, 30_000);
     return () => clearInterval(t);
   }, [loadMessages]);
+
+  // Refresh reactions whenever the set of visible messages change.
+  useEffect(() => {
+    if (!allMessages.length) {
+      setReactions([]);
+      return;
+    }
+    const ids = allMessages.map((m) => m.id);
+    let cancelled = false;
+    loadReactionsForMessages(ids).then((r) => {
+      if (!cancelled) setReactions(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [allMessages]);
 
   // Keep active user in sync with URL
   useEffect(() => {
@@ -375,10 +434,11 @@ export default function Messages() {
         if (clearedAt && m.created_at) {
           if (new Date(m.created_at).getTime() <= clearedAt) return false;
         }
+        if (deletedForMe.has(m.id)) return false;
         return true;
       })
       .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  }, [allMessages, activeUserId, myId, states]);
+  }, [allMessages, activeUserId, myId, states, deletedForMe]);
 
   // Matches inside active conversation
   const convMatches = useMemo(() => {
@@ -459,6 +519,7 @@ export default function Messages() {
     receiver_id: string;
     content: string;
     read?: boolean;
+    reply_to_message_id?: string | null;
   }) => {
     if (!myId) return;
     const row: Record<string, unknown> = {
@@ -468,14 +529,19 @@ export default function Messages() {
       read: payload.read ?? false,
     };
     row.status = 'sent';
+    if (payload.reply_to_message_id) {
+      row.reply_to_message_id = payload.reply_to_message_id;
+    }
     const res = await supabase.from('messages').insert(row);
     if (res.error) {
-      const { error } = await supabase.from('messages').insert({
+      // Retry without status / reply_to_message_id if columns missing
+      const fallback: Record<string, unknown> = {
         user_id: myId,
         receiver_id: payload.receiver_id,
         content: payload.content,
         read: payload.read ?? false,
-      });
+      };
+      const { error } = await supabase.from('messages').insert(fallback);
       if (error) throw error;
     }
   };
@@ -506,13 +572,19 @@ export default function Messages() {
       return;
     }
     const text = draft.trim();
+    const replyId = replyTo?.id ?? null;
     setDraft('');
     setShowEmoji(false);
+    setReplyTo(null);
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     if (stopTypingTimerRef.current) clearTimeout(stopTypingTimerRef.current);
     emitStopTyping().catch(() => {});
     try {
-      await insertMessage({ receiver_id: activeUserId, content: text });
+      await insertMessage({
+        receiver_id: activeUserId,
+        content: text,
+        reply_to_message_id: replyId,
+      });
       await loadMessages();
     } catch (e) {
       console.error(e);
@@ -663,6 +735,171 @@ export default function Messages() {
       setActionBusy(false);
       setPendingAction(null);
     }
+  };
+
+  // ---- Phase 2 message actions -------------------------------------------
+
+  const reactionsByMessage = useMemo(() => {
+    const map: Record<string, Reaction[]> = {};
+    reactions.forEach((r) => {
+      if (!map[r.message_id]) map[r.message_id] = [];
+      map[r.message_id].push(r);
+    });
+    return map;
+  }, [reactions]);
+
+  const messageById = useMemo(() => {
+    const map: Record<string, Message> = {};
+    allMessages.forEach((m) => (map[m.id] = m));
+    return map;
+  }, [allMessages]);
+
+  const openMessageMenu = (m: Message, clientX: number, clientY: number) => {
+    if (m.deleted_for_everyone_at) return;
+    setActionsMenu({ message: m, x: clientX, y: clientY });
+  };
+
+  const handleReactionPick = async (emoji: string) => {
+    if (!actionsMenu || !myId) return;
+    const msgId = actionsMenu.message.id;
+    setActionsMenu(null);
+    try {
+      await toggleReaction(msgId, myId, emoji);
+      const updated = await loadReactionsForMessages(allMessages.map((m) => m.id));
+      setReactions(updated);
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Réaction impossible');
+    }
+  };
+
+  const handleQuickReactionToggle = async (messageId: string, emoji: string) => {
+    if (!myId) return;
+    try {
+      await toggleReaction(messageId, myId, emoji);
+      const updated = await loadReactionsForMessages(allMessages.map((m) => m.id));
+      setReactions(updated);
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Réaction impossible');
+    }
+  };
+
+  const handleMessageAction = async (a: MessageAction) => {
+    if (!actionsMenu || !myId) return;
+    const m = actionsMenu.message;
+    setActionsMenu(null);
+    const payload = decodePayload(m.content);
+
+    if (a === 'reply') {
+      setReplyTo(m);
+      inputRef.current?.focus();
+      return;
+    }
+    if (a === 'forward') {
+      setForwardMessage(m);
+      return;
+    }
+    if (a === 'copy') {
+      if (payload.kind === 'text') {
+        try {
+          await navigator.clipboard.writeText(payload.text);
+          toast.success('Message copié');
+        } catch {
+          toast.error('Copie impossible');
+        }
+      }
+      return;
+    }
+    if (a === 'star' || a === 'unstar') {
+      const wasStarred = starred.has(m.id);
+      try {
+        await toggleStar(myId, m.id, wasStarred);
+        setStarred((prev) => {
+          const next = new Set(prev);
+          if (wasStarred) next.delete(m.id);
+          else next.add(m.id);
+          return next;
+        });
+        toast.success(wasStarred ? 'Retiré des importants' : 'Ajouté aux messages importants');
+      } catch (e) {
+        const err = e as { message?: string };
+        toast.error(err?.message || 'Action impossible');
+      }
+      return;
+    }
+    if (a === 'delete_for_me') {
+      setPendingMessageDelete({ message: m, mode: 'me' });
+      return;
+    }
+    if (a === 'delete_for_everyone') {
+      setPendingMessageDelete({ message: m, mode: 'everyone' });
+      return;
+    }
+  };
+
+  const runMessageDelete = async () => {
+    if (!pendingMessageDelete || !myId) return;
+    const { message, mode } = pendingMessageDelete;
+    setMessageDeleteBusy(true);
+    try {
+      if (mode === 'me') {
+        await deleteForMe(myId, message.id);
+        setDeletedForMe((prev) => {
+          const next = new Set(prev);
+          next.add(message.id);
+          return next;
+        });
+        toast.success('Message supprimé pour vous');
+      } else {
+        await deleteForEveryone(message.id);
+        toast.success('Message supprimé pour tout le monde');
+        await loadMessages();
+      }
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Suppression impossible');
+    } finally {
+      setMessageDeleteBusy(false);
+      setPendingMessageDelete(null);
+    }
+  };
+
+  const handleForward = async (userIds: string[]) => {
+    if (!forwardMessage || !myId) return;
+    const m = forwardMessage;
+    const payload = decodePayload(m.content);
+    const content = m.content;
+    // Keep payload as-is; text/audio/image/video all forward natively.
+    if (payload.kind === 'call_event' || payload.kind === 'signal') {
+      toast.error("Ce type de message ne peut pas être transféré");
+      return;
+    }
+    try {
+      for (const uid of userIds) {
+        await insertMessage({ receiver_id: uid, content });
+      }
+      toast.success(`Transféré à ${userIds.length} contact${userIds.length > 1 ? 's' : ''}`);
+      await loadMessages();
+    } catch (e) {
+      console.error(e);
+      toast.error('Transfert impossible');
+    }
+  };
+
+  const buildReplyPreview = (m: Message): string => {
+    const p = decodePayload(m.content);
+    if (p.kind === 'text') return p.text.slice(0, 80);
+    if (p.kind === 'audio') return '🎤 Note vocale';
+    if (p.kind === 'image') return '📷 Photo';
+    if (p.kind === 'video') return '🎬 Vidéo';
+    return '';
+  };
+
+  const nameOf = (userId: string) => {
+    if (userId === myId) return 'Vous';
+    const p = profilesMap[userId];
+    return p?.display_name || p?.username || 'Utilisateur';
   };
 
   const confirmTextFor = (a: ConversationMenuAction | undefined, peerName: string) => {
@@ -1094,6 +1331,40 @@ export default function Messages() {
                 const isMedia = payload.kind === 'image' || payload.kind === 'video';
                 const isCurrentMatch =
                   convSearchOpen && convMatches[convMatchIndex] === m.id;
+                const isDeletedForEveryone = !!m.deleted_for_everyone_at;
+                const isStarred = starred.has(m.id);
+                const msgReactions = reactionsByMessage[m.id] || [];
+                // Aggregate reactions by emoji
+                const reactionGroups: Record<
+                  string,
+                  { count: number; mine: boolean }
+                > = {};
+                msgReactions.forEach((r) => {
+                  if (!reactionGroups[r.emoji]) {
+                    reactionGroups[r.emoji] = { count: 0, mine: false };
+                  }
+                  reactionGroups[r.emoji].count += 1;
+                  if (r.user_id === myId) reactionGroups[r.emoji].mine = true;
+                });
+                const replySource = m.reply_to_message_id
+                  ? messageById[m.reply_to_message_id]
+                  : undefined;
+
+                // Long-press handlers
+                let pressTimer: ReturnType<typeof setTimeout> | null = null;
+                const startPress = (x: number, y: number) => {
+                  if (isDeletedForEveryone) return;
+                  if (pressTimer) clearTimeout(pressTimer);
+                  pressTimer = setTimeout(() => {
+                    openMessageMenu(m, x, y);
+                  }, 450);
+                };
+                const cancelPress = () => {
+                  if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                  }
+                };
 
                 return (
                   <div
@@ -1102,15 +1373,58 @@ export default function Messages() {
                     className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
                   >
                     <div
+                      onMouseDown={(e) => startPress(e.clientX, e.clientY)}
+                      onMouseUp={cancelPress}
+                      onMouseLeave={cancelPress}
+                      onTouchStart={(e) => {
+                        const t = e.touches[0];
+                        if (t) startPress(t.clientX, t.clientY);
+                      }}
+                      onTouchEnd={cancelPress}
+                      onTouchCancel={cancelPress}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        cancelPress();
+                        openMessageMenu(m, e.clientX, e.clientY);
+                      }}
                       className={`${
-                        isMedia ? 'p-1' : 'px-4 py-2'
-                      } max-w-[75%] rounded-2xl text-sm ${
+                        isMedia && !isDeletedForEveryone ? 'p-1' : 'px-4 py-2'
+                      } max-w-[75%] rounded-2xl text-sm select-none ${
                         mine
                           ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
                           : 'bg-[var(--loboko-elevated)] text-[var(--loboko-text)] rounded-bl-md'
-                      } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : ''}`}
+                      } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : ''} ${
+                        isDeletedForEveryone ? 'italic opacity-70' : ''
+                      }`}
                     >
-                      {payload.kind === 'audio' ? (
+                      {!isDeletedForEveryone && replySource && (
+                        <div
+                          className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] border-l-2 ${
+                            mine
+                              ? 'bg-white/10 border-white/60'
+                              : 'bg-black/20 border-[#2563eb]'
+                          }`}
+                        >
+                          <div className="font-semibold truncate">
+                            {nameOf(replySource.user_id)}
+                          </div>
+                          <div
+                            className={`truncate ${
+                              mine ? 'text-white/80' : 'text-[var(--loboko-text-muted)]'
+                            }`}
+                          >
+                            {replySource.deleted_for_everyone_at
+                              ? 'Message supprimé'
+                              : buildReplyPreview(replySource)}
+                          </div>
+                        </div>
+                      )}
+
+                      {isDeletedForEveryone ? (
+                        <span className="whitespace-pre-wrap break-words flex items-center gap-1">
+                          <XIcon size={12} /> Ce message a été supprimé
+                        </span>
+                      ) : payload.kind === 'audio' ? (
                         <VoiceMessage
                           objectKey={payload.object_key}
                           duration={payload.duration}
@@ -1134,13 +1448,48 @@ export default function Messages() {
                         </span>
                       )}
                     </div>
+
+                    {/* Reactions row */}
+                    {!isDeletedForEveryone && Object.keys(reactionGroups).length > 0 && (
+                      <div
+                        className={`flex flex-wrap gap-1 mt-1 ${
+                          mine ? 'justify-end' : 'justify-start'
+                        } max-w-[75%]`}
+                      >
+                        {Object.entries(reactionGroups).map(([emoji, info]) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleQuickReactionToggle(m.id, emoji)}
+                            className={`text-[11px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                              info.mine
+                                ? 'bg-[rgba(37,99,235,0.25)] border-[#2563eb]'
+                                : 'bg-[var(--loboko-elevated)] border-[var(--loboko-border)]'
+                            }`}
+                          >
+                            <span>{emoji}</span>
+                            <span className="text-[var(--loboko-text-muted)]">
+                              {info.count}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     <div
                       className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-[var(--loboko-text-muted)] ${
                         mine ? 'flex-row-reverse' : ''
                       }`}
                     >
                       <span>{formatMessageTime(m.created_at)}</span>
-                      {mine && (
+                      {isStarred && !isDeletedForEveryone && (
+                        <StarIcon
+                          size={10}
+                          className="text-yellow-400 fill-yellow-400"
+                          aria-label="Message important"
+                        />
+                      )}
+                      {mine && !isDeletedForEveryone && (
                         <span className="inline-flex items-center">
                           <MessageStatus m={m} peerOnline={activeOnline} />
                         </span>
@@ -1174,6 +1523,27 @@ export default function Messages() {
             </div>
           )}
 
+          {replyTo && !activeBlocked && (
+            <div className="px-3 pt-2 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] flex items-start gap-2">
+              <ReplyIcon size={14} className="text-[#2563eb] mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-semibold text-[#2563eb]">
+                  Réponse à {nameOf(replyTo.user_id)}
+                </div>
+                <div className="text-xs text-[var(--loboko-text-muted)] truncate">
+                  {buildReplyPreview(replyTo) || 'Message'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                className="p-1 rounded-full hover:bg-[var(--loboko-surface-hover)] shrink-0"
+                aria-label="Annuler la réponse"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+          )}
           {activeBlocked ? (
             <div className="p-3 border-t border-[var(--loboko-border)] text-center text-xs text-red-400 bg-[var(--loboko-elevated)]">
               Vous avez bloqué ce contact. Vous ne pouvez plus lui écrire.
@@ -1264,6 +1634,47 @@ export default function Messages() {
         loading={actionBusy}
         onConfirm={runPendingAction}
         onCancel={() => (actionBusy ? undefined : setPendingAction(null))}
+      />
+
+      {actionsMenu && (
+        <MessageActionsMenu
+          anchor={{ x: actionsMenu.x, y: actionsMenu.y }}
+          mine={actionsMenu.message.user_id === myId}
+          isText={decodePayload(actionsMenu.message.content).kind === 'text'}
+          starred={starred.has(actionsMenu.message.id)}
+          onAction={handleMessageAction}
+          onClose={() => setActionsMenu(null)}
+          onPickEmoji={handleReactionPick}
+        />
+      )}
+
+      <ForwardDialog
+        open={!!forwardMessage}
+        preview={forwardMessage ? buildReplyPreview(forwardMessage) : ''}
+        currentUserId={myId}
+        onClose={() => setForwardMessage(null)}
+        onForward={handleForward}
+      />
+
+      <ConfirmDialog
+        open={!!pendingMessageDelete}
+        title={
+          pendingMessageDelete?.mode === 'everyone'
+            ? 'Supprimer pour tout le monde ?'
+            : 'Supprimer pour moi ?'
+        }
+        description={
+          pendingMessageDelete?.mode === 'everyone'
+            ? "Le message sera remplacé par \u00AB Ce message a été supprimé \u00BB pour vous et votre contact. Action irréversible."
+            : "Le message sera masqué de votre côté uniquement. Votre contact pourra toujours le voir."
+        }
+        confirmLabel="Supprimer"
+        destructive
+        loading={messageDeleteBusy}
+        onConfirm={runMessageDelete}
+        onCancel={() =>
+          messageDeleteBusy ? undefined : setPendingMessageDelete(null)
+        }
       />
     </Layout>
   );
