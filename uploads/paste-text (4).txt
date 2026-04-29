@@ -1,0 +1,87 @@
+Nouvelle étape : Groupes (Phase 3 complète mais structurée).
+
+Objectif :
+Ajouter les groupes de discussion sans casser la messagerie existante.
+
+⚠️ IMPORTANT :
+Implémenter dans cet ordre interne, sans tout mélanger.
+
+-----------------------
+
+ÉTAPE 1 — Création groupe
+- Créer un groupe avec :
+  - nom
+  - photo
+  - membres (seulement des utilisateurs déjà en conversation)
+- Le créateur devient admin principal
+- Créer tables nécessaires si besoin (groups, group_members)
+
+-----------------------
+
+ÉTAPE 2 — Affichage groupes
+- Dans la liste Messages :
+  - afficher groupes avec photo + nom
+  - afficher dernier message
+- Exemple :
+  “Chris : a envoyé une photo”
+
+-----------------------
+
+ÉTAPE 3 — Messages groupe
+- Permettre envoi :
+  - texte
+  - audio
+  - photo
+  - vidéo
+- Dans la conversation :
+  - afficher pseudo au-dessus du message
+- Réutiliser logique messages existants
+
+-----------------------
+
+ÉTAPE 4 — Rôles
+- Créateur :
+  - ne peut pas être supprimé
+  - peut supprimer le groupe
+- Admin :
+  - ajouter membres
+  - supprimer membres
+- Membre :
+  - envoyer messages
+  - quitter groupe
+
+-----------------------
+
+ÉTAPE 5 — Actions messages groupe
+- Même actions que messages individuels
+- + Admin peut supprimer message pour tout le monde même s’il n’est pas l’auteur
+
+-----------------------
+
+ÉTAPE 6 — Infos groupe
+Créer page avec :
+- photo groupe
+- nom
+- nombre membres
+- boutons :
+  - appel audio
+  - appel vidéo
+  - ajouter membres (admin)
+  - lien invitation (admin)
+- sections :
+  - médias
+  - messages importants
+  - recherche membre
+  - quitter groupe
+  - signaler groupe
+  - supprimer groupe (créateur seulement)
+
+-----------------------
+
+Contraintes :
+- Ne pas casser messages individuels
+- Ne pas toucher aux appels existants
+- Ne pas toucher aux posts/commentaires
+- Ne pas casser médias
+- Créer GROUPS_SETUP.md si SQL nécessaire
+- Build + lint à la fin

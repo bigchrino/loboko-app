@@ -35,7 +35,9 @@ import ConversationMenu, { ConversationMenuAction } from '@/components/Conversat
 import ConfirmDialog from '@/components/ConfirmDialog';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ForwardDialog from '@/components/ForwardDialog';
-import { Star as StarIcon, X as XIcon, Reply as ReplyIcon } from 'lucide-react';
+import CreateGroupDialog from '@/components/CreateGroupDialog';
+import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus } from 'lucide-react';
+import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import {
   deleteForEveryone,
@@ -167,6 +169,37 @@ function previewOf(m?: Message): string {
   return '';
 }
 
+function groupPreviewOf(m: GroupMessage | undefined, senderName: string): string {
+  if (!m) return '';
+  if (m.deleted_for_everyone_at) return `${senderName} : message supprimé`;
+  const p = decodePayload(m.content);
+  let text = '';
+  if (p.kind === 'text') text = p.text;
+  else if (p.kind === 'audio') text = 'a envoyé une note vocale';
+  else if (p.kind === 'image') text = 'a envoyé une photo';
+  else if (p.kind === 'video') text = 'a envoyé une vidéo';
+  else return '';
+  // For text messages, include as "Name : text"
+  if (p.kind === 'text') return `${senderName} : ${text}`;
+  return `${senderName} ${text}`;
+}
+
+function GroupAvatar({ group }: { group: Group }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (group.avatar_key) getMediaUrl(group.avatar_key).then(setUrl);
+  }, [group.avatar_key]);
+  return (
+    <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm shrink-0">
+      {url ? (
+        <img src={url} alt={group.name} className="w-full h-full object-cover" />
+      ) : (
+        group.name.slice(0, 2).toUpperCase()
+      )}
+    </div>
+  );
+}
+
 export default function Messages() {
   const { user } = useAuth();
   const { changeTick, refresh: refreshMessagesBadge } = useMessages();
@@ -226,6 +259,12 @@ export default function Messages() {
   } | null>(null);
   const [messageDeleteBusy, setMessageDeleteBusy] = useState(false);
 
+  // Phase 3 groups state
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>({});
+  const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>({});
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -270,6 +309,29 @@ export default function Messages() {
     setDeletedForMe(del);
   }, [myId]);
 
+  const loadGroups = useCallback(async () => {
+    if (!myId) return;
+    try {
+      const { groups: gs, membersByGroup } = await loadMyGroups(myId);
+      setGroups(gs);
+      setGroupMembers(membersByGroup);
+      // Fetch last message per group for list preview (in parallel, best-effort).
+      const entries = await Promise.all(
+        gs.map(async (g) => {
+          const msgs = await loadGroupMessages(g.id, 1);
+          return [g.id, msgs[0]] as const;
+        }),
+      );
+      const lm: Record<string, GroupMessage | undefined> = {};
+      entries.forEach(([id, m]) => {
+        lm[id] = m;
+      });
+      setGroupLastMessages(lm);
+    } catch (e) {
+      console.error('[messages] loadGroups', e);
+    }
+  }, [myId]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -286,9 +348,16 @@ export default function Messages() {
       }
       await loadStates();
       await loadPhase2();
+      await loadGroups();
       setLoading(false);
     })();
-  }, [loadMessages, loadStates, loadPhase2]);
+  }, [loadMessages, loadStates, loadPhase2, loadGroups]);
+
+  // Periodically refresh groups preview
+  useEffect(() => {
+    const t = setInterval(loadGroups, 45_000);
+    return () => clearInterval(t);
+  }, [loadGroups]);
 
   useEffect(() => {
     loadMessages();
@@ -1013,7 +1082,7 @@ export default function Messages() {
 
       {!activeUserId ? (
         <>
-          {/* Search bar */}
+          {/* Search bar + new group */}
           <div className="mb-3 flex items-center gap-2">
             <div className="relative flex-1">
               <Search
@@ -1037,6 +1106,17 @@ export default function Messages() {
                 </button>
               )}
             </div>
+            {viewMode === 'main' && (
+              <button
+                type="button"
+                onClick={() => setShowCreateGroup(true)}
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                aria-label="Nouveau groupe"
+                title="Nouveau groupe"
+              >
+                <Plus size={18} />
+              </button>
+            )}
           </div>
 
           {/* Archived entry */}
@@ -1072,6 +1152,68 @@ export default function Messages() {
               </button>
               <div className="font-semibold text-sm">Archivées</div>
               <div className="w-12" />
+            </div>
+          )}
+
+          {/* Groups section (only in main view) */}
+          {viewMode === 'main' && groups.length > 0 && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 px-1 mb-2">
+                <Users size={14} className="text-[#2563eb]" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--loboko-text-muted)]">
+                  Groupes
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groups
+                  .filter((g) => {
+                    const q = listQuery.trim().toLowerCase();
+                    if (!q) return true;
+                    return g.name.toLowerCase().includes(q);
+                  })
+                  .map((g) => {
+                    const last = groupLastMessages[g.id];
+                    const senderId = last?.user_id;
+                    const senderName = senderId
+                      ? senderId === myId
+                        ? 'Vous'
+                        : profilesMap[senderId]?.display_name ||
+                          profilesMap[senderId]?.username ||
+                          'Membre'
+                      : '';
+                    const preview = groupPreviewOf(last, senderName);
+                    const memberCount = groupMembers[g.id]?.length || 0;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/messages/group/${g.id}`)}
+                        className="w-full flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
+                      >
+                        <GroupAvatar group={g} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold text-sm truncate flex items-center gap-1">
+                              {g.name}
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
+                                GROUPE
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[var(--loboko-text-muted)] shrink-0">
+                              {last?.created_at
+                                ? formatMessageTime(last.created_at)
+                                : ''}
+                            </div>
+                          </div>
+                          <div className="text-xs text-[var(--loboko-text-muted)] truncate">
+                            {preview ||
+                              `${memberCount} membre${memberCount > 1 ? 's' : ''}`}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
           )}
 
@@ -1675,6 +1817,16 @@ export default function Messages() {
         onCancel={() =>
           messageDeleteBusy ? undefined : setPendingMessageDelete(null)
         }
+      />
+
+      <CreateGroupDialog
+        open={showCreateGroup}
+        currentUserId={myId}
+        onClose={() => setShowCreateGroup(false)}
+        onCreated={(groupId) => {
+          loadGroups();
+          navigate(`/messages/group/${groupId}`);
+        }}
       />
     </Layout>
   );
