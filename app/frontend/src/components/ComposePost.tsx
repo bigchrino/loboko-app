@@ -1,62 +1,89 @@
-import { useRef, useState } from 'react';
-import { Image as ImageIcon, Send, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { uploadMedia } from '@/lib/storage-helpers';
+import { uploadMediaEx } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import MediaPicker, { MediaSelection } from './MediaPicker';
+import MediaPreview from './MediaPreview';
 
 interface Props {
   onPosted: () => void;
 }
 
+const MAX_POST_VIDEO_SECONDS = 90;
+
 export default function ComposePost({ onPosted }: Props) {
   const { user } = useAuth();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [media, setMedia] = useState<MediaSelection | null>(null);
 
-  const handleFile = (f: File) => {
-    setFile(f);
-    const reader = new FileReader();
-    reader.onload = (ev) => setPreview(ev.target?.result as string);
-    reader.readAsDataURL(f);
+  const resetMedia = () => {
+    setMedia((current) => {
+      if (current) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
   };
 
-  const resetImage = () => {
-    setFile(null);
-    setPreview(null);
-    if (fileRef.current) fileRef.current.value = '';
-  };
+  useEffect(() => {
+    return () => {
+      if (media) URL.revokeObjectURL(media.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submit = async () => {
     if (!user) {
       toast.error('Vous devez être connecté');
       return;
     }
-    if (!content.trim() && !file) {
-      toast.error('Ajoutez du texte ou une image');
+    if (!content.trim() && !media) {
+      toast.error('Ajoutez du texte, une photo ou une vidéo');
       return;
     }
     setLoading(true);
     try {
-      let image_key: string | undefined;
-      if (file) {
-        const key = await uploadMedia(file, 'posts');
-        if (key) image_key = key;
+      let image_key: string | null = null;
+      let video_key: string | null = null;
+      if (media) {
+        const { key, error } = await uploadMediaEx(media.file, 'posts');
+        if (error || !key) {
+          toast.error(error || "Échec de l'upload");
+          setLoading(false);
+          return;
+        }
+        if (media.kind === 'image') image_key = key;
+        else video_key = key;
       }
-      const { error } = await supabase.from('posts').insert({
+
+      // Try insert with both image_key + video_key; fall back to image_key only
+      // if the DB schema does not have video_key yet.
+      const basePayload: Record<string, unknown> = {
         user_id: user.id,
         content: content.trim(),
-        image_key: image_key || null,
+        image_key,
         likes_count: 0,
         comments_count: 0,
         shares_count: 0,
-      });
-      if (error) throw error;
+      };
+      const fullPayload = { ...basePayload, video_key };
+
+      let res = await supabase.from('posts').insert(fullPayload);
+      if (res.error && /video_key/i.test(res.error.message)) {
+        if (video_key) {
+          toast.error(
+            "La colonne 'video_key' n'existe pas encore. Exécutez MEDIA_SETUP.md avant de publier une vidéo.",
+          );
+          setLoading(false);
+          return;
+        }
+        res = await supabase.from('posts').insert(basePayload);
+      }
+      if (res.error) throw res.error;
+
       setContent('');
-      resetImage();
+      resetMedia();
       toast.success('Publication partagée !');
       onPosted();
     } catch (e) {
@@ -76,44 +103,33 @@ export default function ComposePost({ onPosted }: Props) {
         rows={3}
         className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
       />
-      {preview && (
-        <div className="relative mt-2 rounded-xl overflow-hidden border border-[var(--loboko-border)]">
-          <img src={preview} alt="preview" className="w-full max-h-80 object-cover" />
-          <button
-            onClick={resetImage}
-            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center"
-          >
-            <X size={16} />
-          </button>
+      {media && (
+        <div className="mt-2">
+          <MediaPreview media={media} onRemove={resetMedia} />
         </div>
       )}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--loboko-border)]">
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-2 px-3 py-2 rounded-full text-[#2563eb] hover:bg-[rgba(37,99,235,0.15)] transition text-sm font-medium"
-        >
-          <ImageIcon size={18} />
-          Image
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFile(f);
+      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[var(--loboko-border)]">
+        <MediaPicker
+          maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
+          onSelect={(m) => {
+            // replace any existing media
+            if (media) URL.revokeObjectURL(media.previewUrl);
+            setMedia(m);
           }}
+          disabled={loading}
         />
         <button
           onClick={submit}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition"
+          className="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition shrink-0"
         >
           <Send size={16} />
           {loading ? 'Envoi...' : 'Publier'}
         </button>
       </div>
+      <p className="text-[10px] text-[var(--loboko-text-muted)] mt-2">
+        Vidéo : 90 secondes max · Formats : jpg, png, webp, mp4, webm, mov
+      </p>
     </div>
   );
 }

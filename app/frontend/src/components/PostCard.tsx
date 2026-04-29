@@ -13,6 +13,7 @@ export interface PostItem {
   user_id: string;
   content: string;
   image_key?: string;
+  video_key?: string;
   likes_count?: number;
   comments_count?: number;
   shares_count?: number;
@@ -37,6 +38,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
   const [author, setAuthor] = useState<Author | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
   const [likeId, setLikeId] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -65,6 +67,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
       if (post.image_key) {
         const url = await getMediaUrl(post.image_key);
         setImageUrl(url);
+      }
+      if (post.video_key) {
+        const url = await getMediaUrl(post.video_key);
+        setVideoUrl(url);
       }
       // Real counts from DB
       try {
@@ -99,7 +105,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         }
       }
     })();
-  }, [post.id, post.user_id, post.image_key, currentUserId]);
+  }, [post.id, post.user_id, post.image_key, post.video_key, currentUserId]);
 
   const toggleLike = async () => {
     if (!currentUserId) {
@@ -207,6 +213,18 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         {imageUrl && (
           <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)]">
             <img src={imageUrl} alt="" className="w-full h-auto object-cover max-h-[480px]" />
+          </div>
+        )}
+
+        {videoUrl && (
+          <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)] bg-black">
+            <video
+              src={videoUrl}
+              className="w-full max-h-[480px] block"
+              controls
+              playsInline
+              preload="metadata"
+            />
           </div>
         )}
 

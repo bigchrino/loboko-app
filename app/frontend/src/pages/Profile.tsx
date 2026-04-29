@@ -3,7 +3,7 @@ import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl, uploadMedia } from '@/lib/storage-helpers';
-import { Camera, Edit2, Save, X, Star } from 'lucide-react';
+import { Camera, Edit2, Save, X, Star, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard, { PostItem } from '@/components/PostCard';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
@@ -18,7 +18,9 @@ export default function Profile() {
   const [metier, setMetier] = useState('');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const userId = user?.id || '';
 
@@ -60,6 +62,10 @@ export default function Profile() {
 
   const handleAvatar = async (file: File) => {
     if (!profile) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Seules les images sont acceptées pour la photo de profil.');
+      return;
+    }
     toast.loading('Upload en cours...', { id: 'avatar' });
     const key = await uploadMedia(file, 'avatars');
     if (!key) {
@@ -115,15 +121,53 @@ export default function Profile() {
               )}
             </div>
             <button
-              onClick={() => fileRef.current?.click()}
+              onClick={() => setAvatarMenuOpen((v) => !v)}
               className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#2563eb] text-white flex items-center justify-center border-2 border-[var(--loboko-surface)]"
+              aria-label="Modifier la photo"
             >
               <Camera size={14} />
             </button>
+            {avatarMenuOpen && (
+              <div className="absolute top-full left-0 mt-2 z-10 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-xl shadow-lg py-1 min-w-[180px]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarMenuOpen(false);
+                    if (fileRef.current) fileRef.current.value = '';
+                    fileRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--loboko-surface-hover)]"
+                >
+                  <ImageIcon size={14} /> Depuis la galerie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarMenuOpen(false);
+                    if (cameraRef.current) cameraRef.current.value = '';
+                    cameraRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[var(--loboko-surface-hover)]"
+                >
+                  <Camera size={14} /> Prendre une photo
+                </button>
+              </div>
+            )}
             <input
               ref={fileRef}
               type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleAvatar(f);
+              }}
+            />
+            <input
+              ref={cameraRef}
+              type="file"
               accept="image/*"
+              capture="user"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];

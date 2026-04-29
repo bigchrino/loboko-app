@@ -11,6 +11,19 @@ export type AudioPayload = {
   duration: number; // seconds
 };
 
+export type ImagePayload = {
+  kind: 'image';
+  object_key: string;
+  caption?: string;
+};
+
+export type VideoPayload = {
+  kind: 'video';
+  object_key: string;
+  duration?: number; // seconds
+  caption?: string;
+};
+
 export type CallEventPayload = {
   kind: 'call_event';
   mode: 'voice' | 'video';
@@ -35,6 +48,8 @@ export type SignalPayload = {
 export type MessagePayload =
   | TextPayload
   | AudioPayload
+  | ImagePayload
+  | VideoPayload
   | CallEventPayload
   | SignalPayload;
 

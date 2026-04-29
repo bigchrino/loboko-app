@@ -1,0 +1,66 @@
+Nouvelle étape : médias photos/vidéos dans LOBOKO.
+
+Objectif :
+Ajouter l’envoi et l’affichage des photos/vidéos sans casser les messages, profils ou publications existants.
+
+À faire :
+
+1. Messages
+
+* Permettre d’envoyer une photo depuis la galerie
+* Permettre de prendre une photo avec l’appareil photo
+* Permettre d’envoyer une vidéo depuis la galerie
+* Permettre de prendre une vidéo avec l’appareil photo
+* Afficher les médias dans la conversation
+* Utiliser Supabase Storage
+
+Limites :
+
+* vidéo message : 60 secondes max
+* si la vidéo dépasse 60 secondes, afficher un message demandant de couper la vidéo
+* formats acceptés : jpg, png, webp, mp4, webm, mov si compatible navigateur
+
+2. Photo de profil
+
+* Permettre d’ajouter une photo de profil depuis la galerie
+* Permettre de prendre une photo avec l’appareil photo
+* Si aucune photo, garder les initiales du pseudo
+* Stocker dans Supabase Storage bucket avatars
+* Mettre à jour profiles.avatar_url ou avatar_key selon le schéma actuel
+
+3. Publications
+
+* Corriger le bug : quand on publie texte + photo/vidéo, seul le texte apparaît.
+* Le post doit afficher :
+    * texte
+    * image si image
+    * vidéo si vidéo
+* Utiliser Supabase Storage bucket posts
+* vidéo publication : 90 secondes max
+
+4. Ajustement média avant envoi/publication
+    Version MVP :
+
+* Pour les photos : permettre un aperçu avant validation
+* Pour les vidéos : afficher un aperçu + durée
+* Si vidéo trop longue, bloquer l’envoi avec message clair
+* Ne pas encore faire de vrai recadrage/coupage vidéo avancé dans le navigateur
+* Prévoir une structure propre pour ajouter recadrage/coupage plus tard
+
+5. Buckets Supabase à vérifier
+
+* avatars
+* posts
+* message-media
+
+Si message-media n’existe pas, créer un fichier MEDIA_SETUP.md avec le SQL/policies et les instructions bucket.
+
+6. Contraintes importantes
+
+* Ne pas toucher aux appels
+* Ne pas casser messages texte
+* Ne pas casser messages vocaux
+* Ne pas casser notifications
+* Ne pas casser ratings
+* Ajouter des erreurs claires si upload échoue
+* Build + lint à la fin

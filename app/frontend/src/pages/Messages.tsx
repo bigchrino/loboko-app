@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
-import { getMediaUrl } from '@/lib/storage-helpers';
+import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
 import {
   Send,
   ArrowLeft,
@@ -16,10 +16,15 @@ import {
   PhoneOutgoing,
   Check,
   CheckCheck,
+  Paperclip,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import EmojiPicker from '@/components/EmojiPicker';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import VoiceMessage from '@/components/VoiceMessage';
+import MediaMessage from '@/components/MediaMessage';
+import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
+import MediaPreview from '@/components/MediaPreview';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import { useMessages } from '@/contexts/MessagesContext';
 import { useCall } from '@/contexts/CallContext';
@@ -43,6 +48,8 @@ interface Conversation {
   profile?: Profile;
   lastMessage?: Message;
 }
+
+const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
 function Avatar({ profile, online }: { profile?: Profile; online?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -100,10 +107,8 @@ function formatMessageTime(iso?: string): string {
 }
 
 function MessageStatus({ m, peerOnline }: { m: Message; peerOnline: boolean }) {
-  // read > delivered > sent
   const isRead = !!m.read_at || m.status === 'read' || m.read === true;
   const isDelivered = !!m.delivered_at || m.status === 'delivered' || peerOnline;
-
   if (isRead) {
     return <CheckCheck size={14} className="text-[#60a5fa]" aria-label="Lu" />;
   }
@@ -129,6 +134,9 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
+  const [sendingMedia, setSendingMedia] = useState(false);
   const [peerTyping, setPeerTyping] = useState<'typing' | 'recording' | null>(
     null,
   );
@@ -182,7 +190,6 @@ export default function Messages() {
     return () => clearInterval(t);
   }, [loadMessages]);
 
-  // Subscribe to typing/recording broadcasts from the active peer
   useEffect(() => {
     if (!myId || !activeUserId) {
       setPeerTyping(null);
@@ -196,7 +203,6 @@ export default function Messages() {
         return;
       }
       setPeerTyping(e.kind);
-      // auto-clear after 5s in case stop event is lost
       peerTypingTimerRef.current = setTimeout(() => {
         setPeerTyping(null);
       }, 5000);
@@ -241,7 +247,6 @@ export default function Messages() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages, peerTyping]);
 
-  // Mark incoming messages as delivered (on receive) and read (on open)
   useEffect(() => {
     if (!myId || !activeUserId) return;
     const incoming = activeMessages.filter(
@@ -252,7 +257,6 @@ export default function Messages() {
     (async () => {
       try {
         if (toDeliver.length > 0) {
-          // Try with new columns; fall back silently if columns don't exist.
           const res = await supabase
             .from('messages')
             .update({
@@ -261,7 +265,7 @@ export default function Messages() {
             })
             .in('id', toDeliver);
           if (res.error) {
-            // ignore, old schema
+            // ignore - old schema
           }
         }
         if (toRead.length > 0) {
@@ -273,7 +277,6 @@ export default function Messages() {
             .update(payload)
             .in('id', toRead);
           if (error) {
-            // Retry with minimal payload if new columns are missing
             await supabase.from('messages').update({ read: true }).in('id', toRead);
           }
           await refreshMessagesBadge();
@@ -299,7 +302,6 @@ export default function Messages() {
     row.status = 'sent';
     const res = await supabase.from('messages').insert(row);
     if (res.error) {
-      // fallback without status column
       const { error } = await supabase.from('messages').insert({
         user_id: myId,
         receiver_id: payload.receiver_id,
@@ -319,7 +321,6 @@ export default function Messages() {
     setDraft(value);
     if (!activeUserId) return;
     const now = Date.now();
-    // Debounce: send at most every 2s
     if (now - lastTypingSentRef.current > 2000) {
       lastTypingSentRef.current = now;
       sendTyping(activeUserId, 'typing').catch(() => {});
@@ -340,11 +341,10 @@ export default function Messages() {
     emitStopTyping().catch(() => {});
     try {
       await insertMessage({ receiver_id: activeUserId, content: text });
-      // Note: intentionally NO `createNotification` for messages. Messages
-      // appear in Messages page only, with their own unread badge.
       await loadMessages();
     } catch (e) {
       console.error(e);
+      toast.error("Échec de l'envoi du message");
     }
   };
 
@@ -362,6 +362,41 @@ export default function Messages() {
     }
   };
 
+  const clearPendingMedia = useCallback(() => {
+    setPendingMedia((current) => {
+      if (current) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }, []);
+
+  const sendPendingMedia = async () => {
+    if (!activeUserId || !pendingMedia) return;
+    setSendingMedia(true);
+    try {
+      const { key, error } = await uploadMediaEx(pendingMedia.file, 'message-media');
+      if (error || !key) {
+        toast.error(error || "Échec de l'upload du média");
+        return;
+      }
+      const content =
+        pendingMedia.kind === 'image'
+          ? encodePayload({ kind: 'image', object_key: key })
+          : encodePayload({
+              kind: 'video',
+              object_key: key,
+              duration: pendingMedia.duration,
+            });
+      await insertMessage({ receiver_id: activeUserId, content });
+      clearPendingMedia();
+      await loadMessages();
+    } catch (e) {
+      console.error(e);
+      toast.error("Échec de l'envoi du média");
+    } finally {
+      setSendingMedia(false);
+    }
+  };
+
   const initiateCall = async (mode: 'voice' | 'video') => {
     if (!activeUserId) return;
     const peerProfile = profilesMap[activeUserId];
@@ -370,7 +405,6 @@ export default function Messages() {
     await startCall(activeUserId, peerName, mode);
   };
 
-  // Broadcast "recording" while the recorder is open
   useEffect(() => {
     if (!activeUserId) return;
     if (showRecorder) {
@@ -385,6 +419,14 @@ export default function Messages() {
     }
     return undefined;
   }, [showRecorder, activeUserId]);
+
+  // Cleanup pending media when unmounting or switching conversation
+  useEffect(() => {
+    return () => {
+      if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUserId]);
 
   const activeProfile = activeUserId ? profilesMap[activeUserId] : undefined;
   const activeOnline = activeUserId ? isOnline(activeUserId) : false;
@@ -415,6 +457,8 @@ export default function Messages() {
               let preview = '';
               if (lastPayload.kind === 'text') preview = lastPayload.text;
               else if (lastPayload.kind === 'audio') preview = '🎤 Note vocale';
+              else if (lastPayload.kind === 'image') preview = '📷 Photo';
+              else if (lastPayload.kind === 'video') preview = '🎬 Vidéo';
               else if (lastPayload.kind === 'call_event')
                 preview =
                   (lastPayload.mode === 'video' ? '📹 ' : '📞 ') +
@@ -544,13 +588,17 @@ export default function Messages() {
                   );
                 }
 
+                const isMedia = payload.kind === 'image' || payload.kind === 'video';
+
                 return (
                   <div
                     key={m.id}
                     className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
                   >
                     <div
-                      className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
+                      className={`${
+                        isMedia ? 'p-1' : 'px-4 py-2'
+                      } max-w-[75%] rounded-2xl text-sm ${
                         mine
                           ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
                           : 'bg-[var(--loboko-elevated)] text-[var(--loboko-text)] rounded-bl-md'
@@ -561,6 +609,14 @@ export default function Messages() {
                           objectKey={payload.object_key}
                           duration={payload.duration}
                           mine={mine}
+                        />
+                      ) : payload.kind === 'image' ? (
+                        <MediaMessage kind="image" objectKey={payload.object_key} />
+                      ) : payload.kind === 'video' ? (
+                        <MediaMessage
+                          kind="video"
+                          objectKey={payload.object_key}
+                          duration={payload.duration}
                         />
                       ) : (
                         <span className="whitespace-pre-wrap break-words">
@@ -586,7 +642,29 @@ export default function Messages() {
             )}
           </div>
 
-          <div className="p-3 border-t border-[var(--loboko-border)] flex gap-2 relative">
+          {pendingMedia && (
+            <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
+              <MediaPreview media={pendingMedia} onRemove={clearPendingMedia} />
+              <div className="flex items-center justify-between mt-2 gap-2">
+                <div className="text-[11px] text-[var(--loboko-text-muted)]">
+                  {pendingMedia.kind === 'image'
+                    ? 'Photo prête à être envoyée'
+                    : `Vidéo · ${formatDuration(pendingMedia.duration || 0)} (max ${MAX_MESSAGE_VIDEO_SECONDS}s)`}
+                </div>
+                <button
+                  type="button"
+                  onClick={sendPendingMedia}
+                  disabled={sendingMedia}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
+                >
+                  <Send size={14} />
+                  {sendingMedia ? 'Envoi…' : 'Envoyer'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="p-3 border-t border-[var(--loboko-border)] flex gap-2 relative items-center">
             {showRecorder ? (
               <VoiceRecorder onSend={sendVoiceNote} onClose={() => setShowRecorder(false)} />
             ) : (
@@ -599,6 +677,33 @@ export default function Messages() {
                 >
                   <Smile size={18} />
                 </button>
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setShowMediaPicker((v) => !v)}
+                    className="w-10 h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
+                    aria-label="Joindre un média"
+                    title="Photo ou vidéo"
+                    type="button"
+                  >
+                    <Paperclip size={18} />
+                  </button>
+                  {showMediaPicker && (
+                    <div className="absolute bottom-12 left-0 z-20 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
+                      <MediaPicker
+                        maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
+                        compact
+                        onSelect={(m) => {
+                          setShowMediaPicker(false);
+                          if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
+                          setPendingMedia(m);
+                        }}
+                      />
+                      <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
+                        Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <input
                   ref={inputRef}
                   value={draft}
