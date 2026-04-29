@@ -4,14 +4,24 @@ import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
-import { Send, ArrowLeft, Smile, Mic, Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing } from 'lucide-react';
+import {
+  Send,
+  ArrowLeft,
+  Smile,
+  Mic,
+  Phone,
+  Video,
+  PhoneMissed,
+  PhoneIncoming,
+  PhoneOutgoing,
+} from 'lucide-react';
 import EmojiPicker from '@/components/EmojiPicker';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import VoiceMessage from '@/components/VoiceMessage';
-import CallModal from '@/components/CallModal';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import { createNotification } from '@/lib/notifications';
 import { useMessages } from '@/contexts/MessagesContext';
+import { useCall } from '@/contexts/CallContext';
 
 interface Message {
   id: string;
@@ -28,14 +38,6 @@ interface Conversation {
   lastMessage?: Message;
 }
 
-interface IncomingCall {
-  callId: string;
-  peerId: string;
-  mode: 'voice' | 'video';
-  sdp: string;
-  messageId: string;
-}
-
 function Avatar({ profile }: { profile?: Profile }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -44,18 +46,19 @@ function Avatar({ profile }: { profile?: Profile }) {
   const name = profile?.display_name || profile?.username || '?';
   return (
     <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm shrink-0">
-      {url ? <img src={url} alt={name} className="w-full h-full object-cover" /> : name.slice(0, 2).toUpperCase()}
+      {url ? (
+        <img src={url} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        name.slice(0, 2).toUpperCase()
+      )}
     </div>
   );
-}
-
-function randomCallId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export default function Messages() {
   const { user } = useAuth();
   const { changeTick, refresh: refreshMessagesBadge } = useMessages();
+  const { startCall } = useCall();
   const [searchParams] = useSearchParams();
   const urlTo = searchParams.get('to');
   const myId = user?.id || '';
@@ -67,16 +70,6 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
-  const [call, setCall] = useState<{
-    peerId: string;
-    peerName: string;
-    mode: 'voice' | 'video';
-    direction: 'outgoing' | 'incoming';
-    callId: string;
-    initialOffer?: { sdp: string } | null;
-  } | null>(null);
-  const [incoming, setIncoming] = useState<IncomingCall | null>(null);
-  const seenOffersRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -90,51 +83,11 @@ export default function Messages() {
         .order('created_at', { ascending: false })
         .limit(400);
       if (error) throw error;
-      const items = (data as Message[]) || [];
-      setAllMessages(items);
-      if (!call) {
-        for (const m of items) {
-          if (m.receiver_id !== myId) continue;
-          const p = decodePayload(m.content);
-          if (p.kind !== 'signal') continue;
-          if (p.signal.type !== 'offer') continue;
-          if (seenOffersRef.current.has(p.callId)) continue;
-          const ended = items.some((x) => {
-            if (!x.created_at || !m.created_at) return false;
-            if (x.created_at <= m.created_at) return false;
-            const xp = decodePayload(x.content);
-            if (xp.kind !== 'signal') return false;
-            return (
-              xp.callId === p.callId &&
-              (xp.signal.type === 'hangup' || xp.signal.type === 'reject')
-            );
-          });
-          if (ended) {
-            seenOffersRef.current.add(p.callId);
-            continue;
-          }
-          const ageMs = m.created_at
-            ? Date.now() - new Date(m.created_at).getTime()
-            : 0;
-          if (ageMs > 60_000) {
-            seenOffersRef.current.add(p.callId);
-            continue;
-          }
-          seenOffersRef.current.add(p.callId);
-          setIncoming({
-            callId: p.callId,
-            peerId: m.user_id,
-            mode: p.mode,
-            sdp: p.signal.sdp,
-            messageId: m.id,
-          });
-          break;
-        }
-      }
+      setAllMessages((data as Message[]) || []);
     } catch (e) {
       console.error(e);
     }
-  }, [myId, call]);
+  }, [myId]);
 
   useEffect(() => {
     (async () => {
@@ -154,9 +107,6 @@ export default function Messages() {
     })();
   }, [loadMessages]);
 
-  // Realtime-driven refresh: whenever the MessagesContext reports a change
-  // affecting this user, reload the thread list. A safety-net low-frequency
-  // poll keeps things consistent if a realtime event was missed.
   useEffect(() => {
     loadMessages();
   }, [changeTick, loadMessages]);
@@ -199,7 +149,6 @@ export default function Messages() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [activeMessages]);
 
-  // Mark incoming messages from the active peer as read (updates unread badge)
   useEffect(() => {
     if (!myId || !activeUserId) return;
     const unreadIds = activeMessages
@@ -273,107 +222,12 @@ export default function Messages() {
     }
   };
 
-  const sendCallEvent = async (
-    peerId: string,
-    mode: 'voice' | 'video',
-    callId: string,
-    event: 'ended' | 'missed' | 'rejected',
-    duration: number,
-  ) => {
-    try {
-      await insertMessage({
-        receiver_id: peerId,
-        content: encodePayload({
-          kind: 'call_event',
-          mode,
-          event,
-          callId,
-          duration,
-        }),
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const startCall = async (mode: 'voice' | 'video') => {
+  const initiateCall = async (mode: 'voice' | 'video') => {
     if (!activeUserId) return;
-    const callId = randomCallId();
-    // Write a lightweight "offer" notice to the messages table so the callee
-    // can detect an incoming call even if their Messages page isn't mounted
-    // (it's polled + realtime-refreshed). Actual WebRTC signalling happens
-    // over the per-call Realtime broadcast channel inside CallModal.
-    try {
-      await insertMessage({
-        receiver_id: activeUserId,
-        content: encodePayload({
-          kind: 'signal',
-          callId,
-          mode,
-          signal: { type: 'offer', sdp: '' },
-        }),
-      });
-    } catch (e) {
-      console.error('[call] offer notice insert failed', e);
-    }
-    setCall({
-      peerId: activeUserId,
-      peerName:
-        profilesMap[activeUserId]?.display_name ||
-        profilesMap[activeUserId]?.username ||
-        'Utilisateur',
-      mode,
-      direction: 'outgoing',
-      callId,
-    });
-  };
-
-  const acceptIncoming = () => {
-    if (!incoming) return;
-    const peerProfile = profilesMap[incoming.peerId];
-    setCall({
-      peerId: incoming.peerId,
-      peerName: peerProfile?.display_name || peerProfile?.username || 'Utilisateur',
-      mode: incoming.mode,
-      direction: 'incoming',
-      callId: incoming.callId,
-      initialOffer: { sdp: incoming.sdp },
-    });
-    setActiveUserId(incoming.peerId);
-    setIncoming(null);
-  };
-
-  const rejectIncoming = async () => {
-    if (!incoming) return;
-    try {
-      await insertMessage({
-        receiver_id: incoming.peerId,
-        content: encodePayload({
-          kind: 'signal',
-          callId: incoming.callId,
-          mode: incoming.mode,
-          signal: { type: 'reject' },
-        }),
-      });
-      await sendCallEvent(incoming.peerId, incoming.mode, incoming.callId, 'rejected', 0);
-    } catch (e) {
-      console.error(e);
-    }
-    setIncoming(null);
-  };
-
-  const onCallClose = async (result: { status: 'accepted' | 'rejected' | 'missed' | 'ended'; duration: number }) => {
-    if (call) {
-      const event =
-        result.status === 'rejected'
-          ? 'rejected'
-          : result.status === 'missed'
-            ? 'missed'
-            : 'ended';
-      await sendCallEvent(call.peerId, call.mode, call.callId, event, result.duration);
-      await loadMessages();
-    }
-    setCall(null);
+    const peerProfile = profilesMap[activeUserId];
+    const peerName =
+      peerProfile?.display_name || peerProfile?.username || 'Utilisateur';
+    await startCall(activeUserId, peerName, mode);
   };
 
   const activeProfile = activeUserId ? profilesMap[activeUserId] : undefined;
@@ -382,45 +236,11 @@ export default function Messages() {
     <Layout title="Messages">
       <h1 className="text-2xl font-bold mb-4 hidden lg:block">Messages</h1>
 
-      {incoming && !call && (
-        <div className="fixed top-4 right-4 z-40 bg-[var(--loboko-elevated)] border border-[#2563eb] rounded-2xl p-4 shadow-2xl flex items-center gap-3 max-w-sm animate-in fade-in slide-in-from-top-4">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold">
-            {(profilesMap[incoming.peerId]?.display_name ||
-              profilesMap[incoming.peerId]?.username ||
-              '?')
-              .slice(0, 2)
-              .toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">
-              {profilesMap[incoming.peerId]?.display_name ||
-                profilesMap[incoming.peerId]?.username ||
-                'Utilisateur'}
-            </div>
-            <div className="text-xs text-[var(--loboko-text-muted)]">
-              Appel {incoming.mode === 'video' ? 'vidéo' : 'vocal'} entrant
-            </div>
-          </div>
-          <button
-            onClick={rejectIncoming}
-            className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center"
-            aria-label="Refuser"
-          >
-            <PhoneMissed size={16} />
-          </button>
-          <button
-            onClick={acceptIncoming}
-            className="w-9 h-9 rounded-full bg-green-500 text-white flex items-center justify-center"
-            aria-label="Accepter"
-          >
-            <Phone size={16} />
-          </button>
-        </div>
-      )}
-
       {!activeUserId ? (
         loading ? (
-          <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">Chargement...</div>
+          <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
+            Chargement...
+          </div>
         ) : conversations.length === 0 ? (
           <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
             <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
@@ -486,7 +306,7 @@ export default function Messages() {
               )}
             </div>
             <button
-              onClick={() => startCall('voice')}
+              onClick={() => initiateCall('voice')}
               className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
               aria-label="Appel vocal"
               title="Appel vocal"
@@ -494,7 +314,7 @@ export default function Messages() {
               <Phone size={16} />
             </button>
             <button
-              onClick={() => startCall('video')}
+              onClick={() => initiateCall('video')}
               className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
               aria-label="Appel vidéo"
               title="Appel vidéo"
@@ -536,7 +356,9 @@ export default function Messages() {
                       : 'text-[var(--loboko-text-muted)]';
                   return (
                     <div key={m.id} className="flex justify-center">
-                      <div className={`flex items-center gap-2 text-xs ${color} bg-[var(--loboko-elevated)] px-3 py-1.5 rounded-full`}>
+                      <div
+                        className={`flex items-center gap-2 text-xs ${color} bg-[var(--loboko-elevated)] px-3 py-1.5 rounded-full`}
+                      >
                         <Icon size={12} />
                         <span>{label}</span>
                       </div>
@@ -545,7 +367,10 @@ export default function Messages() {
                 }
 
                 return (
-                  <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    key={m.id}
+                    className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                  >
                     <div
                       className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
                         mine
@@ -620,19 +445,6 @@ export default function Messages() {
             )}
           </div>
         </div>
-      )}
-
-      {call && (
-        <CallModal
-          myId={myId}
-          peerId={call.peerId}
-          peerName={call.peerName}
-          mode={call.mode}
-          direction={call.direction}
-          callId={call.callId}
-          initialOffer={call.initialOffer}
-          onClose={onCallClose}
-        />
       )}
     </Layout>
   );

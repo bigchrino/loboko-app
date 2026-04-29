@@ -75,6 +75,15 @@ export default function CallModal({
   const outboundIceBufferRef = useRef<RTCIceCandidateInit[]>([]);
   // Callee has pressed "accept" but is still waiting for the real SDP offer.
   const answerPendingRef = useRef(false);
+  // Caller keeps the local SDP offer so it can be (re)sent when the callee
+  // signals "ringing" — i.e. once we know they have subscribed to the
+  // per-call channel. Supabase broadcasts are not buffered, so the first
+  // offer sent on SUBSCRIBED can be missed if the callee joined later.
+  const localOfferSdpRef = useRef<string>('');
+  // Callee stores the SDP offer received over the per-call channel while
+  // the user is still deciding whether to accept. Using this avoids opening
+  // micro/caméra before consent.
+  const bufferedOfferSdpRef = useRef<string>('');
 
   const constraints = useMemo(
     () => ({ audio: true, video: mode === 'video' }),
@@ -234,7 +243,11 @@ export default function CallModal({
       if (ev.from === myId) return; // ignore self
       const pc = pcRef.current;
       if (ev.type === 'ringing') {
-        // Peer phone is ringing. Keep caller in 'calling' state with label update.
+        // Peer is on the channel and ringing. Resend the offer to guarantee
+        // delivery (broadcasts are not buffered by Supabase).
+        if (direction === 'outgoing' && localOfferSdpRef.current) {
+          sendEvent({ type: 'offer', from: myId, sdp: localOfferSdpRef.current });
+        }
         setStatus('calling');
       } else if (ev.type === 'accepted') {
         // Peer pressed accept. Actual media connection will be driven by answer+ice.
@@ -252,22 +265,24 @@ export default function CallModal({
           duration,
         });
       } else if (ev.type === 'offer') {
-        // Only meaningful if we're the callee. If the user already pressed
-        // "accept" and was waiting for the real SDP, finish the handshake.
-        if (!pc || direction !== 'incoming') return;
-        try {
-          await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
-          hasRemoteDescRef.current = true;
-          await applyPendingIce();
-          if (answerPendingRef.current) {
+        // Only meaningful if we're the callee. Buffer the SDP until the user
+        // presses "accept" (we don't want to getUserMedia before consent).
+        if (direction !== 'incoming') return;
+        bufferedOfferSdpRef.current = ev.sdp;
+        if (answerPendingRef.current && pc) {
+          try {
+            await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
+            hasRemoteDescRef.current = true;
+            await applyPendingIce();
             answerPendingRef.current = false;
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
             flushOutboundIce();
+          } catch (e) {
+            console.error('[call] setRemoteDescription offer failed', e);
+            setError('Échec de la connexion');
           }
-        } catch (e) {
-          console.error('[call] setRemoteDescription offer failed', e);
         }
       } else if (ev.type === 'answer') {
         if (!pc) return;
@@ -293,30 +308,41 @@ export default function CallModal({
         }
       }
     },
-    [myId, direction, cleanup, startTimer, applyPendingIce],
+    [myId, direction, cleanup, startTimer, applyPendingIce, sendEvent],
   );
 
-  // Outgoing caller: create & send offer once channel is ready.
+  // Outgoing caller: create & send offer once channel is ready. The offer is
+  // also cached so we can resend it on the first `ringing` event from the
+  // callee, guaranteeing delivery even if the callee subscribed late.
   const startOutgoing = useCallback(async () => {
     setupPeer();
     const stream = await getMedia();
     if (!stream) return;
     const pc = pcRef.current!;
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    sendEvent({ type: 'offer', from: myId, sdp: offer.sdp || '' });
-    flushOutboundIce();
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      localOfferSdpRef.current = offer.sdp || '';
+      sendEvent({ type: 'offer', from: myId, sdp: offer.sdp || '' });
+      flushOutboundIce();
+    } catch (e) {
+      console.error('[call] createOffer failed', e);
+      setError('Échec de la création de l\'appel');
+    }
   }, [setupPeer, getMedia, sendEvent, myId, flushOutboundIce]);
 
-  // Incoming callee: on user "accept". If we already have a real SDP offer
-  // (either via `initialOffer` or received over realtime during ringing),
-  // apply it and answer. Otherwise, prepare the peer connection and let the
-  // 'offer' event handler finish the answering step automatically once it
-  // arrives.
+  // Incoming callee: on user "accept". Pick up the SDP offer from whichever
+  // source already has it (initialOffer, or a buffered offer received over
+  // the per-call channel while the phone was ringing). If none yet, flag
+  // answerPendingRef so the next 'offer' event finishes the handshake.
   const acceptIncoming = useCallback(async () => {
+    console.info('[call] acceptIncoming pressed', { callId, peerId });
     setupPeer();
     const stream = await getMedia();
-    if (!stream) return;
+    if (!stream) {
+      console.error('[call] acceptIncoming aborted: no media stream');
+      return;
+    }
     // Signal "accepted" immediately so the caller's UI can flip to connected.
     sendEvent({ type: 'accepted', from: myId });
     flushOutboundIce();
@@ -324,8 +350,10 @@ export default function CallModal({
     setStatus('connected');
 
     const pc = pcRef.current!;
+    const sdp =
+      (initialOffer && initialOffer.sdp) || bufferedOfferSdpRef.current || '';
 
-    const tryAnswer = async (sdp: string) => {
+    if (sdp) {
       try {
         await pc.setRemoteDescription({ type: 'offer', sdp });
         hasRemoteDescRef.current = true;
@@ -334,20 +362,22 @@ export default function CallModal({
         await pc.setLocalDescription(answer);
         sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
         flushOutboundIce();
+        console.info('[call] answer sent');
       } catch (e) {
         console.error('[call] answer creation failed', e);
         setError('Échec de la connexion');
       }
-    };
-
-    if (initialOffer && initialOffer.sdp) {
-      await tryAnswer(initialOffer.sdp);
     } else {
-      // SDP will come through the realtime 'offer' event; flag that we're
-      // ready to answer as soon as it lands.
+      // SDP will come through the realtime 'offer' event.
+      console.info('[call] waiting for offer SDP after accept');
       answerPendingRef.current = true;
+      // Nudge the caller in case they were waiting for a second 'ringing'
+      // roundtrip. The caller resends its offer on any 'ringing' event.
+      sendEvent({ type: 'ringing', from: myId });
     }
   }, [
+    callId,
+    peerId,
     initialOffer,
     setupPeer,
     getMedia,

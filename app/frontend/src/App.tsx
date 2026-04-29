@@ -27,6 +27,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessagesProvider } from './contexts/MessagesContext';
+import { CallProvider } from './contexts/CallContext';
 
 const queryClient = new QueryClient();
 
@@ -101,12 +102,14 @@ const App = () => (
       <AuthProvider>
         <NotificationsProvider>
           <MessagesProvider>
-            <TooltipProvider>
-              <Toaster />
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-            </TooltipProvider>
+            <CallProvider>
+              <TooltipProvider>
+                <Toaster />
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+              </TooltipProvider>
+            </CallProvider>
           </MessagesProvider>
         </NotificationsProvider>
       </AuthProvider>
