@@ -1,0 +1,48 @@
+{
+  "status": "success",
+  "results": [
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruapuiaaflq/worker-construction-professional.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruapuiaaflq/worker-construction-professional.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruapuiaaflq/worker-construction-professional.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Professional African construction worker in blue uniform and safety helmet, smiling confidently at the camera, holding professional tools, natural daylight, clean modern workshop background slightly blurred, high quality, reassuring and trustworthy mood",
+      "style": "photorealistic",
+      "filename": "worker-construction-professional.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruaouaaafna/worker-electrician-female.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruaouaaafna/worker-electrician-female.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruaouaaafna/worker-electrician-female.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Professional African female electrician in neat work uniform with tool belt, holding multimeter, confident friendly smile, bright clean indoor setting, professional lighting, trustworthy and competent appearance",
+      "style": "photorealistic",
+      "filename": "worker-electrician-female.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruarhqaafnq/worker-plumber-professional.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruarhqaafnq/worker-plumber-professional.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruarhqaafnq/worker-plumber-professional.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Professional African plumber in clean work uniform with wrench and tools, kneeling next to modern pipes, focused and skilled expression, bright well-lit residential setting, high quality professional service photography",
+      "style": "photorealistic",
+      "filename": "worker-plumber-professional.jpg"
+    },
+    {
+      "status": "success",
+      "path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruatmyaafma/hero-workers-team.png",
+      "absolute_path": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruatmyaafma/hero-workers-team.png",
+      "url": "https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nruatmyaafma/hero-workers-team.png",
+      "message": "Image generated successfully.\n\nNote: The image is on CDN and will be displayed automatically. Just describe what you created briefly, no need to mention filenames or URLs.",
+      "description": "Wide cinematic hero banner showing a diverse team of professional African local workers — carpenter, painter, mechanic, and cleaner — standing together in neat uniforms, soft natural light, clean urban background with slight bokeh, confident warm smiles, conveying trust reliability and professionalism",
+      "style": "photorealistic",
+      "filename": "hero-workers-team.jpg"
+    }
+  ],
+  "success_count": 4,
+  "failed_count": 0,
+  "message": "Generated 4/4 images"
+}
