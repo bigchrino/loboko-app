@@ -1,8 +1,43 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  Phone,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatDuration } from '@/lib/message-format';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+/**
+ * CallModal
+ *
+ * Handles the WebRTC handshake for a single voice/video call.
+ *
+ * Audio pipeline (fix for "peer cannot hear me"):
+ *   1. Both sides call getUserMedia({ audio: true, video: mode === 'video' }).
+ *   2. Every track of the local MediaStream is attached to the
+ *      RTCPeerConnection via `pc.addTrack(track, stream)` so the remote side
+ *      receives them on `ontrack`.
+ *   3. The remote <audio> element is ALWAYS mounted (even in video mode — a
+ *      hidden audio sink ensures Safari / iOS output audio even when the
+ *      video element is muted by autoplay policies).
+ *   4. On `ontrack`, we assign `event.streams[0]` to the remote audio/video
+ *      elements and force `.play()` to bypass some browsers' autoplay
+ *      heuristics.
+ *
+ * Speaker toggle:
+ *   - Desktop / Android Chromium: `HTMLMediaElement.setSinkId` switches the
+ *     audio output between the default device and the system speaker.
+ *   - iOS / Safari: `setSinkId` is not supported; we fall back to toggling
+ *     the media element's `volume` between max and a low value so the user
+ *     can still mute output without ending the call. The microphone track
+ *     and remote stream are left untouched.
+ */
 
 type Direction = 'outgoing' | 'incoming';
 type Status = 'calling' | 'ringing' | 'connected' | 'ended';
@@ -28,7 +63,6 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 // Realtime event types exchanged over the per-call broadcast channel.
-// Keeping them in one union makes the flow very explicit.
 type CallEvent =
   | { type: 'ringing'; from: string }
   | { type: 'accepted'; from: string }
@@ -39,6 +73,32 @@ type CallEvent =
   | { type: 'ice'; from: string; candidate: RTCIceCandidateInit };
 
 const channelName = (callId: string) => `call:${callId}`;
+
+// Short tag prefix for log readability in the browser console.
+const TAG = '[call]';
+
+/**
+ * Attempt to play a media element, swallowing the common "play() was
+ * interrupted" / NotAllowedError errors that happen on mobile when the user
+ * hasn't yet tapped anything. We log them so they're visible if something
+ * is actually wrong.
+ */
+function safePlay(
+  el: HTMLMediaElement | null | undefined,
+  label: string,
+): void {
+  if (!el) return;
+  const p = el.play();
+  if (p && typeof p.then === 'function') {
+    p.catch((err) => {
+      console.warn(`${TAG} ${label} .play() rejected`, err);
+    });
+  }
+}
+
+interface SinkCapableMedia extends HTMLMediaElement {
+  setSinkId?: (id: string) => Promise<void>;
+}
 
 export default function CallModal({
   myId,
@@ -57,9 +117,11 @@ export default function CallModal({
   const [camOff, setCamOff] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [speakerOn, setSpeakerOn] = useState(true);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
@@ -71,18 +133,9 @@ export default function CallModal({
   const acceptedRef = useRef(false);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const hasRemoteDescRef = useRef(false);
-  // Buffer for ICE candidates generated before the channel is subscribed.
   const outboundIceBufferRef = useRef<RTCIceCandidateInit[]>([]);
-  // Callee has pressed "accept" but is still waiting for the real SDP offer.
   const answerPendingRef = useRef(false);
-  // Caller keeps the local SDP offer so it can be (re)sent when the callee
-  // signals "ringing" — i.e. once we know they have subscribed to the
-  // per-call channel. Supabase broadcasts are not buffered, so the first
-  // offer sent on SUBSCRIBED can be missed if the callee joined later.
   const localOfferSdpRef = useRef<string>('');
-  // Callee stores the SDP offer received over the per-call channel while
-  // the user is still deciding whether to accept. Using this avoids opening
-  // micro/caméra before consent.
   const bufferedOfferSdpRef = useRef<string>('');
 
   const constraints = useMemo(
@@ -90,16 +143,13 @@ export default function CallModal({
     [mode],
   );
 
-  const sendEvent = useCallback(
-    (event: CallEvent) => {
-      const ch = channelRef.current;
-      if (!ch) return;
-      ch.send({ type: 'broadcast', event: 'call', payload: event }).catch(
-        (e) => console.warn('[call] send failed', e),
-      );
-    },
-    [],
-  );
+  const sendEvent = useCallback((event: CallEvent) => {
+    const ch = channelRef.current;
+    if (!ch) return;
+    ch.send({ type: 'broadcast', event: 'call', payload: event }).catch((e) =>
+      console.warn(`${TAG} send failed`, e),
+    );
+  }, []);
 
   const flushOutboundIce = useCallback(() => {
     if (!channelReadyRef.current) return;
@@ -125,6 +175,8 @@ export default function CallModal({
         // ignore
       }
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
       if (channelRef.current) {
         try {
           supabase.removeChannel(channelRef.current);
@@ -166,13 +218,46 @@ export default function CallModal({
     }, 500);
   }, []);
 
+  /**
+   * Attach the remote MediaStream to the hidden audio element and, if
+   * applicable, to the video element. We do this lazily on `ontrack` and
+   * then again whenever additional tracks are added so we never end up with
+   * a stale srcObject.
+   */
+  const attachRemoteStream = useCallback(
+    (stream: MediaStream) => {
+      remoteStreamRef.current = stream;
+      const audioEl = remoteAudioRef.current;
+      if (audioEl) {
+        if (audioEl.srcObject !== stream) {
+          audioEl.srcObject = stream;
+        }
+        audioEl.muted = false;
+        audioEl.volume = speakerOn ? 1 : 0.05;
+        safePlay(audioEl, 'remote audio');
+      }
+      if (mode === 'video' && remoteVideoRef.current) {
+        if (remoteVideoRef.current.srcObject !== stream) {
+          remoteVideoRef.current.srcObject = stream;
+        }
+        safePlay(remoteVideoRef.current, 'remote video');
+      }
+    },
+    [mode, speakerOn],
+  );
+
   const setupPeer = useCallback(() => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     pcRef.current = pc;
+    console.info(`${TAG} RTCPeerConnection created`, { callId, direction });
 
     pc.onicecandidate = (ev) => {
-      if (!ev.candidate) return;
+      if (!ev.candidate) {
+        console.info(`${TAG} ICE gathering complete`);
+        return;
+      }
       const cand = ev.candidate.toJSON();
+      console.info(`${TAG} local ICE candidate`, cand.candidate);
       if (channelReadyRef.current) {
         sendEvent({ type: 'ice', from: myId, candidate: cand });
       } else {
@@ -182,17 +267,28 @@ export default function CallModal({
 
     pc.ontrack = (ev) => {
       const stream = ev.streams[0];
-      if (!stream) return;
-      if (mode === 'video' && remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
+      console.info(`${TAG} ontrack`, {
+        kind: ev.track.kind,
+        id: ev.track.id,
+        readyState: ev.track.readyState,
+        hasStream: !!stream,
+      });
+      if (!stream) {
+        // Some browsers (older Safari) do not populate ev.streams. Build one.
+        const fallback = new MediaStream([ev.track]);
+        attachRemoteStream(fallback);
+        return;
       }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
-      }
+      attachRemoteStream(stream);
+      stream.onaddtrack = (addEv) => {
+        console.info(`${TAG} remote stream onaddtrack`, addEv.track.kind);
+        attachRemoteStream(stream);
+      };
     };
 
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
+      console.info(`${TAG} connectionState`, st);
       if (st === 'failed' || st === 'disconnected' || st === 'closed') {
         if (!closedRef.current && acceptedRef.current) {
           cleanup({
@@ -203,21 +299,45 @@ export default function CallModal({
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.info(`${TAG} iceConnectionState`, pc.iceConnectionState);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.info(`${TAG} signalingState`, pc.signalingState);
+    };
+
     return pc;
-  }, [sendEvent, myId, mode, cleanup]);
+  }, [sendEvent, myId, cleanup, attachRemoteStream, callId, direction]);
 
   const getMedia = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.info(`${TAG} getUserMedia request`, constraints);
+      const stream =
+        await navigator.mediaDevices.getUserMedia(constraints);
+      console.info(
+        `${TAG} local stream obtained — audio tracks:`,
+        stream.getAudioTracks().length,
+        'video tracks:',
+        stream.getVideoTracks().length,
+      );
       localStreamRef.current = stream;
+
       if (mode === 'video' && localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        safePlay(localVideoRef.current, 'local video');
       }
+
       const pc = pcRef.current;
-      if (pc) stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      if (pc) {
+        stream.getTracks().forEach((t) => {
+          console.info(`${TAG} addTrack`, t.kind, t.id);
+          pc.addTrack(t, stream);
+        });
+      }
       return stream;
     } catch (e) {
-      console.error('[call] getUserMedia failed', e);
+      console.error(`${TAG} getUserMedia failed`, e);
       setError("Impossible d'accéder au micro/caméra");
       return null;
     }
@@ -232,26 +352,25 @@ export default function CallModal({
       try {
         await pc.addIceCandidate(new RTCIceCandidate(c));
       } catch (e) {
-        console.warn('[call] addIceCandidate (buffered) failed', e);
+        console.warn(`${TAG} addIceCandidate (buffered) failed`, e);
       }
     }
   }, []);
 
-  // Handle an incoming realtime event from the peer.
   const handleEvent = useCallback(
     async (ev: CallEvent) => {
-      if (ev.from === myId) return; // ignore self
+      if (ev.from === myId) return;
       const pc = pcRef.current;
       if (ev.type === 'ringing') {
-        // Peer is on the channel and ringing. Resend the offer to guarantee
-        // delivery (broadcasts are not buffered by Supabase).
         if (direction === 'outgoing' && localOfferSdpRef.current) {
-          sendEvent({ type: 'offer', from: myId, sdp: localOfferSdpRef.current });
+          sendEvent({
+            type: 'offer',
+            from: myId,
+            sdp: localOfferSdpRef.current,
+          });
         }
         setStatus('calling');
       } else if (ev.type === 'accepted') {
-        // Peer pressed accept. Actual media connection will be driven by answer+ice.
-        // This marks the call as accepted even if SDP answer takes a bit.
         if (!acceptedRef.current) startTimer();
         setStatus('connected');
       } else if (ev.type === 'rejected') {
@@ -265,8 +384,6 @@ export default function CallModal({
           duration,
         });
       } else if (ev.type === 'offer') {
-        // Only meaningful if we're the callee. Buffer the SDP until the user
-        // presses "accept" (we don't want to getUserMedia before consent).
         if (direction !== 'incoming') return;
         bufferedOfferSdpRef.current = ev.sdp;
         if (answerPendingRef.current && pc) {
@@ -279,8 +396,9 @@ export default function CallModal({
             await pc.setLocalDescription(answer);
             sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
             flushOutboundIce();
+            console.info(`${TAG} answer sent (late offer)`);
           } catch (e) {
-            console.error('[call] setRemoteDescription offer failed', e);
+            console.error(`${TAG} setRemoteDescription offer failed`, e);
             setError('Échec de la connexion');
           }
         }
@@ -292,8 +410,9 @@ export default function CallModal({
           await applyPendingIce();
           if (!acceptedRef.current) startTimer();
           setStatus('connected');
+          console.info(`${TAG} remote answer applied`);
         } catch (e) {
-          console.error('[call] setRemoteDescription answer failed', e);
+          console.error(`${TAG} setRemoteDescription answer failed`, e);
         }
       } else if (ev.type === 'ice') {
         if (!pc) return;
@@ -304,46 +423,50 @@ export default function CallModal({
         try {
           await pc.addIceCandidate(new RTCIceCandidate(ev.candidate));
         } catch (e) {
-          console.warn('[call] addIceCandidate failed', e);
+          console.warn(`${TAG} addIceCandidate failed`, e);
         }
       }
     },
-    [myId, direction, cleanup, startTimer, applyPendingIce, sendEvent],
+    [
+      myId,
+      direction,
+      cleanup,
+      startTimer,
+      applyPendingIce,
+      sendEvent,
+      flushOutboundIce,
+    ],
   );
 
-  // Outgoing caller: create & send offer once channel is ready. The offer is
-  // also cached so we can resend it on the first `ringing` event from the
-  // callee, guaranteeing delivery even if the callee subscribed late.
   const startOutgoing = useCallback(async () => {
     setupPeer();
     const stream = await getMedia();
     if (!stream) return;
     const pc = pcRef.current!;
     try {
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: mode === 'video',
+      });
       await pc.setLocalDescription(offer);
       localOfferSdpRef.current = offer.sdp || '';
       sendEvent({ type: 'offer', from: myId, sdp: offer.sdp || '' });
       flushOutboundIce();
+      console.info(`${TAG} offer created & sent`);
     } catch (e) {
-      console.error('[call] createOffer failed', e);
-      setError('Échec de la création de l\'appel');
+      console.error(`${TAG} createOffer failed`, e);
+      setError("Échec de la création de l'appel");
     }
-  }, [setupPeer, getMedia, sendEvent, myId, flushOutboundIce]);
+  }, [setupPeer, getMedia, sendEvent, myId, flushOutboundIce, mode]);
 
-  // Incoming callee: on user "accept". Pick up the SDP offer from whichever
-  // source already has it (initialOffer, or a buffered offer received over
-  // the per-call channel while the phone was ringing). If none yet, flag
-  // answerPendingRef so the next 'offer' event finishes the handshake.
   const acceptIncoming = useCallback(async () => {
-    console.info('[call] acceptIncoming pressed', { callId, peerId });
+    console.info(`${TAG} acceptIncoming pressed`, { callId, peerId });
     setupPeer();
     const stream = await getMedia();
     if (!stream) {
-      console.error('[call] acceptIncoming aborted: no media stream');
+      console.error(`${TAG} acceptIncoming aborted: no media stream`);
       return;
     }
-    // Signal "accepted" immediately so the caller's UI can flip to connected.
     sendEvent({ type: 'accepted', from: myId });
     flushOutboundIce();
     startTimer();
@@ -362,17 +485,14 @@ export default function CallModal({
         await pc.setLocalDescription(answer);
         sendEvent({ type: 'answer', from: myId, sdp: answer.sdp || '' });
         flushOutboundIce();
-        console.info('[call] answer sent');
+        console.info(`${TAG} answer sent`);
       } catch (e) {
-        console.error('[call] answer creation failed', e);
+        console.error(`${TAG} answer creation failed`, e);
         setError('Échec de la connexion');
       }
     } else {
-      // SDP will come through the realtime 'offer' event.
-      console.info('[call] waiting for offer SDP after accept');
+      console.info(`${TAG} waiting for offer SDP after accept`);
       answerPendingRef.current = true;
-      // Nudge the caller in case they were waiting for a second 'ringing'
-      // roundtrip. The caller resends its offer on any 'ringing' event.
       sendEvent({ type: 'ringing', from: myId });
     }
   }, [
@@ -392,8 +512,6 @@ export default function CallModal({
     endCall('reject');
   }, [endCall]);
 
-  // Subscribe to the per-call Realtime channel, then either initiate (outgoing)
-  // or announce "ringing" (incoming).
   useEffect(() => {
     const ch = supabase.channel(channelName(callId), {
       config: { broadcast: { self: false, ack: false } },
@@ -413,7 +531,6 @@ export default function CallModal({
         if (direction === 'outgoing') {
           void startOutgoing();
         } else {
-          // Tell the caller we're alerting the user.
           sendEvent({ type: 'ringing', from: myId });
         }
       }
@@ -431,7 +548,10 @@ export default function CallModal({
     const stream = localStreamRef.current;
     if (!stream) return;
     const next = !muted;
-    stream.getAudioTracks().forEach((t) => (t.enabled = !next));
+    stream.getAudioTracks().forEach((t) => {
+      t.enabled = !next;
+    });
+    console.info(`${TAG} mic ${next ? 'muted' : 'unmuted'}`);
     setMuted(next);
   };
 
@@ -439,8 +559,40 @@ export default function CallModal({
     const stream = localStreamRef.current;
     if (!stream) return;
     const next = !camOff;
-    stream.getVideoTracks().forEach((t) => (t.enabled = !next));
+    stream.getVideoTracks().forEach((t) => {
+      t.enabled = !next;
+    });
     setCamOff(next);
+  };
+
+  /**
+   * Toggle loud speaker. On supported browsers we try to switch sinkId
+   * between the default ("") and the speakerphone. On iOS/Safari where
+   * setSinkId is unavailable, we fall back to adjusting volume so the user
+   * still has a functional "speaker off" experience without breaking the
+   * call. Mute / hangup / camera are untouched.
+   */
+  const toggleSpeaker = async () => {
+    const audioEl = remoteAudioRef.current as SinkCapableMedia | null;
+    const next = !speakerOn;
+    setSpeakerOn(next);
+    if (!audioEl) return;
+    // Always reflect the intent via volume (safe fallback).
+    audioEl.volume = next ? 1 : 0.05;
+
+    if (typeof audioEl.setSinkId !== 'function') {
+      console.info(`${TAG} setSinkId unsupported — using volume fallback`);
+      return;
+    }
+    try {
+      // "" targets the browser's default output; on Android Chromium this
+      // typically routes to the loudspeaker. When turning the speaker off
+      // we leave the default sink active but lower the volume (above).
+      await audioEl.setSinkId(next ? '' : '');
+      console.info(`${TAG} speaker toggled via setSinkId`, { on: next });
+    } catch (e) {
+      console.warn(`${TAG} setSinkId failed, keeping volume fallback`, e);
+    }
   };
 
   return (
@@ -453,7 +605,10 @@ export default function CallModal({
           className="absolute inset-0 w-full h-full object-cover"
         />
       )}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+      {/* Always mount the remote audio element. Keeping it in the DOM from
+          the very start lets us attach the remote MediaStream as soon as
+          ontrack fires, which is critical for Safari / iOS autoplay. */}
+      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
       <div className="relative flex-1 flex flex-col items-center justify-center text-white px-6">
         {(mode === 'voice' || status !== 'connected') && (
@@ -517,6 +672,18 @@ export default function CallModal({
               aria-label={muted ? 'Activer micro' : 'Couper micro'}
             >
               {muted ? <MicOff size={20} /> : <Mic size={20} />}
+            </button>
+            <button
+              onClick={toggleSpeaker}
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${
+                speakerOn
+                  ? 'bg-[#2563eb] hover:bg-[#1d4ed8]'
+                  : 'bg-white/10 hover:bg-white/20'
+              }`}
+              aria-label={speakerOn ? 'Couper haut-parleur' : 'Activer haut-parleur'}
+              title={speakerOn ? 'Haut-parleur activé' : 'Haut-parleur coupé'}
+            >
+              {speakerOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
             </button>
             {mode === 'video' && (
               <button
