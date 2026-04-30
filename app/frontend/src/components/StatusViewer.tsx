@@ -301,12 +301,28 @@ export default function StatusViewer({
         previewBits.push('[Vidéo]');
       }
       const body = `${previewBits.join('\n')}\n\n${reply.trim()}`;
-      const { error } = await supabase.from('messages').insert({
-        sender_id: sender,
+      // Use the same shape as the private-messages insert in Messages.tsx:
+      // `user_id` is the sender, `receiver_id` is the recipient. A retry
+      // without the optional `status` column keeps us compatible with older
+      // schemas where that column may not exist yet.
+      const row: Record<string, unknown> = {
+        user_id: sender,
         receiver_id: currentStatus.user_id,
         content: encodePayload({ kind: 'text', text: body }),
-      });
-      if (error) throw error;
+        read: false,
+        status: 'sent',
+      };
+      const res = await supabase.from('messages').insert(row);
+      if (res.error) {
+        const fallback: Record<string, unknown> = {
+          user_id: sender,
+          receiver_id: currentStatus.user_id,
+          content: encodePayload({ kind: 'text', text: body }),
+          read: false,
+        };
+        const { error: err2 } = await supabase.from('messages').insert(fallback);
+        if (err2) throw err2;
+      }
       toast.success('Réponse envoyée');
       setReply('');
     } catch (err) {
