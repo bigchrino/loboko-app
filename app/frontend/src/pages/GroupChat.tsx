@@ -44,9 +44,15 @@ import {
   Group,
   GroupMember,
   GroupMessage,
-  loadGroupMessages,
   sendGroupMessage,
 } from '@/lib/group-helpers';
+import LoadOlderTrigger from '@/components/LoadOlderTrigger';
+import {
+  GROUP_PAGE_SIZE,
+  loadLatestGroupPage,
+  loadOlderGroupPage,
+  mergeMessagesById,
+} from '@/lib/message-pagination';
 import { loadReactionsForMessages, Reaction, toggleReaction } from '@/lib/message-actions';
 import { markGroupRead } from '@/lib/group-reads';
 import { supabase as sb } from '@/lib/supabase'; // alias for clarity
@@ -121,6 +127,10 @@ export default function GroupChat() {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
   const [messages, setMessages] = useState<GroupMessage[]>([]);
+  // Pagination bookkeeping: whether another older page exists, and whether
+  // we are currently fetching one.
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [starred, setStarred] = useState<Set<string>>(new Set());
   const [deletedForMe, setDeletedForMe] = useState<Set<string>>(new Set());
@@ -155,6 +165,11 @@ export default function GroupChat() {
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Preserve scroll position when an older page is prepended on scroll-up.
+  const preserveScrollRef = useRef<{ prevHeight: number } | null>(null);
+  // Tracks the id of the last rendered message to distinguish "new message
+  // at the bottom" from "older page prepended at the top".
+  const lastMessageIdRef = useRef<string | null>(null);
 
   const myMember = useMemo(
     () => members.find((m) => m.user_id === myId),
@@ -198,8 +213,12 @@ export default function GroupChat() {
         setProfilesMap(map);
       }
 
-      const msgs = await loadGroupMessages(groupId);
-      setMessages(msgs);
+      // Load only the most recent page to keep memory / bandwidth low on
+      // mobile. Older pages are fetched on scroll-up via LoadOlderTrigger.
+      const firstPage = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages(firstPage.messages as GroupMessage[]);
+      setHasMoreOlder(firstPage.hasMore);
+      lastMessageIdRef.current = null;
 
       // Starred / deleted for me (group-scoped tables)
       const { data: starRows } = await supabase
@@ -246,9 +265,15 @@ export default function GroupChat() {
         toast.message('Messages éphémères désactivés dans le groupe');
       }
       // Reload so the system message inserted by the actor appears inline.
-      loadGroupMessages(groupId)
+      // Merge the latest page only; older pages loaded via scroll-up are
+      // preserved.
+      loadLatestGroupPage(groupId, GROUP_PAGE_SIZE)
         .then((fresh) => {
-          if (!cancelled) setMessages(fresh);
+          if (!cancelled) {
+            setMessages((prev) =>
+              mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+            );
+          }
         })
         .catch(() => {});
     });
@@ -294,20 +319,87 @@ export default function GroupChat() {
     };
   }, [messages]);
 
-  // Poll for new messages periodically
+  // Poll for new messages periodically. We only fetch the latest page and
+  // MERGE it into the existing store (deduping by id), so older pages
+  // loaded via scroll-up are never discarded and the user keeps their
+  // scroll position. This is the realtime "new messages arrive" path.
   useEffect(() => {
     if (!groupId) return;
     const t = setInterval(async () => {
-      const fresh = await loadGroupMessages(groupId);
-      setMessages(fresh);
+      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages((prev) =>
+        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+      );
     }, 15_000);
     return () => clearInterval(t);
   }, [groupId]);
 
-  // Auto-scroll to bottom
+  // Load the next older page (cursor = oldest known created_at). Preserves
+  // scroll position by snapshotting the container height before prepending.
+  const loadOlder = useCallback(async () => {
+    if (!groupId) return;
+    if (loadingOlder || !hasMoreOlder) return;
+    if (messages.length === 0) return;
+    const oldest = messages[0];
+    if (!oldest?.created_at) return;
+    setLoadingOlder(true);
+    const container = scrollRef.current;
+    preserveScrollRef.current = container
+      ? { prevHeight: container.scrollHeight }
+      : null;
+    try {
+      const page = await loadOlderGroupPage(groupId, oldest.created_at);
+      setHasMoreOlder(page.hasMore);
+      if (page.messages.length > 0) {
+        setMessages((prev) => {
+          const known = new Set(prev.map((m) => m.id));
+          const older = (page.messages as GroupMessage[]).filter(
+            (m) => !known.has(m.id),
+          );
+          if (older.length === 0) return prev;
+          return [...older, ...prev];
+        });
+      }
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [groupId, hasMoreOlder, loadingOlder, messages]);
+
+  // Restore scroll position after an older page has been prepended so the
+  // currently-visible message does not jump.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const snap = preserveScrollRef.current;
+    if (!snap) return;
+    const container = scrollRef.current;
+    if (!container) {
+      preserveScrollRef.current = null;
+      return;
+    }
+    const diff = container.scrollHeight - snap.prevHeight;
+    if (diff > 0) container.scrollTop = diff;
+    preserveScrollRef.current = null;
+  }, [messages.length]);
+
+  // Auto-scroll to bottom. Scrolls on first paint, follows new messages
+  // only when the user is already near the bottom, and does NOT scroll
+  // when an older page is prepended on scroll-up (the last-message id
+  // doesn't change in that case and scroll is preserved separately).
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const lastId = messages.length ? messages[messages.length - 1].id : null;
+    const prevLast = lastMessageIdRef.current;
+    lastMessageIdRef.current = lastId;
+    if (prevLast === null && lastId !== null) {
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+    if (lastId !== prevLast) {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 120) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
   }, [messages]);
 
@@ -423,8 +515,12 @@ export default function GroupChat() {
         replyToMessageId: replyId,
         expiresAt: computeExpiresAt(ephemeralDuration),
       });
-      const fresh = await loadGroupMessages(groupId);
-      setMessages(fresh);
+      // Merge the latest page instead of overwriting, so older pages
+      // already loaded via scroll-up are preserved.
+      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages((prev) =>
+        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+      );
       // Notify any @mentioned users (non-blocking).
       try {
         const mentionMap = await resolveMentionedUserIds(text);
@@ -458,8 +554,10 @@ export default function GroupChat() {
         content: encodePayload({ kind: 'audio', object_key: objectKey, duration }),
         expiresAt: computeExpiresAt(ephemeralDuration),
       });
-      const fresh = await loadGroupMessages(groupId);
-      setMessages(fresh);
+      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages((prev) =>
+        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+      );
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -490,8 +588,10 @@ export default function GroupChat() {
         expiresAt: computeExpiresAt(ephemeralDuration),
       });
       clearPendingMedia();
-      const fresh = await loadGroupMessages(groupId);
-      setMessages(fresh);
+      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages((prev) =>
+        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+      );
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -527,8 +627,10 @@ export default function GroupChat() {
         expiresAt: computeExpiresAt(ephemeralDuration),
       });
       setPendingFile(null);
-      const fresh = await loadGroupMessages(groupId);
-      setMessages(fresh);
+      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      setMessages((prev) =>
+        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+      );
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -698,8 +800,25 @@ export default function GroupChat() {
         await deleteGroupMessageForEveryone(m.id, myId);
         toast.success('Message supprimé pour tout le monde');
         if (groupId) {
-          const fresh = await loadGroupMessages(groupId);
-          setMessages(fresh);
+          // `deleted_for_everyone_at` is an UPDATE, not an insert, so the
+          // existing row (potentially in an older page) must reflect it.
+          // Patch locally for immediate feedback, then merge the latest
+          // page to sync any metadata changes.
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === m.id
+                ? {
+                    ...msg,
+                    deleted_for_everyone_at: new Date().toISOString(),
+                    deleted_by: myId,
+                  }
+                : msg,
+            ),
+          );
+          const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+          setMessages((prev) =>
+            mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+          );
         }
       }
     } catch (e) {
@@ -728,8 +847,10 @@ export default function GroupChat() {
       })
         .then(async () => {
           try {
-            const fresh = await loadGroupMessages(groupId);
-            setMessages(fresh);
+            const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+            setMessages((prev) =>
+              mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+            );
           } catch {
             /* ignore */
           }
@@ -862,6 +983,11 @@ export default function GroupChat() {
         )}
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+          <LoadOlderTrigger
+            hasMore={hasMoreOlder}
+            loading={loadingOlder}
+            onLoadMore={loadOlder}
+          />
           {visibleMessages.length === 0 ? (
             <div className="text-center text-xs text-[var(--loboko-text-muted)] py-10">
               Démarrez la conversation

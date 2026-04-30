@@ -45,6 +45,13 @@ import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } fro
 import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import MentionText from '@/components/MentionText';
+import LoadOlderTrigger from '@/components/LoadOlderTrigger';
+import {
+  DM_PAGE_SIZE,
+  loadLatestDMPage,
+  loadOlderDMPage,
+  mergeMessagesById,
+} from '@/lib/message-pagination';
 import {
   deleteForEveryone,
   deleteForMe,
@@ -300,6 +307,17 @@ export default function Messages() {
   } | null>(null);
   const [messageDeleteBusy, setMessageDeleteBusy] = useState(false);
 
+  // Paginated history of the CURRENTLY OPEN conversation. Kept separate
+  // from `allMessages` (which is the global inbox snapshot) so that
+  // scrolling up loads older pages without ever needing to pull hundreds
+  // of messages at once. Realtime inserts still come through `allMessages`
+  // (via polling / changeTick) and are merged into this store by id.
+  const [activeConvMessages, setActiveConvMessages] = useState<Message[]>([]);
+  const [activeConvHasMore, setActiveConvHasMore] = useState(false);
+  const [activeConvLoading, setActiveConvLoading] = useState(false);
+  const [activeConvLoadingOlder, setActiveConvLoadingOlder] = useState(false);
+  const activeConvPeerRef = useRef<string | null>(null);
+
   // Phase 3 groups state
   const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
   const [showEphemeralDialog, setShowEphemeralDialog] = useState(false);
@@ -312,12 +330,24 @@ export default function Messages() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // After prepending an older page, we restore scrollTop so the visual
+  // position of the message the user was reading does not jump.
+  const preserveScrollRef = useRef<{ prevHeight: number } | null>(null);
+  // Track the id of the last rendered message to detect "new message
+  // arrived at the bottom" vs "older page prepended at the top". See the
+  // auto-scroll effect below for details.
+  const lastMessageIdRef = useRef<string | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const peerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef<number>(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Global "inbox snapshot" used to build the conversation list previews
+  // and per-conversation unread counters. We no longer pull 400 rows here
+  // — only the last 80 recent rows across all conversations. The full
+  // history of the ACTIVE conversation is loaded separately via
+  // `loadLatestDMPage` / `loadOlderDMPage` (cursor pagination).
   const loadMessages = useCallback(async () => {
     if (!myId) return;
     try {
@@ -326,7 +356,7 @@ export default function Messages() {
         .select('*')
         .or(`user_id.eq.${myId},receiver_id.eq.${myId}`)
         .order('created_at', { ascending: false })
-        .limit(400);
+        .limit(80);
       if (error) throw error;
       setAllMessages((data as Message[]) || []);
     } catch (e) {
@@ -353,6 +383,62 @@ export default function Messages() {
     setStarred(star);
     setDeletedForMe(del);
   }, [myId]);
+
+  // Load the most recent page of the active conversation from the server.
+  // Called when the user opens a conversation.
+  const loadActiveConvFirstPage = useCallback(
+    async (peerId: string) => {
+      if (!myId || !peerId) return;
+      setActiveConvLoading(true);
+      try {
+        const page = await loadLatestDMPage(myId, peerId, DM_PAGE_SIZE);
+        // Guard: if the user already switched to another conversation while
+        // we were loading, ignore this result.
+        if (activeConvPeerRef.current !== peerId) return;
+        setActiveConvMessages(page.messages as Message[]);
+        setActiveConvHasMore(page.hasMore);
+      } finally {
+        setActiveConvLoading(false);
+      }
+    },
+    [myId],
+  );
+
+  // Load the next older page. Called by LoadOlderTrigger when the user
+  // scrolls to the top of the conversation. Preserves scroll position by
+  // snapshotting the container height before the prepend.
+  const loadActiveConvOlder = useCallback(async () => {
+    const peerId = activeConvPeerRef.current;
+    if (!peerId || !myId) return;
+    if (activeConvLoadingOlder || !activeConvHasMore) return;
+    if (activeConvMessages.length === 0) return;
+    const oldest = activeConvMessages[0];
+    if (!oldest?.created_at) return;
+    setActiveConvLoadingOlder(true);
+    const container = scrollRef.current;
+    preserveScrollRef.current = container
+      ? { prevHeight: container.scrollHeight }
+      : null;
+    try {
+      const page = await loadOlderDMPage(myId, peerId, oldest.created_at);
+      if (activeConvPeerRef.current !== peerId) return;
+      setActiveConvHasMore(page.hasMore);
+      if (page.messages.length > 0) {
+        setActiveConvMessages((prev) => {
+          // Prepend while deduplicating by id (defensive, in case of
+          // overlapping cursors after a clock skew / retry).
+          const known = new Set(prev.map((m) => m.id));
+          const older = (page.messages as Message[]).filter(
+            (m) => !known.has(m.id),
+          );
+          if (older.length === 0) return prev;
+          return [...older, ...prev];
+        });
+      }
+    } finally {
+      setActiveConvLoadingOlder(false);
+    }
+  }, [myId, activeConvHasMore, activeConvLoadingOlder, activeConvMessages]);
 
   const loadGroups = useCallback(async () => {
     if (!myId) return;
@@ -469,6 +555,53 @@ export default function Messages() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTo]);
+
+  // Whenever we open a different conversation, reset the paginated store
+  // and fetch its most recent page. Any previous store is discarded so
+  // cursor state cannot leak from one conversation to another.
+  useEffect(() => {
+    activeConvPeerRef.current = activeUserId;
+    lastMessageIdRef.current = null;
+    if (!activeUserId || !myId) {
+      setActiveConvMessages([]);
+      setActiveConvHasMore(false);
+      return;
+    }
+    setActiveConvMessages([]);
+    setActiveConvHasMore(false);
+    loadActiveConvFirstPage(activeUserId);
+  }, [activeUserId, myId, loadActiveConvFirstPage]);
+
+  // Merge any new messages arriving via the global polling (`allMessages`)
+  // into the active conversation store so realtime keeps working without
+  // refetching the full history.
+  useEffect(() => {
+    if (!activeUserId || !myId) return;
+    const relevant = allMessages.filter(
+      (m) =>
+        (m.user_id === myId && m.receiver_id === activeUserId) ||
+        (m.user_id === activeUserId && m.receiver_id === myId),
+    );
+    if (relevant.length === 0) return;
+    // `mergeMessagesById` returns the previous reference when there is
+    // nothing new, so React will skip the update in that case.
+    setActiveConvMessages((prev) => mergeMessagesById(prev, relevant));
+  }, [allMessages, activeUserId, myId]);
+
+  // After prepending an older page, restore the scroll position so the
+  // user stays on the same visible message instead of jumping to the top.
+  useEffect(() => {
+    const snap = preserveScrollRef.current;
+    if (!snap) return;
+    const container = scrollRef.current;
+    if (!container) {
+      preserveScrollRef.current = null;
+      return;
+    }
+    const diff = container.scrollHeight - snap.prevHeight;
+    if (diff > 0) container.scrollTop = diff;
+    preserveScrollRef.current = null;
+  }, [activeConvMessages.length]);
 
   useEffect(() => {
     if (!myId || !activeUserId) {
@@ -615,19 +748,19 @@ export default function Messages() {
     });
   }, [viewMode, archivedList, mainList, listQuery, allMessages, myId]);
 
+  // Active conversation messages come from the paginated store
+  // (`activeConvMessages`), which is kept in sync with the server via:
+  //  - initial fetch (`loadActiveConvFirstPage`) when the conversation opens
+  //  - older pages prepended on scroll-up (`loadActiveConvOlder`)
+  //  - realtime inserts merged from `allMessages` (see merge effect above)
   const activeMessages = useMemo(() => {
     if (!activeUserId) return [];
     const st = states[activeUserId];
     const clearedAt = st?.cleared_at ? new Date(st.cleared_at).getTime() : 0;
-    return allMessages
+    return activeConvMessages
       .filter((m) => {
-        const involved =
-          (m.user_id === myId && m.receiver_id === activeUserId) ||
-          (m.user_id === activeUserId && m.receiver_id === myId);
-        if (!involved) return false;
         const p = decodePayload(m.content);
         if (p.kind === 'signal') return false;
-        // Hide expired ephemeral messages from the UI immediately.
         if (isExpired(m.expires_at)) return false;
         if (clearedAt && m.created_at) {
           if (new Date(m.created_at).getTime() <= clearedAt) return false;
@@ -636,7 +769,7 @@ export default function Messages() {
         return true;
       })
       .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  }, [allMessages, activeUserId, myId, states, deletedForMe]);
+  }, [activeConvMessages, activeUserId, states, deletedForMe]);
 
   // Matches inside active conversation
   const convMatches = useMemo(() => {
@@ -667,9 +800,35 @@ export default function Messages() {
     }
   }, [convMatchIndex, convMatches, convSearchOpen]);
 
+  // Auto-scroll to the bottom when new messages arrive, but NOT when an
+  // older page is prepended via pagination. We detect a "new message at
+  // the bottom" by tracking the id of the last message — if it changed
+  // and the user is already near the bottom, we scroll down. Prepending
+  // an older page does not change the last message id, so the scroll
+  // position is preserved by `preserveScrollRef` instead.
   useEffect(() => {
-    if (scrollRef.current && !convSearchOpen) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (convSearchOpen) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const lastId = activeMessages.length
+      ? activeMessages[activeMessages.length - 1].id
+      : null;
+    const prevLast = lastMessageIdRef.current;
+    lastMessageIdRef.current = lastId;
+    // First paint of a conversation → jump to bottom.
+    if (prevLast === null && lastId !== null) {
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+    // A new message was appended → follow it only if the user is already
+    // near the bottom (within 120px), so we don't yank them away from the
+    // history they are reading.
+    if (lastId !== prevLast) {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 120) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
   }, [activeMessages, peerTyping, convSearchOpen]);
 
@@ -1707,7 +1866,16 @@ export default function Messages() {
           )}
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
-            {activeMessages.length === 0 ? (
+            <LoadOlderTrigger
+              hasMore={activeConvHasMore}
+              loading={activeConvLoadingOlder}
+              onLoadMore={loadActiveConvOlder}
+            />
+            {activeConvLoading && activeMessages.length === 0 ? (
+              <div className="text-center text-xs text-[var(--loboko-text-muted)] py-10">
+                Chargement…
+              </div>
+            ) : activeMessages.length === 0 ? (
               <div className="text-center text-xs text-[var(--loboko-text-muted)] py-10">
                 Démarrez la conversation
               </div>

@@ -132,3 +132,18 @@
 - [x] `storage-helpers.ts` : auto-compression images dans `uploadMediaEx` (posts, avatars, statuses, groupes)
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
+
+### Phase 12 - Pagination progressive des messages (DM + groupes)
+- [x] Créer `src/lib/message-pagination.ts` - helpers cursor-based (DM + groupes) + `mergeMessagesById`
+- [x] Créer `src/components/LoadOlderTrigger.tsx` - loader haut + IntersectionObserver auto-load
+- [x] `Messages.tsx` DM : réduire snapshot global de 400 → 80, store paginé `activeConvMessages` séparé
+- [x] `Messages.tsx` DM : premier chargement = 40 derniers messages via `loadLatestDMPage`
+- [x] `Messages.tsx` DM : scroll-up charge page suivante via `loadOlderDMPage` (cursor `created_at`)
+- [x] `Messages.tsx` DM : merge des nouveaux messages temps réel (polling) sans écraser les anciennes pages
+- [x] `Messages.tsx` DM : préservation du scroll après prepend + auto-scroll bas uniquement si l'utilisateur y est
+- [x] `GroupChat.tsx` : premier chargement 40 messages (au lieu de 300)
+- [x] `GroupChat.tsx` : scroll-up charge page suivante, merge par id, scroll preservé
+- [x] `GroupChat.tsx` : polling 15s + tous les `sendGroupMessage` utilisent `mergeMessagesById` (ne discardent plus les anciennes pages)
+- [x] `GroupChat.tsx` : delete-for-everyone patche localement + merge (reste cohérent avec les vieilles pages)
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`
