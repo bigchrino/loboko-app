@@ -1,0 +1,86 @@
+Nouvelle fonctionnalité : messages éphémères (auto-suppression).
+
+Objectif :
+Permettre d’activer des messages qui disparaissent automatiquement après un délai (24h, 7 jours, 30 jours).
+
+1. Base de données
+
+Modifier la table messages (et group_messages) :
+
+Ajouter :
+- expires_at timestamptz (nullable)
+- is_ephemeral boolean DEFAULT false
+
+Optionnel (si propre) :
+- ajouter aussi conversation_settings ou chat_settings pour stocker :
+  - conversation_id
+  - ephemeral_duration (null, 24h, 7j, 30j)
+
+2. Activation par conversation
+
+Dans une discussion (privée ou groupe) :
+- bouton dans le header ou menu :
+  “Messages éphémères”
+- choix :
+  - Désactivé
+  - 24 heures
+  - 7 jours
+  - 30 jours
+
+Quand activé :
+- tous les nouveaux messages envoyés auront expires_at calculé automatiquement
+
+3. Envoi message
+
+Lors de l’envoi :
+- si mode éphémère actif :
+  - is_ephemeral = true
+  - expires_at = now() + durée choisie
+
+4. Affichage
+
+Dans le chat :
+- afficher un petit indicateur :
+  “Messages éphémères activés”
+- sur chaque message éphémère :
+  - petite icône ⏳ ou 🔥
+
+5. Suppression automatique
+
+Deux niveaux :
+
+A. Frontend :
+- ne pas afficher les messages expirés (expires_at < now())
+
+B. Backend (optionnel mais propre) :
+- fonction SQL pour supprimer messages expirés
+- cron Supabase (1x par jour)
+
+6. Compatibilité
+
+- Ne pas casser messages existants
+- anciens messages restent visibles
+- fonctionne pour :
+  - messages privés
+  - groupes
+
+7. Contraintes
+
+- Ne pas casser :
+  - appels
+  - statuts
+  - médias
+  - mentions
+- Ne pas supprimer immédiatement en base (laisser filtrage frontend d’abord)
+- Build + lint à la fin
+
+8. SQL
+
+Créer EPHEMERAL_MESSAGES_SETUP.md avec :
+- ALTER TABLE messages
+- ALTER TABLE group_messages
+- création éventuelle de conversation_settings
+- fonction cleanup_expired_messages()
+
+Important :
+Le SQL doit être idempotent (IF NOT EXISTS)

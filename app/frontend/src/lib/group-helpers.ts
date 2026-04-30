@@ -33,6 +33,8 @@ export interface GroupMessage {
   deleted_for_everyone_at?: string | null;
   deleted_by?: string | null;
   created_at?: string;
+  expires_at?: string | null;
+  is_ephemeral?: boolean | null;
 }
 
 const SETUP_HINT = "Exécutez le SQL de GROUPS_SETUP_FIXED.md dans Supabase.";
@@ -253,6 +255,7 @@ export async function sendGroupMessage(params: {
   userId: string;
   content: string;
   replyToMessageId?: string | null;
+  expiresAt?: string | null;
 }): Promise<void> {
   const row: Record<string, unknown> = {
     group_id: params.groupId,
@@ -260,9 +263,13 @@ export async function sendGroupMessage(params: {
     content: params.content,
   };
   if (params.replyToMessageId) row.reply_to_message_id = params.replyToMessageId;
+  if (params.expiresAt) {
+    row.expires_at = params.expiresAt;
+    row.is_ephemeral = true;
+  }
   const { error } = await supabase.from('group_messages').insert(row);
   if (error) {
-    // Retry without reply column
+    // Retry without reply / ephemeral columns if they are missing.
     const { error: err2 } = await supabase.from('group_messages').insert({
       group_id: params.groupId,
       user_id: params.userId,

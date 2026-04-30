@@ -65,6 +65,15 @@ import {
   reportUser,
   unarchiveConversation,
 } from '@/lib/conversation-controls';
+import {
+  computeExpiresAt,
+  durationShort,
+  isExpired,
+  loadDmEphemeralDuration,
+  setDmEphemeralDuration,
+} from '@/lib/ephemeral';
+import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
+import { Timer } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -78,6 +87,8 @@ interface Message {
   created_at?: string;
   reply_to_message_id?: string | null;
   deleted_for_everyone_at?: string | null;
+  expires_at?: string | null;
+  is_ephemeral?: boolean | null;
 }
 
 interface Conversation {
@@ -275,6 +286,8 @@ export default function Messages() {
   const [messageDeleteBusy, setMessageDeleteBusy] = useState(false);
 
   // Phase 3 groups state
+  const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
+  const [showEphemeralDialog, setShowEphemeralDialog] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>({});
   const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>({});
@@ -349,12 +362,11 @@ export default function Messages() {
       const lm: Record<string, GroupMessage | undefined> = {};
       const unread: Record<string, number> = {};
       entries.forEach(([id, msgs]) => {
-        lm[id] = msgs[0];
+        // Skip expired ephemeral messages in both preview and unread counts.
+        const alive = msgs.filter((m) => !isExpired(m.expires_at));
+        lm[id] = alive[0];
         const lastRead = reads[id];
-        // If the user has never opened the group, count all foreign recent
-        // messages (capped at 99) as unread. Otherwise count messages strictly
-        // newer than last_read_at.
-        const count = msgs.filter((m) => {
+        const count = alive.filter((m) => {
           if (m.user_id === myId) return false;
           if (m.deleted_for_everyone_at) return false;
           if (!m.created_at) return false;
@@ -406,6 +418,15 @@ export default function Messages() {
     return () => clearInterval(t);
   }, [loadMessages]);
 
+  // Force a re-render every minute so that ephemeral messages whose
+  // `expires_at` has just passed disappear from the UI without waiting for
+  // the next fetch.
+  const [, setExpireTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setExpireTick((v) => v + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Refresh reactions whenever the set of visible messages change.
   useEffect(() => {
     if (!allMessages.length) {
@@ -433,6 +454,20 @@ export default function Messages() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTo]);
+
+  useEffect(() => {
+    if (!myId || !activeUserId) {
+      setEphemeralDuration(0);
+      return;
+    }
+    let cancelled = false;
+    loadDmEphemeralDuration(myId, activeUserId).then((d) => {
+      if (!cancelled) setEphemeralDuration(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, activeUserId]);
 
   useEffect(() => {
     if (!myId || !activeUserId) {
@@ -464,6 +499,9 @@ export default function Messages() {
     allMessages.forEach((m) => {
       const p = decodePayload(m.content);
       if (p.kind === 'signal') return;
+      // Skip ephemeral messages that have expired (client-side filter; backend
+      // cleanup is optional — see EPHEMERAL_MESSAGES_SETUP.md).
+      if (isExpired(m.expires_at)) return;
       const other = m.user_id === myId ? m.receiver_id : m.user_id;
       // Respect cleared_at for this peer
       const st = states[other];
@@ -512,6 +550,7 @@ export default function Messages() {
       if (m.receiver_id !== myId) return;
       if (m.read === true) return;
       if (m.deleted_for_everyone_at) return;
+      if (isExpired(m.expires_at)) return;
       const p = decodePayload(m.content);
       if (p.kind === 'signal') return;
       if (p.kind === 'call_event') return;
@@ -555,6 +594,8 @@ export default function Messages() {
         if (!involved) return false;
         const p = decodePayload(m.content);
         if (p.kind === 'signal') return false;
+        // Hide expired ephemeral messages from the UI immediately.
+        if (isExpired(m.expires_at)) return false;
         if (clearedAt && m.created_at) {
           if (new Date(m.created_at).getTime() <= clearedAt) return false;
         }
@@ -644,6 +685,7 @@ export default function Messages() {
     content: string;
     read?: boolean;
     reply_to_message_id?: string | null;
+    ephemeralOverride?: number | null;
   }) => {
     if (!myId) return;
     const row: Record<string, unknown> = {
@@ -656,9 +698,22 @@ export default function Messages() {
     if (payload.reply_to_message_id) {
       row.reply_to_message_id = payload.reply_to_message_id;
     }
+    // Attach ephemeral metadata if the conversation has it enabled. Caller may
+    // override with ephemeralOverride (e.g. 0 to skip for a forwarded message).
+    const duration =
+      payload.ephemeralOverride !== undefined
+        ? payload.ephemeralOverride ?? 0
+        : ephemeralDuration;
+    if (duration && duration > 0) {
+      const expiresAt = computeExpiresAt(duration);
+      if (expiresAt) {
+        row.expires_at = expiresAt;
+        row.is_ephemeral = true;
+      }
+    }
     const res = await supabase.from('messages').insert(row);
     if (res.error) {
-      // Retry without status / reply_to_message_id if columns missing
+      // Retry without status / reply_to_message_id / ephemeral columns if missing
       const fallback: Record<string, unknown> = {
         user_id: myId,
         receiver_id: payload.receiver_id,
@@ -1104,7 +1159,29 @@ export default function Messages() {
 
   const handleConvMenu = (action: ConversationMenuAction) => {
     if (!activeUserId) return;
+    if (action === 'ephemeral') {
+      setShowEphemeralDialog(true);
+      return;
+    }
     askAction(action, activeUserId);
+  };
+
+  const handleEphemeralConfirm = async (durationSeconds: number) => {
+    if (!myId || !activeUserId) return;
+    try {
+      await setDmEphemeralDuration(myId, activeUserId, durationSeconds);
+      setEphemeralDuration(durationSeconds);
+      if (durationSeconds > 0) {
+        toast.success(
+          `Messages éphémères activés (${durationShort(durationSeconds)})`,
+        );
+      } else {
+        toast.success('Messages éphémères désactivés');
+      }
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+    }
   };
 
   const highlightText = (text: string, q: string) => {
@@ -1431,8 +1508,20 @@ export default function Messages() {
             <ConversationMenu
               archived={!!activeState?.archived}
               onAction={handleConvMenu}
+              ephemeralLabel={
+                ephemeralDuration > 0 ? durationShort(ephemeralDuration) : undefined
+              }
             />
           </header>
+
+          {ephemeralDuration > 0 && (
+            <div className="px-3 py-1.5 text-[11px] text-[#60a5fa] bg-[rgba(37,99,235,0.10)] border-b border-[var(--loboko-border)] flex items-center gap-1.5">
+              <Timer size={12} />
+              <span>
+                Messages éphémères activés · {durationShort(ephemeralDuration)}
+              </span>
+            </div>
+          )}
 
           {convSearchOpen && (
             <div className="px-3 py-2 border-b border-[var(--loboko-border)] flex items-center gap-2 bg-[var(--loboko-elevated)]">
@@ -1691,6 +1780,13 @@ export default function Messages() {
                       }`}
                     >
                       <span>{formatMessageTime(m.created_at)}</span>
+                      {(m.is_ephemeral || m.expires_at) && !isDeletedForEveryone && (
+                        <Timer
+                          size={10}
+                          className="text-[#60a5fa]"
+                          aria-label="Message éphémère"
+                        />
+                      )}
                       {isStarred && !isDeletedForEveryone && (
                         <StarIcon
                           size={10}
@@ -1914,6 +2010,13 @@ export default function Messages() {
           loadGroups();
           navigate(`/messages/group/${groupId}`);
         }}
+      />
+
+      <EphemeralSettingsDialog
+        open={showEphemeralDialog}
+        currentDuration={ephemeralDuration}
+        onClose={() => setShowEphemeralDialog(false)}
+        onConfirm={handleEphemeralConfirm}
       />
     </Layout>
   );

@@ -82,3 +82,14 @@
 - [x] Wire "Voir" dans `AdsCarousel` → `/services/:slug`
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
+
+### Phase 7 - Messages éphémères (auto-suppression)
+- [x] Créer `EPHEMERAL_MESSAGES_SETUP.md` (ALTER `messages`/`group_messages`, table `conversation_settings`, fonction `cleanup_expired_messages`, cron)
+- [x] Créer `src/lib/ephemeral.ts` - helpers durations, expiresAt, load/set settings (DM + groupe)
+- [x] Créer `src/components/EphemeralSettingsDialog.tsx` - dialog de choix de durée (Off / 24h / 7j / 30j)
+- [x] Mettre à jour `src/components/ConversationMenu.tsx` - action "Messages éphémères" avec hint
+- [x] Mettre à jour `src/pages/Messages.tsx` - load/set duration DM, filtre expirés, expires_at à l'envoi, bannière + icône ⏳
+- [x] Mettre à jour `src/lib/group-helpers.ts` - champs `expires_at`/`is_ephemeral`, paramètre `expiresAt` dans `sendGroupMessage`
+- [x] Mettre à jour `src/pages/GroupChat.tsx` - menu groupe, dialog, filtre expirés, expires_at pour texte/voix/média, bannière + icône ⏳
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`

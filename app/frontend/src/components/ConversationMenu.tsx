@@ -1,23 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
-import { MoreVertical, Archive, Trash2, Ban, Flag, ArchiveRestore } from 'lucide-react';
+import {
+  MoreVertical,
+  Archive,
+  Trash2,
+  Ban,
+  Flag,
+  ArchiveRestore,
+  Timer,
+} from 'lucide-react';
 
 export type ConversationMenuAction =
   | 'archive'
   | 'unarchive'
   | 'delete'
   | 'block'
-  | 'block_and_report';
+  | 'block_and_report'
+  | 'ephemeral';
 
 interface Props {
   archived: boolean;
   onAction: (action: ConversationMenuAction) => void;
+  ephemeralLabel?: string; // e.g. "24h" to display next to Messages éphémères
 }
 
 /**
  * Three-dots menu used in the conversation header. Also triggered by long-press
  * on a conversation item in the list (via the `trigger` render prop variant).
  */
-export default function ConversationMenu({ archived, onAction }: Props) {
+export default function ConversationMenu({
+  archived,
+  onAction,
+  ephemeralLabel,
+}: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +50,14 @@ export default function ConversationMenu({ archived, onAction }: Props) {
     icon: React.ComponentType<{ size?: number }>;
     danger?: boolean;
     hidden?: boolean;
+    hint?: string;
   }> = [
+    {
+      key: 'ephemeral',
+      label: 'Messages éphémères',
+      icon: Timer,
+      hint: ephemeralLabel,
+    },
     archived
       ? { key: 'unarchive', label: 'Désarchiver', icon: ArchiveRestore }
       : { key: 'archive', label: 'Archiver', icon: Archive },
@@ -78,7 +99,12 @@ export default function ConversationMenu({ archived, onAction }: Props) {
                 }`}
               >
                 <Icon size={16} />
-                <span>{it.label}</span>
+                <span className="flex-1">{it.label}</span>
+                {it.hint && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(37,99,235,0.18)] text-[#60a5fa] font-semibold">
+                    {it.hint}
+                  </span>
+                )}
               </button>
             );
           })}

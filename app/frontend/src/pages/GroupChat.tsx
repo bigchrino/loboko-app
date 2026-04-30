@@ -14,6 +14,8 @@ import {
   X as XIcon,
   Star as StarIcon,
   Reply as ReplyIcon,
+  Timer,
+  MoreVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import EmojiPicker from '@/components/EmojiPicker';
@@ -45,6 +47,14 @@ import {
 import { loadReactionsForMessages, Reaction, toggleReaction } from '@/lib/message-actions';
 import { markGroupRead } from '@/lib/group-reads';
 import { supabase as sb } from '@/lib/supabase'; // alias for clarity
+import {
+  computeExpiresAt,
+  durationShort,
+  isExpired,
+  loadGroupEphemeralDuration,
+  setGroupEphemeralDuration,
+} from '@/lib/ephemeral';
+import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
@@ -127,6 +137,9 @@ export default function GroupChat() {
     mode: 'me' | 'everyone';
   } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
+  const [showEphemeralDialog, setShowEphemeralDialog] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -201,6 +214,25 @@ export default function GroupChat() {
     loadAll();
   }, [loadAll]);
 
+  // Load the user's ephemeral duration setting for this group.
+  useEffect(() => {
+    if (!myId || !groupId) return;
+    let cancelled = false;
+    loadGroupEphemeralDuration(myId, groupId).then((d) => {
+      if (!cancelled) setEphemeralDuration(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, groupId]);
+
+  // Force a re-render every minute so expired messages disappear.
+  const [, setExpireTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setExpireTick((v) => v + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Mark this group as read whenever we enter / new messages arrive.
   useEffect(() => {
     if (!groupId || !myId) return;
@@ -252,6 +284,7 @@ export default function GroupChat() {
   const visibleMessages = useMemo(() => {
     return messages
       .filter((m) => !deletedForMe.has(m.id))
+      .filter((m) => !isExpired(m.expires_at))
       .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
   }, [messages, deletedForMe]);
 
@@ -331,6 +364,7 @@ export default function GroupChat() {
         userId: myId,
         content: text,
         replyToMessageId: replyId,
+        expiresAt: computeExpiresAt(ephemeralDuration),
       });
       const fresh = await loadGroupMessages(groupId);
       setMessages(fresh);
@@ -365,6 +399,7 @@ export default function GroupChat() {
         groupId,
         userId: myId,
         content: encodePayload({ kind: 'audio', object_key: objectKey, duration }),
+        expiresAt: computeExpiresAt(ephemeralDuration),
       });
       const fresh = await loadGroupMessages(groupId);
       setMessages(fresh);
@@ -391,7 +426,12 @@ export default function GroupChat() {
               object_key: key,
               duration: pendingMedia.duration,
             });
-      await sendGroupMessage({ groupId, userId: myId, content });
+      await sendGroupMessage({
+        groupId,
+        userId: myId,
+        content,
+        expiresAt: computeExpiresAt(ephemeralDuration),
+      });
       clearPendingMedia();
       const fresh = await loadGroupMessages(groupId);
       setMessages(fresh);
@@ -577,6 +617,24 @@ export default function GroupChat() {
     }
   };
 
+  const handleEphemeralConfirm = async (durationSeconds: number) => {
+    if (!myId || !groupId) return;
+    try {
+      await setGroupEphemeralDuration(myId, groupId, durationSeconds);
+      setEphemeralDuration(durationSeconds);
+      if (durationSeconds > 0) {
+        toast.success(
+          `Messages éphémères activés (${durationShort(durationSeconds)})`,
+        );
+      } else {
+        toast.success('Messages éphémères désactivés');
+      }
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+    }
+  };
+
   const buildReplyPreview = (m: GroupMessage): string => {
     const p = decodePayload(m.content);
     if (p.kind === 'text') return p.text.slice(0, 80);
@@ -640,7 +698,54 @@ export default function GroupChat() {
           >
             <Info size={16} />
           </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowHeaderMenu((v) => !v)}
+              className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
+              aria-label="Options du groupe"
+              title="Options"
+            >
+              <MoreVertical size={16} />
+            </button>
+            {showHeaderMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowHeaderMenu(false)}
+                  aria-hidden="true"
+                />
+                <div className="absolute right-0 mt-2 w-60 bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-xl shadow-xl z-50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHeaderMenu(false);
+                      setShowEphemeralDialog(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)]"
+                  >
+                    <Timer size={16} />
+                    <span className="flex-1">Messages éphémères</span>
+                    {ephemeralDuration > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(37,99,235,0.18)] text-[#60a5fa] font-semibold">
+                        {durationShort(ephemeralDuration)}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </header>
+
+        {ephemeralDuration > 0 && (
+          <div className="px-3 py-1.5 text-[11px] text-[#60a5fa] bg-[rgba(37,99,235,0.10)] border-b border-[var(--loboko-border)] flex items-center gap-1.5">
+            <Timer size={12} />
+            <span>
+              Messages éphémères activés · {durationShort(ephemeralDuration)}
+            </span>
+          </div>
+        )}
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
           {visibleMessages.length === 0 ? (
@@ -801,6 +906,13 @@ export default function GroupChat() {
                       }`}
                     >
                       <span>{formatTime(m.created_at)}</span>
+                      {(m.is_ephemeral || m.expires_at) && !isDeleted && (
+                        <Timer
+                          size={10}
+                          className="text-[#60a5fa]"
+                          aria-label="Message éphémère"
+                        />
+                      )}
                       {isStarred && !isDeleted && (
                         <StarIcon
                           size={10}
@@ -1018,6 +1130,13 @@ export default function GroupChat() {
         loading={deleteBusy}
         onConfirm={runDelete}
         onCancel={() => (deleteBusy ? undefined : setPendingDelete(null))}
+      />
+
+      <EphemeralSettingsDialog
+        open={showEphemeralDialog}
+        currentDuration={ephemeralDuration}
+        onClose={() => setShowEphemeralDialog(false)}
+        onConfirm={handleEphemeralConfirm}
       />
     </Layout>
   );
