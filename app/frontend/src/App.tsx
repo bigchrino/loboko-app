@@ -1,3 +1,4 @@
+import { MissedCallsProvider } from '@/contexts/MissedCallsContext';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -115,12 +116,14 @@ const App = () => (
           <MessagesProvider>
             <PresenceProvider>
               <CallProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <BrowserRouter>
-                    <AppRoutes />
-                  </BrowserRouter>
-                </TooltipProvider>
+                <MissedCallsProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <BrowserRouter>
+                      <AppRoutes />
+                    </BrowserRouter>
+                  </TooltipProvider>
+                </MissedCallsProvider>
               </CallProvider>
             </PresenceProvider>
           </MessagesProvider>

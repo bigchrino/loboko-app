@@ -12,12 +12,32 @@ import {
   ChevronRight,
   Lightbulb,
   ShoppingCart,
+  Phone,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMissedCalls } from '@/contexts/MissedCallsContext';
 import LogoutConfirm from '@/components/LogoutConfirm';
 
-const items = [
+interface MenuItem {
+  to: string;
+  label: string;
+  desc: string;
+  icon: typeof User;
+  color: string;
+  /** Optional key to attach a dynamic badge (e.g. missed calls). */
+  badgeKey?: 'missedCalls';
+}
+
+const items: MenuItem[] = [
   { to: '/profile', label: 'Mon Profil', desc: 'Voir et modifier votre profil', icon: User, color: '#2563eb' },
+  {
+    to: '/calls',
+    label: 'Appels',
+    desc: 'Historique des appels vocaux et vidéo',
+    icon: Phone,
+    color: '#2563eb',
+    badgeKey: 'missedCalls',
+  },
   { to: '/recherches', label: 'Recherches', desc: 'Rechercher des personnes et contenus', icon: Search, color: '#2563eb' },
   { to: '/suggestion', label: 'Suggestion', desc: 'Suggestions personnalisées', icon: Lightbulb, color: '#eab308' },
   { to: '/entreprise', label: 'Entreprise', desc: 'Offres et services entreprise', icon: Building2, color: '#2563eb' },
@@ -28,9 +48,15 @@ const items = [
 
 export default function Menu() {
   const { logout } = useAuth();
+  const { unseenMissed } = useMissedCalls();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const badgeCountFor = (key?: MenuItem['badgeKey']): number => {
+    if (key === 'missedCalls') return unseenMissed;
+    return 0;
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -54,25 +80,44 @@ export default function Menu() {
         </div>
 
         <div className="space-y-3">
-          {items.map(({ to, label, desc, icon: Icon, color }) => (
-            <Link
-              key={to}
-              to={to}
-              className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
-            >
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${color}26` }}
+          {items.map(({ to, label, desc, icon: Icon, color, badgeKey }) => {
+            const badgeCount = badgeCountFor(badgeKey);
+            const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
               >
-                <Icon size={22} style={{ color }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold">{label}</div>
-                <div className="text-sm text-[var(--loboko-text-secondary)]">{desc}</div>
-              </div>
-              <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
-            </Link>
-          ))}
+                <div
+                  className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${color}26` }}
+                >
+                  <Icon size={22} style={{ color }} />
+                  {badgeCount > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[var(--loboko-elevated)]"
+                      aria-label={`${badgeCount} appels manqués`}
+                    >
+                      {badgeLabel}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold flex items-center gap-2">
+                    {label}
+                    {badgeCount > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
+                        {badgeLabel}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-[var(--loboko-text-secondary)]">{desc}</div>
+                </div>
+                <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
+              </Link>
+            );
+          })}
 
           <button
             onClick={() => setShowLogoutConfirm(true)}

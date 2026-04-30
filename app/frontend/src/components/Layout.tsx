@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useMessages } from '@/contexts/MessagesContext';
+import { useMissedCalls } from '@/contexts/MissedCallsContext';
 import Logo from '@/components/Logo';
 
 interface LayoutProps {
@@ -58,6 +59,7 @@ export default function Layout({ children, title }: LayoutProps) {
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessagesCount } = useMessages();
+  const { unseenMissed } = useMissedCalls();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -95,11 +97,19 @@ export default function Layout({ children, title }: LayoutProps) {
   const unreadMessagesLabel =
     unreadMessagesCount > 99 ? '99+' : String(unreadMessagesCount);
 
+  const unseenMissedLabel = unseenMissed > 99 ? '99+' : String(unseenMissed);
+
   const badgeFor = (to: string): { count: number; label: string } | null => {
     if (to === '/notifications' && unreadCount > 0)
       return { count: unreadCount, label: unreadLabel };
     if (to === '/messages' && unreadMessagesCount > 0)
       return { count: unreadMessagesCount, label: unreadMessagesLabel };
+    // Show the missed-calls badge on the desktop "Appels" link and on the
+    // mobile "Menu" entry (since /calls lives inside the mobile menu page).
+    if (to === '/calls' && unseenMissed > 0)
+      return { count: unseenMissed, label: unseenMissedLabel };
+    if (to === '/menu' && unseenMissed > 0)
+      return { count: unseenMissed, label: unseenMissedLabel };
     return null;
   };
 

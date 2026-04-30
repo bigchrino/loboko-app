@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { useCall } from '@/contexts/CallContext';
+import { useMissedCalls } from '@/contexts/MissedCallsContext';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import {
@@ -109,6 +110,13 @@ export default function Calls() {
   const myId = user?.id || '';
   const navigate = useNavigate();
   const { startCall } = useCall();
+  const { markSeen } = useMissedCalls();
+
+  // Mark all missed calls as seen the moment the page opens so the badge
+  // clears immediately across the app (desktop sidebar + mobile menu).
+  useEffect(() => {
+    if (myId) markSeen();
+  }, [myId, markSeen]);
 
   const [entries, setEntries] = useState<CallHistoryEntry[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
