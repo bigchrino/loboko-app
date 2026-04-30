@@ -46,6 +46,11 @@ import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import MentionText from '@/components/MentionText';
 import LoadOlderTrigger from '@/components/LoadOlderTrigger';
+import { triggerPushNotification, notificationPreview } from '@/lib/push-trigger';
+import {
+  setActiveConversation,
+  clearActiveConversation,
+} from '@/lib/active-conversation';
 import {
   DM_PAGE_SIZE,
   loadLatestDMPage,
@@ -572,6 +577,18 @@ export default function Messages() {
     loadActiveConvFirstPage(activeUserId);
   }, [activeUserId, myId, loadActiveConvFirstPage]);
 
+  // Tell the service worker (and sibling tabs) which DM conversation is
+  // currently open, so incoming push notifs for that same conversation
+  // can be suppressed.
+  useEffect(() => {
+    if (activeUserId) {
+      setActiveConversation({ type: 'dm', id: activeUserId });
+    } else {
+      clearActiveConversation();
+    }
+    return () => clearActiveConversation();
+  }, [activeUserId]);
+
   // Merge any new messages arriving via the global polling (`allMessages`)
   // into the active conversation store so realtime keeps working without
   // refetching the full history.
@@ -948,6 +965,41 @@ export default function Messages() {
       };
       const { error } = await supabase.from('messages').insert(fallback);
       if (error) throw error;
+    }
+
+    // Fire-and-forget Web Push trigger. Never blocks the send path.
+    // The recipient side applies their own preferences + device fan-out.
+    try {
+      const senderName =
+        profile?.display_name || profile?.username || 'Nouveau message';
+      const decoded = decodePayload(payload.content);
+      const preview = (() => {
+        if (!decoded) return notificationPreview(payload.content, 'Nouveau message');
+        switch (decoded.kind) {
+          case 'voice':
+            return '🎤 Note vocale';
+          case 'image':
+            return '📷 Photo';
+          case 'video':
+            return '🎬 Vidéo';
+          case 'file':
+            return '📎 Document';
+          case 'call':
+            return '📞 Appel';
+          case 'text':
+          default:
+            return notificationPreview(decoded.text ?? payload.content, 'Nouveau message');
+        }
+      })();
+      triggerPushNotification({
+        recipientId: payload.receiver_id,
+        kind: 'dm',
+        title: senderName,
+        body: preview,
+        conversationId: myId,
+      });
+    } catch (e) {
+      console.warn('[messages] push trigger failed', e);
     }
   };
 

@@ -1,0 +1,59 @@
+Priorité 5 : Notifications push
+
+Objectif :
+Permettre à l’utilisateur de recevoir des notifications en temps réel même quand l’app est fermée ou en arrière-plan.
+
+Contraintes strictes :
+- Ne pas casser messages, groupes, appels, médias, notes vocales, statuts, commentaires, ratings
+- Ne pas ralentir l’app
+- Implémentation progressive
+- Compatible mobile + web
+
+À faire :
+
+1. Web (PWA)
+- Ajouter Service Worker
+- Demander permission notification
+- Gérer abonnement push (Push API)
+- Afficher notification :
+  - nouveau message
+  - groupe
+  - mention
+
+2. Mobile (si Flutter ou autre)
+- Intégrer Firebase Cloud Messaging (FCM)
+- Récupérer device token
+- Lier token à userId
+
+3. Backend (si Supabase ou autre)
+- À chaque nouveau message :
+  - envoyer notification au destinataire
+- Payload simple :
+  {
+    title: nom expéditeur,
+    body: message court,
+    conversationId: id
+  }
+
+4. UX
+- Cliquer sur notif → ouvrir la bonne conversation
+- Pas de spam :
+  - regrouper notifications
+  - ignorer si utilisateur déjà dans la conversation
+
+5. Paramètres utilisateur
+- Activer / désactiver notifications
+- Choisir :
+  - messages privés
+  - groupes
+  - mentions seulement
+
+6. Tests
+- App ouverte → notif silencieuse ou badge
+- App fermée → notif système
+- Clic → bonne conversation
+- Aucun doublon
+
+7. Build final
+npm run lint
+npm run build

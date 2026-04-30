@@ -48,6 +48,14 @@ import {
 } from '@/lib/group-helpers';
 import LoadOlderTrigger from '@/components/LoadOlderTrigger';
 import {
+  setActiveConversation,
+  clearActiveConversation,
+} from '@/lib/active-conversation';
+import {
+  triggerGroupPushFanout,
+  notificationPreview,
+} from '@/lib/push-trigger';
+import {
   GROUP_PAGE_SIZE,
   loadLatestGroupPage,
   loadOlderGroupPage,
@@ -170,6 +178,17 @@ export default function GroupChat() {
   // Tracks the id of the last rendered message to distinguish "new message
   // at the bottom" from "older page prepended at the top".
   const lastMessageIdRef = useRef<string | null>(null);
+
+  // Broadcast to the service worker which group is currently open, so that
+  // incoming push notifs for that same group can be suppressed.
+  useEffect(() => {
+    if (groupId) {
+      setActiveConversation({ type: 'group', id: groupId });
+    } else {
+      clearActiveConversation();
+    }
+    return () => clearActiveConversation();
+  }, [groupId]);
 
   const myMember = useMemo(
     () => members.find((m) => m.user_id === myId),
@@ -522,21 +541,40 @@ export default function GroupChat() {
         mergeMessagesById(prev, fresh.messages as GroupMessage[]),
       );
       // Notify any @mentioned users (non-blocking).
+      let mentionedIds: string[] = [];
       try {
         const mentionMap = await resolveMentionedUserIds(text);
+        mentionedIds = Object.values(mentionMap).filter((uid) => uid && uid !== myId);
         await Promise.all(
-          Object.entries(mentionMap).map(([, uid]) => {
-            if (uid === myId) return Promise.resolve();
-            return createNotification({
+          mentionedIds.map((uid) =>
+            createNotification({
               recipientId: uid,
               fromUserId: myId,
               type: 'message',
               message: 'vous a mentionné dans un groupe',
-            });
-          }),
+            }),
+          ),
         );
       } catch (nErr) {
         console.error('[group-chat] mention notifications failed', nErr);
+      }
+      // Fire-and-forget push fan-out to all members.
+      try {
+        const senderName =
+          profilesMap[myId]?.display_name ||
+          profilesMap[myId]?.username ||
+          'Nouveau message';
+        const title = group?.name ? `${senderName} • ${group.name}` : senderName;
+        triggerGroupPushFanout({
+          groupId,
+          senderId: myId,
+          memberIds: members.map((m) => m.user_id),
+          mentionedUserIds: mentionedIds,
+          title,
+          body: notificationPreview(text, 'Nouveau message'),
+        });
+      } catch (pErr) {
+        console.warn('[group-chat] push fan-out failed', pErr);
       }
     } catch (e) {
       const err = e as { message?: string };
@@ -558,6 +596,20 @@ export default function GroupChat() {
       setMessages((prev) =>
         mergeMessagesById(prev, fresh.messages as GroupMessage[]),
       );
+      try {
+        const senderName =
+          profilesMap[myId]?.display_name || profilesMap[myId]?.username || 'Nouveau message';
+        const title = group?.name ? `${senderName} • ${group.name}` : senderName;
+        triggerGroupPushFanout({
+          groupId,
+          senderId: myId,
+          memberIds: members.map((m) => m.user_id),
+          title,
+          body: '🎤 Note vocale',
+        });
+      } catch (pErr) {
+        console.warn('[group-chat] push fan-out failed', pErr);
+      }
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -587,11 +639,26 @@ export default function GroupChat() {
         content,
         expiresAt: computeExpiresAt(ephemeralDuration),
       });
+      const mediaKind = pendingMedia.kind;
       clearPendingMedia();
       const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
       setMessages((prev) =>
         mergeMessagesById(prev, fresh.messages as GroupMessage[]),
       );
+      try {
+        const senderName =
+          profilesMap[myId]?.display_name || profilesMap[myId]?.username || 'Nouveau message';
+        const title = group?.name ? `${senderName} • ${group.name}` : senderName;
+        triggerGroupPushFanout({
+          groupId,
+          senderId: myId,
+          memberIds: members.map((m) => m.user_id),
+          title,
+          body: mediaKind === 'image' ? '📷 Photo' : '🎬 Vidéo',
+        });
+      } catch (pErr) {
+        console.warn('[group-chat] push fan-out failed', pErr);
+      }
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -631,6 +698,20 @@ export default function GroupChat() {
       setMessages((prev) =>
         mergeMessagesById(prev, fresh.messages as GroupMessage[]),
       );
+      try {
+        const senderName =
+          profilesMap[myId]?.display_name || profilesMap[myId]?.username || 'Nouveau message';
+        const title = group?.name ? `${senderName} • ${group.name}` : senderName;
+        triggerGroupPushFanout({
+          groupId,
+          senderId: myId,
+          memberIds: members.map((m) => m.user_id),
+          title,
+          body: '📎 Document',
+        });
+      } catch (pErr) {
+        console.warn('[group-chat] push fan-out failed', pErr);
+      }
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");

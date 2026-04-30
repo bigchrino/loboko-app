@@ -133,6 +133,23 @@
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
 
+### Phase 13 - Notifications push (Web Push + VAPID)
+- [x] Créer `PUSH_NOTIFICATIONS_SETUP.md` (table `push_subscriptions`, table `push_preferences`, RLS, secrets VAPID, guide de déploiement de la fonction edge)
+- [x] Créer `supabase/functions/send-push/index.ts` - fonction edge qui signe avec VAPID et dispatche à toutes les endpoints du destinataire + nettoie les 410 Gone
+- [x] Créer `public/sw.js` - service worker : gère `push` (affiche la notif, tag=conversationId, évite doublons) et `notificationclick` (focus ou ouvre la bonne conversation)
+- [x] Créer `src/lib/push-notifications.ts` - register SW, subscribe/unsubscribe (Push API + VAPID), persist dans `push_subscriptions`, helpers `isSupported/permissionStatus/isSubscribed`
+- [x] Créer `src/lib/push-preferences.ts` - get/set préférences (dm on/off, groups on/off, mentions_only)
+- [x] Créer `src/lib/active-conversation.ts` - tracker la conversation ouverte (setActive/clearActive/isActive) via `sessionStorage` + broadcast au SW pour éviter de notifier quand l'utilisateur y est déjà
+- [x] Créer `src/lib/push-trigger.ts` - helper `sendPushTo(recipientId, payload)` qui appelle la fonction edge `send-push`, respecte les préférences du destinataire, ignore si self ou conv active
+- [x] Créer `src/components/PushNotificationSettings.tsx` - UI (activer, DM, groupes, mentions only), gère `Notification.permission` + cas `unsupported` / iOS non-PWA
+- [x] Intégrer dans `src/pages/Settings.tsx` - section "Notifications push"
+- [ ] Auto-register SW + sync subscription au login dans `src/main.tsx` (ou AuthContext)
+- [x] Trigger push dans `Messages.tsx` après `insertMessage` (DM → titre = display_name, body = preview)
+- [x] Trigger push dans `GroupChat.tsx` après `sendGroupMessage` pour tous les membres sauf l'émetteur + respect `mentions_only`
+- [ ] `Messages.tsx` + `GroupChat.tsx` : setActiveConversation au mount / clearActiveConversation au unmount
+- [ ] Run `pnpm run lint`
+- [ ] Run `pnpm run build`
+
 ### Phase 12 - Pagination progressive des messages (DM + groupes)
 - [x] Créer `src/lib/message-pagination.ts` - helpers cursor-based (DM + groupes) + `mergeMessagesById`
 - [x] Créer `src/components/LoadOlderTrigger.tsx` - loader haut + IntersectionObserver auto-load

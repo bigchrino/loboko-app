@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { Sun, Moon, LogOut, User, Shield, HelpCircle } from 'lucide-react';
 import LogoutConfirm from '@/components/LogoutConfirm';
+import PushNotificationSettings from '@/components/PushNotificationSettings';
 
 export default function Settings() {
   const { logout, profile, user } = useAuth();
@@ -76,6 +77,10 @@ export default function Settings() {
           <span className="flex-1 text-left text-sm font-medium">Aide & support</span>
           <span className="text-xs text-[var(--loboko-text-muted)]">Bientôt</span>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <PushNotificationSettings />
       </div>
 
       <button

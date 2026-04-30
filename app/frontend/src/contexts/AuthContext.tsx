@@ -109,12 +109,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(accountFromUser(data.session?.user || null));
       await loadProfileFor(data.session?.user || null);
       setLoading(false);
+      // Fire-and-forget: keep an existing push subscription bound to the
+      // current user. Never blocks auth flow.
+      const uid = data.session?.user?.id;
+      if (uid) {
+        void import('@/lib/push-notifications').then((m) =>
+          m.syncPushSubscriptionOnStartup(uid),
+        );
+      }
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(accountFromUser(newSession?.user || null));
       loadProfileFor(newSession?.user || null);
+      const uid = newSession?.user?.id;
+      if (uid) {
+        void import('@/lib/push-notifications').then((m) =>
+          m.syncPushSubscriptionOnStartup(uid),
+        );
+      }
     });
 
     return () => {
