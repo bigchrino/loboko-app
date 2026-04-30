@@ -57,9 +57,21 @@ interface Props {
   }) => void;
 }
 
+// Public Google STUN servers. Enough for same-network / most home NAT cases.
+// TURN required for reliable calls across mobile networks
+// (symmetric NAT, strict corporate / carrier firewalls, iOS cellular).
+// To enable TURN, append entries here, e.g.:
+//   { urls: 'turn:turn.example.com:3478', username: '...', credential: '...' }
+// You can source credentials from Twilio Network Traversal Service, Xirsys,
+// CoTURN self-hosted, or Cloudflare Calls. Without TURN, calls between two
+// mobile-network peers may stay stuck in `iceConnectionState: checking` or
+// eventually go to `failed`.
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
 ];
 
 // Realtime event types exchanged over the per-call broadcast channel.
@@ -119,6 +131,45 @@ export default function CallModal({
   const [error, setError] = useState<string | null>(null);
   const [speakerOn, setSpeakerOn] = useState(true);
 
+  /**
+   * Debug diagnostics surfaced in a small dev-only panel and streamed to
+   * the browser console. Every relevant signalling or media event mutates
+   * this state so the developer can at a glance see WHERE the pipeline
+   * broke (Supabase Realtime channel vs WebRTC handshake vs remote media).
+   */
+  const [debug, setDebug] = useState<{
+    signaling: 'pending' | 'ok' | 'failed';
+    offerSent: boolean;
+    offerReceived: boolean;
+    answerSent: boolean;
+    answerReceived: boolean;
+    iceSent: number;
+    iceReceived: number;
+    remoteTrack: boolean;
+    connectionState: RTCPeerConnectionState | 'new';
+    iceConnectionState: RTCIceConnectionState | 'new';
+  }>({
+    signaling: 'pending',
+    offerSent: false,
+    offerReceived: false,
+    answerSent: false,
+    answerReceived: false,
+    iceSent: 0,
+    iceReceived: 0,
+    remoteTrack: false,
+    connectionState: 'new',
+    iceConnectionState: 'new',
+  });
+
+  const setDebugPatch = useCallback(
+    (patch: Partial<typeof debug>) => {
+      setDebug((prev) => ({ ...prev, ...patch }));
+    },
+    // setDebug is stable from useState; `debug` used only as type handle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
@@ -143,13 +194,30 @@ export default function CallModal({
     [mode],
   );
 
-  const sendEvent = useCallback((event: CallEvent) => {
-    const ch = channelRef.current;
-    if (!ch) return;
-    ch.send({ type: 'broadcast', event: 'call', payload: event }).catch((e) =>
-      console.warn(`${TAG} send failed`, e),
-    );
-  }, []);
+  const sendEvent = useCallback(
+    (event: CallEvent) => {
+      const ch = channelRef.current;
+      if (!ch) {
+        console.warn(`${TAG} sendEvent aborted: no channel`, event.type);
+        return;
+      }
+      ch.send({ type: 'broadcast', event: 'call', payload: event })
+        .then(() => {
+          if (event.type === 'offer') setDebugPatch({ offerSent: true });
+          else if (event.type === 'answer') setDebugPatch({ answerSent: true });
+          else if (event.type === 'ice')
+            setDebug((prev) => ({ ...prev, iceSent: prev.iceSent + 1 }));
+          console.info(`${TAG} → ${event.type}`, {
+            from: 'from' in event ? event.from : undefined,
+          });
+        })
+        .catch((e) => {
+          console.warn(`${TAG} send failed`, event.type, e);
+          setDebugPatch({ signaling: 'failed' });
+        });
+    },
+    [setDebugPatch],
+  );
 
   const flushOutboundIce = useCallback(() => {
     if (!channelReadyRef.current) return;
@@ -273,6 +341,7 @@ export default function CallModal({
         readyState: ev.track.readyState,
         hasStream: !!stream,
       });
+      setDebugPatch({ remoteTrack: true });
       if (!stream) {
         // Some browsers (older Safari) do not populate ev.streams. Build one.
         const fallback = new MediaStream([ev.track]);
@@ -289,6 +358,7 @@ export default function CallModal({
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
       console.info(`${TAG} connectionState`, st);
+      setDebugPatch({ connectionState: st });
       if (st === 'failed' || st === 'disconnected' || st === 'closed') {
         if (!closedRef.current && acceptedRef.current) {
           cleanup({
@@ -300,7 +370,16 @@ export default function CallModal({
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.info(`${TAG} iceConnectionState`, pc.iceConnectionState);
+      const st = pc.iceConnectionState;
+      console.info(`${TAG} iceConnectionState`, st);
+      setDebugPatch({ iceConnectionState: st });
+      // TURN required for reliable calls across mobile networks. If we get
+      // stuck here on real mobile networks, a TURN server is likely needed.
+      if (st === 'failed') {
+        console.warn(
+          `${TAG} iceConnectionState=failed — a TURN server is probably required (symmetric NAT / mobile carrier).`,
+        );
+      }
     };
 
     pc.onsignalingstatechange = () => {
@@ -388,7 +467,8 @@ export default function CallModal({
         // Always buffer the latest offer so a later accept can apply it
         // even if it arrived before the user tapped "Accept".
         bufferedOfferSdpRef.current = ev.sdp;
-        console.info(`${TAG} incoming offer buffered (sdp len=${ev.sdp.length})`);
+        setDebugPatch({ offerReceived: true });
+        console.info(`${TAG} ← offer (sdp len=${ev.sdp.length})`);
         if (answerPendingRef.current && pc) {
           try {
             await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
@@ -410,14 +490,16 @@ export default function CallModal({
         try {
           await pc.setRemoteDescription({ type: 'answer', sdp: ev.sdp });
           hasRemoteDescRef.current = true;
+          setDebugPatch({ answerReceived: true });
           await applyPendingIce();
           if (!acceptedRef.current) startTimer();
           setStatus('connected');
-          console.info(`${TAG} remote answer applied`);
+          console.info(`${TAG} ← answer applied`);
         } catch (e) {
           console.error(`${TAG} setRemoteDescription answer failed`, e);
         }
       } else if (ev.type === 'ice') {
+        setDebug((prev) => ({ ...prev, iceReceived: prev.iceReceived + 1 }));
         if (!pc) return;
         if (!hasRemoteDescRef.current) {
           pendingIceRef.current.push(ev.candidate);
@@ -438,6 +520,7 @@ export default function CallModal({
       applyPendingIce,
       sendEvent,
       flushOutboundIce,
+      setDebugPatch,
     ],
   );
 
@@ -529,13 +612,22 @@ export default function CallModal({
     });
 
     ch.subscribe((state) => {
+      console.info(`${TAG} Supabase Realtime channel state`, {
+        callId,
+        state,
+      });
       if (state === 'SUBSCRIBED') {
         channelReadyRef.current = true;
+        setDebugPatch({ signaling: 'ok' });
         if (direction === 'outgoing') {
           void startOutgoing();
         } else {
           sendEvent({ type: 'ringing', from: myId });
         }
+      } else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') {
+        console.error(`${TAG} realtime channel failure`, state);
+        setDebugPatch({ signaling: 'failed' });
+        setError('Échec de la signalisation (Supabase Realtime)');
       }
     });
 
@@ -597,8 +689,101 @@ export default function CallModal({
     });
   };
 
+  // Only render the debug panel in dev builds. Uses Vite's import.meta.env.DEV
+  // so it is stripped from production bundles.
+  const showDebug =
+    typeof import.meta !== 'undefined' && import.meta.env?.DEV === true;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col">
+      {showDebug && (
+        <div className="absolute top-2 right-2 z-[60] text-[10px] leading-tight font-mono bg-black/70 text-white/90 rounded-md px-2 py-1.5 border border-white/10 max-w-[220px]">
+          <div className="text-white font-semibold mb-1">call debug</div>
+          <div>
+            signaling:{' '}
+            <span
+              className={
+                debug.signaling === 'ok'
+                  ? 'text-green-400'
+                  : debug.signaling === 'failed'
+                    ? 'text-red-400'
+                    : 'text-yellow-400'
+              }
+            >
+              {debug.signaling}
+            </span>
+          </div>
+          <div>
+            offer:{' '}
+            <span className={debug.offerSent ? 'text-green-400' : 'text-white/50'}>
+              sent
+            </span>
+            {' / '}
+            <span
+              className={debug.offerReceived ? 'text-green-400' : 'text-white/50'}
+            >
+              received
+            </span>
+          </div>
+          <div>
+            answer:{' '}
+            <span
+              className={debug.answerSent ? 'text-green-400' : 'text-white/50'}
+            >
+              sent
+            </span>
+            {' / '}
+            <span
+              className={debug.answerReceived ? 'text-green-400' : 'text-white/50'}
+            >
+              received
+            </span>
+          </div>
+          <div>
+            ice: sent {debug.iceSent} / received {debug.iceReceived}
+          </div>
+          <div>
+            remote stream:{' '}
+            <span
+              className={debug.remoteTrack ? 'text-green-400' : 'text-white/50'}
+            >
+              {debug.remoteTrack ? 'yes' : 'no'}
+            </span>
+          </div>
+          <div>
+            state:{' '}
+            <span
+              className={
+                debug.connectionState === 'connected'
+                  ? 'text-green-400'
+                  : debug.connectionState === 'failed' ||
+                      debug.connectionState === 'disconnected' ||
+                      debug.connectionState === 'closed'
+                    ? 'text-red-400'
+                    : 'text-yellow-400'
+              }
+            >
+              {debug.connectionState}
+            </span>
+          </div>
+          <div>
+            ice state:{' '}
+            <span
+              className={
+                debug.iceConnectionState === 'connected' ||
+                debug.iceConnectionState === 'completed'
+                  ? 'text-green-400'
+                  : debug.iceConnectionState === 'failed' ||
+                      debug.iceConnectionState === 'disconnected'
+                    ? 'text-red-400'
+                    : 'text-yellow-400'
+              }
+            >
+              {debug.iceConnectionState}
+            </span>
+          </div>
+        </div>
+      )}
       {mode === 'video' && status === 'connected' && (
         <video
           ref={remoteVideoRef}
