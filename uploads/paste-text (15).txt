@@ -1,0 +1,76 @@
+Priorité 4 : Performance réseau faible
+
+Objectif :
+Optimiser l’application pour qu’elle reste fluide avec une connexion faible.
+
+Contexte :
+L’app devient lourde. Il faut réduire le chargement initial, limiter les médias lourds, et améliorer la vitesse sans casser les fonctionnalités existantes.
+
+Contraintes strictes :
+- Ne pas casser les messages existants
+- Ne pas casser groupes, appels, médias, notes vocales, statuts, commentaires, ratings
+- Ne pas modifier la logique métier inutilement
+- Optimisation progressive, propre et isolée
+- Garder compatibilité mobile
+
+À faire :
+
+1. Pagination des messages
+- Ne plus charger tous les messages d’un coup
+- Charger les derniers messages au premier affichage
+- Charger les anciens messages progressivement au scroll vers le haut
+- Prévoir une limite simple, par exemple 30 à 50 messages par page
+- Garder l’ordre chronologique correct
+- Ne pas casser l’envoi/réception temps réel
+
+2. Lazy loading médias
+- Images et vidéos doivent se charger seulement quand elles deviennent visibles
+- Ajouter loading="lazy" pour les images quand possible
+- Utiliser IntersectionObserver si nécessaire
+- Ajouter un placeholder léger pendant le chargement
+
+3. Compression images avant upload
+- Avant upload, compresser les images côté client
+- Réduire largeur/hauteur maximale, par exemple 1280px ou 1920px
+- Garder une qualité acceptable
+- Éviter d’uploader des images énormes directement
+
+4. Réduction vidéos avant upload
+- Ajouter une limite de taille vidéo
+- Si compression vidéo côté client est trop lourde, au minimum :
+  - refuser les vidéos trop grandes
+  - afficher un message clair
+  - proposer à l’utilisateur de choisir une vidéo plus légère
+- Ne pas bloquer les autres types de fichiers
+
+5. Mode réseau faible
+- Réduire les chargements automatiques
+- Ne pas précharger les médias lourds
+- Afficher les médias sur demande si nécessaire
+- Garder les messages texte prioritaires
+
+6. UX
+- Ajouter loader léger pour anciens messages
+- Ajouter message d’erreur clair si média trop lourd
+- Ne pas figer l’interface pendant compression/upload
+
+7. Fichiers possibles à créer
+- src/utils/mediaCompression.ts
+- src/hooks/usePaginatedMessages.ts
+- src/components/LazyMedia.tsx
+
+8. Tests obligatoires
+- Conversation avec beaucoup de messages
+- Scroll vers le haut charge les anciens messages
+- Images se chargent seulement quand visibles
+- Upload image compressée OK
+- Vidéo trop lourde bloquée proprement
+- Build sans erreur
+- Lint sans erreur
+
+Commande finale :
+npm run lint
+npm run build
+
+Important :
+Fais une implémentation minimale mais solide. Ne réécris pas toute l’app. Optimise seulement les zones nécessaires.

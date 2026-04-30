@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
+import LazyMedia from '@/components/LazyMedia';
 
 interface Props {
   kind: 'image' | 'video';
@@ -9,10 +10,12 @@ interface Props {
 }
 
 /**
- * Render an image or video message bubble content. Resolves the Supabase
- * storage key into a public URL on mount.
+ * Inner component: resolves the storage key into a URL and renders the
+ * actual <img>/<video> element. Only mounted once the outer LazyMedia
+ * detects the bubble is (near-) visible, which avoids hitting the network
+ * for media that\'s scrolled far away on low-quality connections.
  */
-export default function MediaMessage({ kind, objectKey, duration }: Props) {
+function MediaInner({ kind, objectKey, duration }: Props) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +30,10 @@ export default function MediaMessage({ kind, objectKey, duration }: Props) {
 
   if (!url) {
     return (
-      <div className="w-56 h-40 rounded-lg bg-black/20 animate-pulse" aria-label="Chargement du média" />
+      <div
+        className="w-56 h-40 rounded-lg bg-black/20 animate-pulse"
+        aria-label="Chargement du média"
+      />
     );
   }
 
@@ -39,6 +45,7 @@ export default function MediaMessage({ kind, objectKey, duration }: Props) {
           alt="photo"
           className="rounded-lg max-w-[260px] max-h-80 object-cover block"
           loading="lazy"
+          decoding="async"
         />
       </a>
     );
@@ -59,5 +66,25 @@ export default function MediaMessage({ kind, objectKey, duration }: Props) {
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Render an image or video message bubble content. The media URL is
+ * resolved lazily when the bubble enters (or is about to enter) the
+ * viewport via IntersectionObserver.
+ */
+export default function MediaMessage(props: Props) {
+  return (
+    <LazyMedia
+      placeholder={
+        <div
+          className="w-56 h-40 rounded-lg bg-black/20 animate-pulse"
+          aria-label="Chargement du média"
+        />
+      }
+    >
+      <MediaInner {...props} />
+    </LazyMedia>
   );
 }

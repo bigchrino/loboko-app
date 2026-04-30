@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { compressImage } from '@/utils/mediaCompression';
 
 // Hard size limits (client-side guard). Supabase buckets may also enforce
 // their own limit, but we want to fail fast with a clear message.
@@ -44,8 +45,22 @@ export async function uploadMediaEx(
   try {
     const bucket = folder;
 
+    // Auto-compress large raster images at the upload layer. This benefits
+    // every caller (posts, statuses, avatars, group avatars, message media)
+    // without changing any call site. `compressImage` is a no-op for files
+    // that are already small, animated, or not compressible — so behavior
+    // stays identical in the worst case.
+    let uploadFile = file;
+    if ((file.type || '').startsWith('image/')) {
+      try {
+        uploadFile = await compressImage(file);
+      } catch {
+        uploadFile = file;
+      }
+    }
+
     const maxSize = MAX_SIZES[folder];
-    if (maxSize && file.size > maxSize) {
+    if (maxSize && uploadFile.size > maxSize) {
       const mb = (maxSize / (1024 * 1024)).toFixed(0);
       return { key: null, error: `Fichier trop volumineux (max ${mb} Mo)` };
     }
@@ -57,13 +72,13 @@ export async function uploadMediaEx(
       return { key: null, error: 'Vous devez être connecté pour envoyer un fichier.' };
     }
     const userId = user.id;
-    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin';
+    const ext = uploadFile.name.includes('.') ? uploadFile.name.split('.').pop() : 'bin';
     const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    const { error } = await supabase.storage.from(bucket).upload(path, uploadFile, {
       cacheControl: '3600',
       upsert: false,
-      contentType: file.type || undefined,
+      contentType: uploadFile.type || undefined,
     });
     if (error) {
       console.error('[uploadMedia] supabase error', { bucket, path, error });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Image as ImageIcon, Video as VideoIcon, Film, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getVideoDuration } from '@/lib/storage-helpers';
+import { compressImage, checkVideoSize } from '@/utils/mediaCompression';
 
 export type MediaKind = 'image' | 'video';
 
@@ -58,6 +59,13 @@ export default function MediaPicker({ maxVideoSeconds, onSelect, compact, disabl
         return;
       }
       if (kind === 'video') {
+        // Hard size cap first — rejecting early avoids a wasted metadata
+        // decode on very large files on low-end devices.
+        const sizeError = checkVideoSize(file);
+        if (sizeError) {
+          toast.error(sizeError);
+          return;
+        }
         const duration = await getVideoDuration(file);
         if (duration == null) {
           toast.error('Impossible de lire cette vidéo dans le navigateur.');
@@ -72,8 +80,12 @@ export default function MediaPicker({ maxVideoSeconds, onSelect, compact, disabl
         const previewUrl = URL.createObjectURL(file);
         onSelect({ file, kind, previewUrl, duration });
       } else {
-        const previewUrl = URL.createObjectURL(file);
-        onSelect({ file, kind, previewUrl });
+        // Compress images client-side before upload. Falls back to the
+        // original file if compression cannot run (unsupported format,
+        // decode error, …), so behavior stays identical in the worst case.
+        const compressed = await compressImage(file);
+        const previewUrl = URL.createObjectURL(compressed);
+        onSelect({ file: compressed, kind, previewUrl });
       }
     } finally {
       setBusy(false);

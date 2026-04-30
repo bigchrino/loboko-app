@@ -123,3 +123,12 @@
 - [x] Fallback secondaire : `<a download target="_blank">` si le fetch Blob échoue (CORS)
 - [x] Signed URL générée uniquement au clic (non au render) — TTL 60s conservé
 - [x] Run `pnpm run lint`
+
+### Phase 11 - Performance réseau faible
+- [x] Créer `src/utils/mediaCompression.ts` - compressImage (≤1920px, qualité 0.82) + checkVideoSize (cap 50 Mo)
+- [x] Créer `src/components/LazyMedia.tsx` - IntersectionObserver, charge les médias seulement quand visibles
+- [x] `MediaMessage.tsx` : wrap dans LazyMedia, resolve URL au moment de la visibilité, `decoding="async"`
+- [x] `MediaPicker.tsx` : hard cap vidéo avant décodage + compression image avant preview/send
+- [x] `storage-helpers.ts` : auto-compression images dans `uploadMediaEx` (posts, avatars, statuses, groupes)
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`
