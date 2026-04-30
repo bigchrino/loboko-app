@@ -45,13 +45,30 @@ export type SignalPayload = {
     | { type: 'hangup' };
 };
 
+/**
+ * System message shown inline in the conversation (centered, read-only) to
+ * inform participants about meta-events. For now only used for ephemeral
+ * setting changes; `system_type` lets us distinguish future system events.
+ */
+export type SystemPayload = {
+  kind: 'system';
+  system_type: 'ephemeral_setting';
+  // Raw data so the renderer can localize/format freely and we can reformat
+  // later without migrating historical messages.
+  duration_seconds: number; // 0 = disabled
+  // Actor user_id that triggered the change. The renderer resolves the name
+  // based on the local profiles cache so display is always fresh.
+  actor_id: string;
+};
+
 export type MessagePayload =
   | TextPayload
   | AudioPayload
   | ImagePayload
   | VideoPayload
   | CallEventPayload
-  | SignalPayload;
+  | SignalPayload
+  | SystemPayload;
 
 const PREFIX = '@@loboko:';
 

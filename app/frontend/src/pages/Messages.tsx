@@ -67,8 +67,10 @@ import {
 } from '@/lib/conversation-controls';
 import {
   broadcastDmEphemeral,
+  insertEphemeralSystemMessageDM,
   computeExpiresAt,
   durationShort,
+  formatEphemeralSystemLabel,
   isExpired,
   loadDmEphemeralDuration,
   setDmEphemeralDuration,
@@ -479,6 +481,9 @@ export default function Messages() {
       } else {
         toast.message('Messages éphémères désactivés par votre contact');
       }
+      // Reload so the peer's system message appears inline without waiting
+      // for the 30s polling tick.
+      loadMessages().catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -1191,6 +1196,15 @@ export default function Messages() {
       // Fire-and-forget realtime broadcast so the peer mirrors the change
       // without waiting for a DB round-trip. Errors are logged only.
       broadcastDmEphemeral(myId, activeUserId, durationSeconds).catch(() => {});
+      // Insert a non-editable system message so both participants see the
+      // change inline. Best-effort — do not block on failure.
+      insertEphemeralSystemMessageDM({
+        fromUserId: myId,
+        toUserId: activeUserId,
+        durationSeconds,
+      })
+        .then(() => loadMessages().catch(() => {}))
+        .catch(() => {});
       if (durationSeconds > 0) {
         toast.success(
           `Messages éphémères activés (${durationShort(durationSeconds)})`,
@@ -1641,6 +1655,29 @@ export default function Messages() {
                       </div>
                       <div className="text-[10px] text-[var(--loboko-text-muted)] mt-0.5">
                         {formatMessageTime(m.created_at)}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (payload.kind === 'system') {
+                  // Centered, read-only system message. No avatar, no actions,
+                  // no long-press menu — purely informative.
+                  const selfActor = payload.actor_id === myId;
+                  const actorName = selfActor ? 'Vous' : nameOf(payload.actor_id);
+                  const label =
+                    payload.system_type === 'ephemeral_setting'
+                      ? formatEphemeralSystemLabel({
+                          durationSeconds: payload.duration_seconds,
+                          selfActor,
+                          actorName,
+                        })
+                      : '';
+                  return (
+                    <div key={m.id} id={`msg-${m.id}`} className="flex flex-col items-center">
+                      <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
+                        <Timer size={11} />
+                        <span>{label}</span>
                       </div>
                     </div>
                   );

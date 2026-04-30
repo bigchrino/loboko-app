@@ -8,6 +8,7 @@
 
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { encodePayload } from '@/lib/message-format';
 
 export type EphemeralScope = 'dm' | 'group';
 
@@ -391,4 +392,96 @@ export async function setGroupEphemeralDuration(
     }
     throw new Error(error.message || 'Action impossible');
   }
+}
+
+// ---------------------------------------------------------------------------
+// System messages for ephemeral setting changes
+// ---------------------------------------------------------------------------
+//
+// When a user changes the ephemeral duration, we insert a non-editable
+// `system` message in the conversation so both participants see the change
+// inline. Storage piggybacks on the normal `content` column of messages /
+// group_messages via the existing `@@loboko:` JSON payload prefix — no DB
+// migration required.
+
+/**
+ * Insert a system message in a DM conversation announcing an ephemeral
+ * setting change. Errors are swallowed so the setting change itself still
+ * succeeds even if this insert fails.
+ */
+export async function insertEphemeralSystemMessageDM(args: {
+  fromUserId: string;
+  toUserId: string;
+  durationSeconds: number;
+}): Promise<void> {
+  try {
+    const content = encodePayload({
+      kind: 'system',
+      system_type: 'ephemeral_setting',
+      duration_seconds: args.durationSeconds,
+      actor_id: args.fromUserId,
+    });
+    await supabase.from('messages').insert({
+      user_id: args.fromUserId,
+      receiver_id: args.toUserId,
+      content,
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Insert a system message in a group conversation announcing an ephemeral
+ * setting change.
+ */
+export async function insertEphemeralSystemMessageGroup(args: {
+  fromUserId: string;
+  groupId: string;
+  durationSeconds: number;
+}): Promise<void> {
+  try {
+    const content = encodePayload({
+      kind: 'system',
+      system_type: 'ephemeral_setting',
+      duration_seconds: args.durationSeconds,
+      actor_id: args.fromUserId,
+    });
+    await supabase.from('group_messages').insert({
+      group_id: args.groupId,
+      user_id: args.fromUserId,
+      content,
+    });
+  } catch {
+    // best-effort
+  }
+}
+
+/**
+ * Format an ephemeral duration change into a localized (fr) label for the
+ * system message. `selfActor` true means the current user is the actor.
+ */
+export function formatEphemeralSystemLabel(args: {
+  durationSeconds: number;
+  selfActor: boolean;
+  actorName: string;
+}): string {
+  const { durationSeconds, selfActor, actorName } = args;
+  if (durationSeconds <= 0) {
+    return 'Messages éphémères désactivés';
+  }
+  const human = formatDurationHuman(durationSeconds);
+  if (selfActor) {
+    return `Vous avez activé les messages éphémères (${human})`;
+  }
+  return `${actorName} a activé les messages éphémères (${human})`;
+}
+
+function formatDurationHuman(seconds: number): string {
+  if (seconds === 24 * 3600) return '24 h';
+  if (seconds === 7 * 24 * 3600) return '7 jours';
+  if (seconds === 30 * 24 * 3600) return '30 jours';
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} min`;
+  if (seconds < 24 * 3600) return `${Math.round(seconds / 3600)} h`;
+  return `${Math.round(seconds / 86400)} jours`;
 }

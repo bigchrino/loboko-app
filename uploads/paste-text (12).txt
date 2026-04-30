@@ -1,0 +1,54 @@
+Ajouter les messages système pour les messages éphémères.
+
+Objectif :
+Informer clairement les utilisateurs quand le mode messages éphémères est activé, modifié ou désactivé.
+
+À faire :
+
+1. Lorsqu’un utilisateur change la durée (Désactivé / 24h / 7j / 30j) :
+- insérer un message spécial dans la conversation
+
+2. Contenu du message :
+- si l’utilisateur lui-même active :
+  “Vous avez activé les messages éphémères (24h)”
+- si l’autre utilisateur active :
+  “Jean a activé les messages éphémères (7 jours)”
+- si désactivé :
+  “Messages éphémères désactivés”
+
+3. Type de message :
+- ajouter un type spécifique : system
+- exemple :
+  type = 'system'
+  system_type = 'ephemeral_setting'
+
+4. Affichage :
+- style différent (centré, gris, plus discret)
+- non cliquable
+- pas de menu actions (pas supprimer, pas copier, pas répondre)
+- pas d’avatar
+
+5. Base de données :
+- si nécessaire, ajouter :
+  - type column dans messages (default 'user')
+  - system_type (nullable)
+- ne pas casser les messages existants
+
+6. Logique :
+- le message doit être envoyé une seule fois
+- synchronisé avec le changement (au moment où on change la durée)
+
+7. Compatibilité :
+- fonctionne pour :
+  - conversations privées
+  - groupes
+
+Contraintes :
+- Ne pas casser :
+  - messages texte
+  - médias
+  - notes vocales
+  - appels
+  - statuts
+- Ne pas rendre ces messages modifiables
+- Build + lint à la fin

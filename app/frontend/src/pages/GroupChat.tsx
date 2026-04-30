@@ -49,6 +49,8 @@ import { markGroupRead } from '@/lib/group-reads';
 import { supabase as sb } from '@/lib/supabase'; // alias for clarity
 import {
   broadcastGroupEphemeral,
+  formatEphemeralSystemLabel,
+  insertEphemeralSystemMessageGroup,
   computeExpiresAt,
   durationShort,
   isExpired,
@@ -234,6 +236,12 @@ export default function GroupChat() {
       } else {
         toast.message('Messages éphémères désactivés dans le groupe');
       }
+      // Reload so the system message inserted by the actor appears inline.
+      loadGroupMessages(groupId)
+        .then((fresh) => {
+          if (!cancelled) setMessages(fresh);
+        })
+        .catch(() => {});
     });
     return () => {
       cancelled = true;
@@ -640,6 +648,22 @@ export default function GroupChat() {
       // Broadcast to every other member of the group so their UI updates
       // instantly, without waiting for a reload.
       broadcastGroupEphemeral(myId, groupId, durationSeconds).catch(() => {});
+      // Insert a non-editable system message visible to every member. Best-
+      // effort — do not block on failure.
+      insertEphemeralSystemMessageGroup({
+        actorUserId: myId,
+        groupId,
+        durationSeconds,
+      })
+        .then(async () => {
+          try {
+            const fresh = await loadGroupMessages(groupId);
+            setMessages(fresh);
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch(() => {});
       if (durationSeconds > 0) {
         toast.success(
           `Messages éphémères activés (${durationShort(durationSeconds)})`,
@@ -774,6 +798,29 @@ export default function GroupChat() {
             visibleMessages.map((m, idx) => {
               const mine = m.user_id === myId;
               const payload = decodePayload(m.content);
+
+              // Centered, read-only system message (e.g. ephemeral setting
+              // changes). No avatar, no actions, no long-press menu.
+              if (payload.kind === 'system') {
+                const selfActor = payload.actor_id === myId;
+                const actorName = selfActor ? 'Vous' : nameOf(payload.actor_id);
+                const label =
+                  payload.system_type === 'ephemeral_setting'
+                    ? formatEphemeralSystemLabel({
+                        durationSeconds: payload.duration_seconds,
+                        selfActor,
+                        actorName,
+                      })
+                    : '';
+                return (
+                  <div key={m.id} id={`gmsg-${m.id}`} className="flex flex-col items-center">
+                    <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
+                      <span>{label}</span>
+                    </div>
+                  </div>
+                );
+              }
+
               const isMedia = payload.kind === 'image' || payload.kind === 'video';
               const isDeleted = !!m.deleted_for_everyone_at;
               const isStarred = starred.has(m.id);
