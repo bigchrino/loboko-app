@@ -39,6 +39,8 @@ import {
   subscribeDmEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
+import { usePresence } from '@/contexts/PresenceContext';
+import { formatLastSeen } from '@/lib/last-seen';
 
 interface MediaItem {
   kind: 'image' | 'video';
@@ -57,6 +59,7 @@ export default function ContactInfo() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { startCall } = useCall();
+  const { isOnline } = usePresence();
   const myId = user?.id || '';
 
   const [peer, setPeer] = useState<Profile | null>(null);
@@ -284,6 +287,24 @@ export default function ContactInfo() {
                   @{peer.username}
                 </div>
               )}
+              {(() => {
+                const peerOnline = peerId ? isOnline(peerId) : false;
+                if (peerOnline) {
+                  return (
+                    <div className="text-xs text-green-500 mt-1 font-medium">
+                      En ligne
+                    </div>
+                  );
+                }
+                if (peer.last_seen_at) {
+                  return (
+                    <div className="text-xs text-[var(--loboko-text-muted)] mt-1">
+                      {formatLastSeen(peer.last_seen_at)}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div className="flex items-center gap-3 mt-4">
                 <button

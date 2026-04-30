@@ -5,6 +5,7 @@ import {
   subscribeOnline,
   teardownPresence,
 } from '@/lib/presence';
+import { startLastSeenHeartbeat } from '@/lib/last-seen';
 
 interface PresenceContextValue {
   onlineIds: Set<string>;
@@ -27,9 +28,11 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
     ensurePresence(user.id);
-    const unsub = subscribeOnline((ids) => setOnlineIds(ids));
+    const unsubOnline = subscribeOnline((ids) => setOnlineIds(ids));
+    const stopHeartbeat = startLastSeenHeartbeat(user.id);
     return () => {
-      unsub();
+      unsubOnline();
+      stopHeartbeat();
     };
   }, [user?.id]);
 

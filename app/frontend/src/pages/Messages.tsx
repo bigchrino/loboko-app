@@ -32,6 +32,7 @@ import MediaMessage from '@/components/MediaMessage';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import ConversationMenu, { ConversationMenuAction } from '@/components/ConversationMenu';
+import { formatLastSeen } from '@/lib/last-seen';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ForwardDialog from '@/components/ForwardDialog';
@@ -1502,6 +1503,13 @@ export default function Messages() {
                         </div>
                         <UnreadBadge count={unreadByUser[c.userId] || 0} />
                       </div>
+                      {!c.lastMessage && (online || c.profile?.last_seen_at) && (
+                        <div className="text-[10px] text-[var(--loboko-text-muted)] mt-0.5 truncate">
+                          {online
+                            ? 'En ligne'
+                            : formatLastSeen(c.profile?.last_seen_at)}
+                        </div>
+                      )}
                     </div>
                   </button>
                 );
@@ -1542,6 +1550,10 @@ export default function Messages() {
                     </span>
                   ) : activeOnline ? (
                     <span className="text-green-500">En ligne</span>
+                  ) : activeProfile?.last_seen_at ? (
+                    <span className="text-[var(--loboko-text-muted)]">
+                      {formatLastSeen(activeProfile.last_seen_at)}
+                    </span>
                   ) : (
                     <span className="text-[var(--loboko-text-muted)]">Hors ligne</span>
                   )}

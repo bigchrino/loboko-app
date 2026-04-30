@@ -13,6 +13,7 @@ export interface Profile {
   role: 'client' | 'prestataire';
   theme?: 'light' | 'dark';
   service_category_id?: string | null;
+  last_seen_at?: string | null;
 }
 
 export interface LobokoAccount {
