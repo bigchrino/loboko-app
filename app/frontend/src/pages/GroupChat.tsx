@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
@@ -108,6 +108,9 @@ function GroupAvatar({ group }: { group: Group }) {
 export default function GroupChat() {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlMessageId = searchParams.get('messageId');
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const { user } = useAuth();
   const myId = user?.id || '';
 
@@ -302,6 +305,31 @@ export default function GroupChat() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Deep-link: scroll to a specific message and highlight it (from Starred Messages, etc.)
+  useEffect(() => {
+    if (!urlMessageId || messages.length === 0) return;
+    const exists = messages.some((m) => m.id === urlMessageId);
+    if (!exists) return;
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`gmsg-${urlMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedMessageId(urlMessageId);
+        window.setTimeout(() => {
+          setHighlightedMessageId((current) =>
+            current === urlMessageId ? null : current,
+          );
+          const params = new URLSearchParams(searchParams);
+          if (params.get('messageId') === urlMessageId) {
+            params.delete('messageId');
+            setSearchParams(params, { replace: true });
+          }
+        }, 2600);
+      }
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [urlMessageId, messages, searchParams, setSearchParams]);
 
   // ---------- Derived ------------------------------------------------------
 
@@ -853,10 +881,16 @@ export default function GroupChat() {
                 }
               };
 
+              const isHighlighted = highlightedMessageId === m.id;
               return (
                 <div
                   key={m.id}
-                  className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''}`}
+                  id={`gmsg-${m.id}`}
+                  className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${
+                    isHighlighted
+                      ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
+                      : 'transition-[background,box-shadow] duration-500'
+                  }`}
                 >
                   {!mine && (
                     <div className="pt-1">

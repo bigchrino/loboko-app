@@ -413,7 +413,7 @@ export default function StarredMessages() {
 
   const handleOpen = (row: StarredRow) => {
     if (row.kind === 'direct' && row.peerId) {
-      navigate(`/messages?with=${row.peerId}&messageId=${row.messageId}`);
+      navigate(`/messages?to=${row.peerId}&messageId=${row.messageId}`);
     } else if (row.kind === 'group' && row.groupId) {
       navigate(`/messages/group/${row.groupId}?messageId=${row.messageId}`);
     }
@@ -541,34 +541,45 @@ export default function StarredMessages() {
                       <span className="font-semibold text-sm truncate">
                         {row.senderName}
                       </span>
-                      {row.kind === 'direct' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                          <MessageCircle size={10} />
-                          {row.senderId === myId
-                            ? `À ${row.peerName}`
-                            : 'Direct'}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                          <Users size={10} />
-                          {row.groupName}
-                        </span>
-                      )}
                       <span className="text-[11px] text-[var(--loboko-text-muted)] ml-auto shrink-0">
                         {formatDate(row.createdAt)}
                       </span>
                     </div>
-                    <p className="text-sm text-[var(--loboko-text)] mt-1 line-clamp-2 break-words">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                          row.kind === 'direct'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                        }`}
+                      >
+                        {row.kind === 'direct' ? (
+                          <>
+                            <MessageCircle size={10} />
+                            Privé
+                          </>
+                        ) : (
+                          <>
+                            <Users size={10} />
+                            Groupe
+                          </>
+                        )}
+                      </span>
+                      <span className="text-[11px] text-[var(--loboko-text-muted)] truncate">
+                        {row.kind === 'direct'
+                          ? row.senderId === myId
+                            ? `À ${row.peerName}`
+                            : `Avec ${row.peerName}`
+                          : row.groupName}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--loboko-text)] mt-1.5 line-clamp-2 break-words">
                       {renderPreview(row.content) || (
                         <span className="italic text-[var(--loboko-text-muted)]">
                           (Message vide)
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
-                      <Star size={11} className="text-yellow-500" fill="currentColor" />
-                      <span>Marqué {formatDate(row.starredAt)}</span>
-                    </div>
                   </button>
                   <button
                     type="button"

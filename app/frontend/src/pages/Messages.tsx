@@ -240,6 +240,8 @@ export default function Messages() {
   const navigate = useNavigate();
   const urlTo = searchParams.get('to');
   const urlSearch = searchParams.get('search') === '1';
+  const urlMessageId = searchParams.get('messageId');
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const myId = user?.id || '';
 
   const [allMessages, setAllMessages] = useState<Message[]>([]);
@@ -662,6 +664,32 @@ export default function Messages() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [activeMessages, peerTyping, convSearchOpen]);
+
+  // Deep-link: scroll to a specific message and highlight it (from Starred Messages, etc.)
+  useEffect(() => {
+    if (!urlMessageId || activeMessages.length === 0) return;
+    const exists = activeMessages.some((m) => m.id === urlMessageId);
+    if (!exists) return;
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`msg-${urlMessageId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedMessageId(urlMessageId);
+        window.setTimeout(() => {
+          setHighlightedMessageId((current) =>
+            current === urlMessageId ? null : current,
+          );
+          // Clean URL so a refresh/back doesn't keep re-triggering the effect.
+          const params = new URLSearchParams(searchParams);
+          if (params.get('messageId') === urlMessageId) {
+            params.delete('messageId');
+            setSearchParams(params, { replace: true });
+          }
+        }, 2600);
+      }
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [urlMessageId, activeMessages, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!myId || !activeUserId) return;
@@ -1730,11 +1758,16 @@ export default function Messages() {
                   }
                 };
 
+                const isHighlighted = highlightedMessageId === m.id;
                 return (
                   <div
                     key={m.id}
                     id={`msg-${m.id}`}
-                    className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
+                    className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${
+                      isHighlighted
+                        ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
+                        : 'transition-[background,box-shadow] duration-500'
+                    }`}
                   >
                     <div
                       onMouseDown={(e) => startPress(e.clientX, e.clientY)}
