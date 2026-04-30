@@ -13,6 +13,7 @@ import Calls from './pages/Calls';
 import Statuses from './pages/Statuses';
 import GroupChat from './pages/GroupChat';
 import GroupInfo from './pages/GroupInfo';
+import StarredMessages from './pages/StarredMessages';
 import Profile from './pages/Profile';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
@@ -77,6 +78,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/statuses', element: <Statuses /> },
   { path: '/messages/group/:groupId', element: <GroupChat /> },
   { path: '/messages/group/:groupId/info', element: <GroupInfo /> },
+  { path: '/messages/starred', element: <StarredMessages /> },
   { path: '/profile', element: <Profile /> },
   { path: '/notifications', element: <Notifications /> },
   { path: '/settings', element: <Settings /> },

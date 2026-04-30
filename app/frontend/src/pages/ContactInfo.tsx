@@ -379,13 +379,20 @@ export default function ContactInfo() {
                 { key: 'favorite', label: 'Ajouter aux favoris', icon: Heart },
               ].map(({ key, label, icon: Icon }) => {
                 const isEphemeral = key === 'ephemeral';
+                const isImportant = key === 'important';
                 return (
                   <button
                     key={key}
                     type="button"
-                    onClick={() =>
-                      isEphemeral ? setOpenEphemeral(true) : comingSoon(label)
-                    }
+                    onClick={() => {
+                      if (isEphemeral) {
+                        setOpenEphemeral(true);
+                      } else if (isImportant) {
+                        navigate('/messages/starred');
+                      } else {
+                        comingSoon(label);
+                      }
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--loboko-surface-hover)] border-b border-[var(--loboko-border)] last:border-b-0"
                   >
                     <Icon size={18} className="text-[#2563eb] shrink-0" />

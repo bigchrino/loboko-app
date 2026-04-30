@@ -1,0 +1,69 @@
+Nouvelle fonctionnalité : page Messages importants.
+
+Objectif :
+Rendre les messages marqués ⭐ vraiment utiles.
+
+À faire :
+
+1. Page dédiée
+Créer une page “Messages importants” :
+- route : /starred-messages
+- accessible depuis le menu mobile et la sidebar desktop si possible
+- afficher tous les messages importants de l’utilisateur
+
+2. Données
+Utiliser les tables existantes :
+- starred_messages pour discussions privées
+- group_starred_messages pour groupes
+
+Important :
+Afficher la date d’envoi du message original, pas la date où il a été marqué important.
+
+3. Affichage
+Chaque item doit afficher :
+- nom/photo de l’expéditeur
+- type de conversation : privé ou groupe
+- nom du contact ou du groupe
+- aperçu du message
+- date/heure d’envoi originale
+- icône ⭐
+- type média si besoin : photo, vidéo, note vocale
+
+4. Recherche et tri
+Ajouter :
+- recherche par texte, contact, groupe
+- filtre : Tous / Privés / Groupes
+- tri :
+  - plus récent d’abord
+  - plus ancien d’abord
+  - par contact/utilisateur
+
+5. Clic sur un message important
+Quand on clique sur un item :
+- ouvrir la conversation concernée
+- scroller directement vers le message original
+- surligner le message quelques secondes
+
+Pour privé :
+- aller vers la conversation privée avec le contact
+
+Pour groupe :
+- aller vers /messages/group/:groupId avec messageId en query param si nécessaire
+
+6. Page Infos du contact
+Dans “Infos du contact” :
+- le bouton “Messages importants” ne doit plus afficher “bientôt disponible”
+- il doit ouvrir une liste des messages importants uniquement avec ce contact
+- afficher date d’envoi originale
+- clic sur un message → retour dans la discussion et scroll vers le message
+
+7. Page Infos du groupe
+Si une ligne “Messages importants” existe dans infos du groupe :
+- même comportement, mais filtré au groupe
+
+8. Contraintes
+- Ne pas casser l’étoile existante
+- Ne pas casser messages privés
+- Ne pas casser groupes
+- Ne pas toucher appels, statuts, posts, commentaires, ratings
+- Build + lint à la fin

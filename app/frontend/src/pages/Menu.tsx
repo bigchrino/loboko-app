@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Phone,
   Circle,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
@@ -45,6 +46,13 @@ const items: MenuItem[] = [
     icon: Phone,
     color: '#2563eb',
     badgeKey: 'missedCalls',
+  },
+  {
+    to: '/messages/starred',
+    label: 'Messages importants',
+    desc: 'Retrouvez vos messages marqués d\'une étoile',
+    icon: Star,
+    color: '#eab308',
   },
   { to: '/recherches', label: 'Recherches', desc: 'Rechercher des personnes et contenus', icon: Search, color: '#2563eb' },
   { to: '/suggestion', label: 'Suggestion', desc: 'Suggestions personnalisées', icon: Lightbulb, color: '#eab308' },
