@@ -139,6 +139,29 @@ export type MentionChunk =
   | { type: 'mention'; username: string };
 
 /**
+ * Resolve a single @username to a user_id via the profiles table.
+ * Returns null when the user does not exist (or query fails).
+ */
+export async function resolveUsernameToId(
+  username: string,
+): Promise<string | null> {
+  const clean = (username || '').trim().replace(/^@+/, '');
+  if (!clean) return null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('username', clean)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.user_id ?? null;
+  } catch (e) {
+    console.error('[mentions] resolveUsernameToId failed', e);
+    return null;
+  }
+}
+
+/**
  * Split text into plain/mention chunks for safe rendering. Consumers can
  * map each chunk to a <span> or a clickable profile link.
  */
