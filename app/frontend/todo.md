@@ -93,3 +93,16 @@
 - [x] Mettre à jour `src/pages/GroupChat.tsx` - menu groupe, dialog, filtre expirés, expires_at pour texte/voix/média, bannière + icône ⏳
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
+
+### Phase 8 - Envoi de documents (PDF, Word, Excel, ZIP)
+- [x] Créer `DOCUMENTS_SETUP.md` (bucket `message-documents` + RLS, limite 25 Mo)
+- [x] Ajouter `FilePayload` (`kind: 'file'`) dans `src/lib/message-format.ts`
+- [x] Ajouter `'message-documents'` (25 Mo) dans `src/lib/storage-helpers.ts`
+- [x] Créer `src/lib/file-helpers.ts` - `formatFileSize`, `fileTypeLabel`, `extensionOf`
+- [x] Créer `src/components/FilePicker.tsx` - sélecteur avec validation (ext, taille, blocked types)
+- [x] Créer `src/components/FilePreview.tsx` - prévisualisation avant envoi
+- [x] Créer `src/components/FileMessage.tsx` - bulle document (icône + nom + taille + ouvrir)
+- [x] Intégrer dans `src/pages/Messages.tsx` (DM) - preview, send, render, preview liste + reply
+- [x] Intégrer dans `src/pages/GroupChat.tsx` (groupes) - preview, send, render, reply
+- [x] Mettre à jour `src/contexts/MessagesContext.tsx` - compter fichiers dans unread
+- [x] Run `pnpm run lint`

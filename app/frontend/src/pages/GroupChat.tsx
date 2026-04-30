@@ -24,6 +24,9 @@ import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
+import FilePicker, { FileSelection } from '@/components/FilePicker';
+import FileMessage from '@/components/FileMessage';
+import FilePreview from '@/components/FilePreview';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import GroupMentionSuggestions from '@/components/GroupMentionSuggestions';
@@ -134,6 +137,8 @@ export default function GroupChat() {
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
   const [sendingMedia, setSendingMedia] = useState(false);
+  const [pendingFile, setPendingFile] = useState<FileSelection | null>(null);
+  const [sendingFile, setSendingFile] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
   const [actionsMenu, setActionsMenu] = useState<{
     message: GroupMessage;
@@ -495,6 +500,43 @@ export default function GroupChat() {
     }
   };
 
+  const handleSendFile = async () => {
+    if (!groupId || !myId || !pendingFile) return;
+    setSendingFile(true);
+    try {
+      const { key, error } = await uploadMediaEx(
+        pendingFile.file,
+        'message-documents',
+      );
+      if (error || !key) {
+        toast.error(error || "Échec de l'upload du fichier");
+        return;
+      }
+      const content = encodePayload({
+        kind: 'file',
+        object_key: key,
+        file_name: pendingFile.file.name,
+        file_size: pendingFile.size,
+        file_type: pendingFile.ext,
+        mime: pendingFile.file.type || undefined,
+      });
+      await sendGroupMessage({
+        groupId,
+        userId: myId,
+        content,
+        expiresAt: computeExpiresAt(ephemeralDuration),
+      });
+      setPendingFile(null);
+      const fresh = await loadGroupMessages(groupId);
+      setMessages(fresh);
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || "Échec de l'envoi");
+    } finally {
+      setSendingFile(false);
+    }
+  };
+
   // ---------- Actions ------------------------------------------------------
 
   const openMenu = (m: GroupMessage, x: number, y: number) => {
@@ -712,6 +754,7 @@ export default function GroupChat() {
     if (p.kind === 'audio') return '🎤 Note vocale';
     if (p.kind === 'image') return '📷 Photo';
     if (p.kind === 'video') return '🎬 Vidéo';
+    if (p.kind === 'file') return `📎 ${p.file_name}`;
     return '';
   };
 
@@ -969,6 +1012,14 @@ export default function GroupChat() {
                           objectKey={payload.object_key}
                           duration={payload.duration}
                         />
+                      ) : payload.kind === 'file' ? (
+                        <FileMessage
+                          objectKey={payload.object_key}
+                          fileName={payload.file_name}
+                          fileSize={payload.file_size}
+                          fileType={payload.file_type}
+                          mine={mine}
+                        />
                       ) : (
                         <MentionText
                           text={payload.kind === 'text' ? payload.text : ''}
@@ -1045,6 +1096,26 @@ export default function GroupChat() {
           </div>
         )}
 
+        {pendingFile && (
+          <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
+            <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} />
+            <div className="flex items-center justify-between mt-2 gap-2">
+              <div className="text-[11px] text-[var(--loboko-text-muted)]">
+                Fichier prêt à être envoyé (max 25 Mo)
+              </div>
+              <button
+                type="button"
+                onClick={handleSendFile}
+                disabled={sendingFile}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
+              >
+                <Send size={14} />
+                {sendingFile ? 'Envoi…' : 'Envoyer'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {replyTo && (
           <div className="px-3 pt-2 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] flex items-start gap-2">
             <ReplyIcon size={14} className="text-[#2563eb] mt-0.5 shrink-0" />
@@ -1107,6 +1178,18 @@ export default function GroupChat() {
                           setPendingMedia(sel);
                         }}
                       />
+                      <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-[var(--loboko-border)]">
+                        <FilePicker
+                          compact
+                          onSelect={(f) => {
+                            setShowMediaPicker(false);
+                            setPendingFile(f);
+                          }}
+                        />
+                        <span className="text-[10px] text-[var(--loboko-text-muted)]">
+                          Document (PDF, DOC, XLS, ZIP · 25 Mo max)
+                        </span>
+                      </div>
                       <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
                         Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
                       </div>

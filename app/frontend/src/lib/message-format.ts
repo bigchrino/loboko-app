@@ -24,6 +24,15 @@ export type VideoPayload = {
   caption?: string;
 };
 
+export type FilePayload = {
+  kind: 'file';
+  object_key: string;
+  file_name: string;
+  file_size: number; // bytes
+  file_type: string; // lowercase extension: pdf, doc, docx, xls, xlsx, zip
+  mime?: string; // original MIME type
+};
+
 export type CallEventPayload = {
   kind: 'call_event';
   mode: 'voice' | 'video';
@@ -66,6 +75,7 @@ export type MessagePayload =
   | AudioPayload
   | ImagePayload
   | VideoPayload
+  | FilePayload
   | CallEventPayload
   | SignalPayload
   | SystemPayload;

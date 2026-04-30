@@ -31,6 +31,9 @@ import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
+import FilePicker, { FileSelection } from '@/components/FilePicker';
+import FileMessage from '@/components/FileMessage';
+import FilePreview from '@/components/FilePreview';
 import ConversationMenu, { ConversationMenuAction } from '@/components/ConversationMenu';
 import { formatLastSeen } from '@/lib/last-seen';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -179,6 +182,7 @@ function previewOf(m?: Message): string {
   if (p.kind === 'audio') return '🎤 Note vocale';
   if (p.kind === 'image') return '📷 Photo';
   if (p.kind === 'video') return '🎬 Vidéo';
+  if (p.kind === 'file') return `📎 ${p.file_name}`;
   if (p.kind === 'call_event') {
     const icon = p.mode === 'video' ? '📹 ' : '📞 ';
     if (p.event === 'missed') return icon + 'Appel manqué';
@@ -197,6 +201,7 @@ function groupPreviewOf(m: GroupMessage | undefined, senderName: string): string
   else if (p.kind === 'audio') text = 'a envoyé une note vocale';
   else if (p.kind === 'image') text = 'a envoyé une photo';
   else if (p.kind === 'video') text = 'a envoyé une vidéo';
+  else if (p.kind === 'file') text = `a envoyé un fichier : ${p.file_name}`;
   else return '';
   // For text messages, include as "Name : text"
   if (p.kind === 'text') return `${senderName} : ${text}`;
@@ -255,6 +260,8 @@ export default function Messages() {
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
   const [sendingMedia, setSendingMedia] = useState(false);
+  const [pendingFile, setPendingFile] = useState<FileSelection | null>(null);
+  const [sendingFile, setSendingFile] = useState(false);
   const [peerTyping, setPeerTyping] = useState<'typing' | 'recording' | null>(
     null,
   );
@@ -890,6 +897,41 @@ export default function Messages() {
     }
   };
 
+  const sendPendingFile = async () => {
+    if (!activeUserId || !pendingFile) return;
+    if (blocked.has(activeUserId)) {
+      toast.error('Vous avez bloqué ce contact.');
+      return;
+    }
+    setSendingFile(true);
+    try {
+      const { key, error } = await uploadMediaEx(
+        pendingFile.file,
+        'message-documents',
+      );
+      if (error || !key) {
+        toast.error(error || "Échec de l'upload du fichier");
+        return;
+      }
+      const content = encodePayload({
+        kind: 'file',
+        object_key: key,
+        file_name: pendingFile.file.name,
+        file_size: pendingFile.size,
+        file_type: pendingFile.ext,
+        mime: pendingFile.file.type || undefined,
+      });
+      await insertMessage({ receiver_id: activeUserId, content });
+      setPendingFile(null);
+      await loadMessages();
+    } catch (e) {
+      console.error(e);
+      toast.error("Échec de l'envoi du fichier");
+    } finally {
+      setSendingFile(false);
+    }
+  };
+
   const initiateCall = async (mode: 'voice' | 'video') => {
     if (!activeUserId) return;
     const peerProfile = profilesMap[activeUserId];
@@ -1134,6 +1176,7 @@ export default function Messages() {
     if (p.kind === 'audio') return '🎤 Note vocale';
     if (p.kind === 'image') return '📷 Photo';
     if (p.kind === 'video') return '🎬 Vidéo';
+    if (p.kind === 'file') return `📎 ${p.file_name}`;
     return '';
   };
 
@@ -1847,6 +1890,14 @@ export default function Messages() {
                           objectKey={payload.object_key}
                           duration={payload.duration}
                         />
+                      ) : payload.kind === 'file' ? (
+                        <FileMessage
+                          objectKey={payload.object_key}
+                          fileName={payload.file_name}
+                          fileSize={payload.file_size}
+                          fileType={payload.file_type}
+                          mine={mine}
+                        />
                       ) : (
                         <span className="whitespace-pre-wrap break-words">
                           {payload.kind === 'text'
@@ -1935,6 +1986,26 @@ export default function Messages() {
             </div>
           )}
 
+          {pendingFile && (
+            <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
+              <FilePreview file={pendingFile} onRemove={() => setPendingFile(null)} />
+              <div className="flex items-center justify-between mt-2 gap-2">
+                <div className="text-[11px] text-[var(--loboko-text-muted)]">
+                  Fichier prêt à être envoyé (max 25 Mo)
+                </div>
+                <button
+                  type="button"
+                  onClick={sendPendingFile}
+                  disabled={sendingFile}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
+                >
+                  <Send size={14} />
+                  {sendingFile ? 'Envoi…' : 'Envoyer'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {replyTo && !activeBlocked && (
             <div className="px-3 pt-2 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] flex items-start gap-2">
               <ReplyIcon size={14} className="text-[#2563eb] mt-0.5 shrink-0" />
@@ -2001,6 +2072,18 @@ export default function Messages() {
                               setPendingMedia(m);
                             }}
                           />
+                          <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-[var(--loboko-border)]">
+                            <FilePicker
+                              compact
+                              onSelect={(f) => {
+                                setShowMediaPicker(false);
+                                setPendingFile(f);
+                              }}
+                            />
+                            <span className="text-[10px] text-[var(--loboko-text-muted)]">
+                              Document (PDF, DOC, XLS, ZIP · 25 Mo max)
+                            </span>
+                          </div>
                           <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
                             Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
                           </div>

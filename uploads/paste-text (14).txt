@@ -1,0 +1,87 @@
+Ajouter l’envoi de fichiers (documents) dans LOBOKO.
+
+Objectif :
+Permettre d’envoyer des fichiers dans les messages privés et groupes :
+
+* PDF
+* Word (.doc, .docx)
+* Excel (.xls, .xlsx)
+* ZIP
+
+1. Sélection fichier
+
+* Ajouter une option “Document” dans le bouton pièce jointe (📎)
+* Ouvrir un file picker avec accept :
+    .pdf,.doc,.docx,.xls,.xlsx,.zip
+
+2. Validation côté client
+
+* Taille max : 25 Mo
+* Bloquer explicitement :
+    .exe, .apk, .bat, .sh, .js (exécutables)
+* Si invalide → afficher erreur claire
+
+3. Upload
+
+* Utiliser Supabase Storage
+* Créer un dossier : message-documents
+* Nom fichier sécurisé (uuid + extension)
+* Retourner une URL publique ou signée
+
+4. Base de données
+
+* Réutiliser la table messages / group_messages
+* Ajouter type = ‘file’
+* Ajouter champs si nécessaires :
+    file_name
+    file_size
+    file_type
+    file_url
+
+5. Preview avant envoi
+
+* Afficher :
+    * nom du fichier
+    * taille (ex: 2.3 MB)
+    * type (PDF, DOC…)
+* Boutons :
+    * Annuler
+    * Envoyer
+
+6. Affichage dans chat
+
+* Créer une carte fichier :
+    * icône selon type (PDF, DOC, XLS, ZIP)
+    * nom du fichier
+    * taille
+    * bouton “Ouvrir” ou “Télécharger”
+* Style cohérent avec les messages existants
+
+7. Comportement
+
+* Cliquer → ouvre ou télécharge le fichier
+* Fonctionne pour :
+    * messages privés
+    * groupes
+
+8. Sécurité
+
+* Ne jamais exécuter de fichier
+* Pas de preview inline pour fichiers dangereux
+* Toujours traiter comme téléchargement
+
+9. Contraintes
+
+* Ne pas casser :
+    * images / vidéos
+    * notes vocales
+    * messages texte
+* Ne pas toucher appels, statuts, posts, commentaires, ratings
+
+10. SQL
+    Si modification DB nécessaire :
+
+* créer DOCUMENTS_SETUP.md
+* idempotent uniquement
+
+Build + lint à la fin

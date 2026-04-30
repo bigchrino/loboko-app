@@ -38,7 +38,14 @@ interface MessageRow {
 
 function isUserFacing(content: string): boolean {
   const p = decodePayload(content);
-  return p.kind === 'text' || p.kind === 'audio' || p.kind === 'call_event';
+  return (
+    p.kind === 'text' ||
+    p.kind === 'audio' ||
+    p.kind === 'image' ||
+    p.kind === 'video' ||
+    p.kind === 'file' ||
+    p.kind === 'call_event'
+  );
 }
 
 export function MessagesProvider({ children }: { children: ReactNode }) {
