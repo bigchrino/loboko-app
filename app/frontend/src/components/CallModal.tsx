@@ -60,19 +60,64 @@ interface Props {
 // Public Google STUN servers. Enough for same-network / most home NAT cases.
 // TURN required for reliable calls across mobile networks
 // (symmetric NAT, strict corporate / carrier firewalls, iOS cellular).
-// To enable TURN, append entries here, e.g.:
-//   { urls: 'turn:turn.example.com:3478', username: '...', credential: '...' }
-// You can source credentials from Twilio Network Traversal Service, Xirsys,
-// CoTURN self-hosted, or Cloudflare Calls. Without TURN, calls between two
-// mobile-network peers may stay stuck in `iceConnectionState: checking` or
-// eventually go to `failed`.
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-];
+//
+// TURN credentials are NEVER hardcoded. They come from Vite env vars at
+// build time:
+//   VITE_TURN_URL        (e.g. "turn:turn.example.com:3478" or a comma-
+//                         separated list for multi-protocol fallback)
+//   VITE_TURN_USERNAME
+//   VITE_TURN_CREDENTIAL
+//
+// If any of those is missing, the app still works — it just uses STUN
+// only, which means calls across strict mobile networks may fail at the
+// ICE stage. In that case the debug panel will log
+// "TURN probablement requis ou mal configuré".
+function buildIceServers(): RTCIceServer[] {
+  const baseStun: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+  ];
+
+  const turnUrlRaw = import.meta.env.VITE_TURN_URL as string | undefined;
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME as string | undefined;
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL as
+    | string
+    | undefined;
+
+  if (turnUrlRaw && turnUsername && turnCredential) {
+    // Support a single URL or a comma-separated list so deployers can pass
+    // multiple TURN endpoints (e.g. udp + tcp + tls) in one env var.
+    const urls = turnUrlRaw
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
+    return [
+      ...baseStun,
+      {
+        urls: urls.length === 1 ? urls[0] : urls,
+        username: turnUsername,
+        credential: turnCredential,
+      },
+    ];
+  }
+
+  return baseStun;
+}
+
+const ICE_SERVERS: RTCIceServer[] = buildIceServers();
+
+/** True when a TURN server is actually configured for this build. */
+const TURN_CONFIGURED = ICE_SERVERS.some((s) => {
+  const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+  return urls.some((u) => typeof u === 'string' && u.startsWith('turn'));
+});
+
+console.info(
+  `[call] TURN configured: ${TURN_CONFIGURED ? 'yes' : 'no'} — ${ICE_SERVERS.length} ICE server entries`,
+);
 
 // Realtime event types exchanged over the per-call broadcast channel.
 type CallEvent =
@@ -377,8 +422,15 @@ export default function CallModal({
       // stuck here on real mobile networks, a TURN server is likely needed.
       if (st === 'failed') {
         console.warn(
-          `${TAG} iceConnectionState=failed — a TURN server is probably required (symmetric NAT / mobile carrier).`,
+          `${TAG} iceConnectionState=failed — TURN probablement requis ou mal configuré (TURN_CONFIGURED=${TURN_CONFIGURED}).`,
         );
+        if (!closedRef.current) {
+          setError(
+            TURN_CONFIGURED
+              ? 'Connexion impossible — TURN probablement mal configuré'
+              : 'Connexion impossible — TURN probablement requis',
+          );
+        }
       }
     };
 
@@ -699,6 +751,14 @@ export default function CallModal({
       {showDebug && (
         <div className="absolute top-2 right-2 z-[60] text-[10px] leading-tight font-mono bg-black/70 text-white/90 rounded-md px-2 py-1.5 border border-white/10 max-w-[220px]">
           <div className="text-white font-semibold mb-1">call debug</div>
+          <div>
+            TURN:{' '}
+            <span
+              className={TURN_CONFIGURED ? 'text-green-400' : 'text-yellow-400'}
+            >
+              {TURN_CONFIGURED ? 'yes' : 'no'}
+            </span>
+          </div>
           <div>
             signaling:{' '}
             <span
