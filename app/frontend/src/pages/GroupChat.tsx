@@ -859,7 +859,7 @@ export default function GroupChat() {
           </div>
         )}
 
-        <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 overflow-x-hidden">
+        <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0">
           {showRecorder ? (
             <VoiceRecorder onSend={handleSendVoice} onClose={() => setShowRecorder(false)} />
           ) : (

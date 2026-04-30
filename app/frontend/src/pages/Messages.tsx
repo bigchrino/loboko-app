@@ -40,13 +40,7 @@ import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus } from 'l
 import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
 import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
-import MentionSuggestions from '@/components/MentionSuggestions';
 import MentionText from '@/components/MentionText';
-import {
-  applyMention,
-  extractMentionQuery,
-  type MentionSuggestion,
-} from '@/lib/mentions';
 import {
   deleteForEveryone,
   deleteForMe,
@@ -236,12 +230,6 @@ export default function Messages() {
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
   const [activeUserId, setActiveUserId] = useState<string | null>(urlTo);
   const [draft, setDraft] = useState('');
-  const [mentionState, setMentionState] = useState<{
-    open: boolean;
-    query: string;
-    start: number;
-    end: number;
-  }>({ open: false, query: '', start: 0, end: 0 });
   const [loading, setLoading] = useState(true);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
@@ -687,15 +675,8 @@ export default function Messages() {
     await sendTyping(activeUserId, 'stop');
   }, [activeUserId]);
 
-  const handleDraftChange = (value: string, caret?: number) => {
+  const handleDraftChange = (value: string, _caret?: number) => {
     setDraft(value);
-    const pos = typeof caret === 'number' ? caret : value.length;
-    const r = extractMentionQuery(value, pos);
-    if (r) {
-      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-    } else {
-      setMentionState((p) => (p.open ? { ...p, open: false } : p));
-    }
     if (!activeUserId) return;
     const now = Date.now();
     if (now - lastTypingSentRef.current > 2000) {
@@ -708,23 +689,7 @@ export default function Messages() {
     }, 3000);
   };
 
-  const handlePickMention = (s: MentionSuggestion) => {
-    if (!s.username) return;
-    const { text, caret } = applyMention(
-      draft,
-      { start: mentionState.start, end: mentionState.end },
-      s.username,
-    );
-    setDraft(text);
-    setMentionState((p) => ({ ...p, open: false }));
-    requestAnimationFrame(() => {
-      const el = inputRef.current;
-      if (el) {
-        el.focus();
-        el.setSelectionRange(caret, caret);
-      }
-    });
-  };
+
 
   const sendText = async () => {
     if (!draft.trim() || !activeUserId) return;
@@ -1843,28 +1808,11 @@ export default function Messages() {
                           e.target.selectionStart ?? e.target.value.length,
                         )
                       }
-                      onKeyUp={(e) => {
-                        const el = e.currentTarget;
-                        const caret = el.selectionStart ?? el.value.length;
-                        const r = extractMentionQuery(el.value, caret);
-                        if (r) {
-                          setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-                        } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
-                          setMentionState((p) => (p.open ? { ...p, open: false } : p));
-                        }
-                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !mentionState.open) sendText();
+                        if (e.key === 'Enter') sendText();
                       }}
-                      placeholder="Votre message... (@ pour mentionner)"
+                      placeholder="Votre message..."
                       className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-                    />
-                    <MentionSuggestions
-                      open={mentionState.open}
-                      query={mentionState.query}
-                      position="above"
-                      onSelect={handlePickMention}
-                      onClose={() => setMentionState((p) => ({ ...p, open: false }))}
                     />
                   </div>
                   {draft.trim() ? (

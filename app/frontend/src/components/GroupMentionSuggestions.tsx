@@ -139,7 +139,7 @@ export default function GroupMentionSuggestions({
 
   return (
     <div
-      className={`absolute left-0 right-0 z-40 ${posClass} bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-xl shadow-lg max-h-60 overflow-y-auto`}
+      className={`absolute left-0 right-0 z-[60] ${posClass} bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-xl shadow-lg max-h-60 overflow-y-auto`}
       onMouseDown={(e) => e.preventDefault()}
     >
       <ul>
