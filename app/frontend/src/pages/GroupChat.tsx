@@ -24,7 +24,7 @@ import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import MentionSuggestions from '@/components/MentionSuggestions';
+import GroupMentionSuggestions from '@/components/GroupMentionSuggestions';
 import MentionText from '@/components/MentionText';
 import {
   applyMention,
@@ -286,11 +286,25 @@ export default function GroupChat() {
   }, []);
 
   const handlePickMention = (s: MentionSuggestion) => {
-    if (!s.username) return;
+    // Resolve token: use username, fallback to @tous for the "all" item,
+    // or build a safe slug from display_name when username is missing.
+    let token = s.username;
+    if (!token) {
+      if (s.user_id === '__all__') {
+        token = 'tous';
+      } else if (s.display_name) {
+        token = s.display_name
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[^\w.]+/g, '')
+          .slice(0, 32);
+      }
+    }
+    if (!token) return;
     const { text, caret } = applyMention(
       draft,
       { start: mentionState.start, end: mentionState.end },
-      s.username,
+      token,
     );
     setDraft(text);
     setMentionState((p) => ({ ...p, open: false }));
@@ -869,20 +883,27 @@ export default function GroupChat() {
                   <Paperclip size={18} />
                 </button>
                 {showMediaPicker && (
-                  <div className="absolute bottom-12 left-0 z-20 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
-                    <MediaPicker
-                      maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
-                      compact
-                      onSelect={(sel) => {
-                        setShowMediaPicker(false);
-                        if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
-                        setPendingMedia(sel);
-                      }}
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowMediaPicker(false)}
+                      aria-hidden="true"
                     />
-                    <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
-                      Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
+                    <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
+                      <MediaPicker
+                        maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
+                        compact
+                        onSelect={(sel) => {
+                          setShowMediaPicker(false);
+                          if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
+                          setPendingMedia(sel);
+                        }}
+                      />
+                      <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
+                        Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
               <div className="flex-1 min-w-0 relative">
@@ -916,10 +937,21 @@ export default function GroupChat() {
                   placeholder="Votre message... (@ pour mentionner)"
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
                 />
-                <MentionSuggestions
+                <GroupMentionSuggestions
                   open={mentionState.open}
                   query={mentionState.query}
                   position="above"
+                  memberProfiles={members
+                    .filter((m) => m.user_id !== myId)
+                    .map((m) => {
+                      const p = profilesMap[m.user_id];
+                      return {
+                        user_id: m.user_id,
+                        username: p?.username ?? null,
+                        display_name: p?.display_name ?? null,
+                        avatar_key: p?.avatar_key ?? null,
+                      };
+                    })}
                   onSelect={handlePickMention}
                   onClose={() => setMentionState((p) => ({ ...p, open: false }))}
                 />
