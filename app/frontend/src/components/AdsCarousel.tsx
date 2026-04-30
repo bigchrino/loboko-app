@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react';
 
 /**
@@ -19,7 +20,8 @@ interface AdItem {
   title: string;
   description: string;
   image: string;
-  href: string;
+  /** Slug of the target services_categories entry for the "Voir" CTA. */
+  categorySlug: string;
   badge?: string;
 }
 
@@ -31,7 +33,7 @@ const ADS: AdItem[] = [
       'Des artisans vérifiés pour donner un coup de neuf à votre intérieur.',
     image:
       'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusj2yaafmq/ad-home-renovation.png',
-    href: '#',
+    categorySlug: 'macon',
     badge: 'Sponsorisé',
   },
   {
@@ -41,7 +43,7 @@ const ADS: AdItem[] = [
       'Un logement impeccable en quelques heures. Prestataires de confiance.',
     image:
       'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusmcyaafna/ad-cleaning-service.png',
-    href: '#',
+    categorySlug: 'nettoyage-menage',
     badge: 'Sponsorisé',
   },
   {
@@ -51,12 +53,13 @@ const ADS: AdItem[] = [
       "Réparation rapide de votre voiture chez vous, sans stress et sans remorquage.",
     image:
       'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusk2qaafnq/ad-mobile-mechanic.png',
-    href: '#',
+    categorySlug: 'mecanicien',
     badge: 'Sponsorisé',
   },
 ];
 
 export default function AdsCarousel() {
+  const navigate = useNavigate();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -168,12 +171,13 @@ export default function AdsCarousel() {
               <p className="text-xs sm:text-sm text-[var(--loboko-text-muted)] leading-relaxed mb-3 line-clamp-2">
                 {ad.description}
               </p>
-              <a
-                href={ad.href}
+              <button
+                type="button"
+                onClick={() => navigate(`/services/${ad.categorySlug}`)}
                 className="inline-flex items-center justify-center h-9 px-4 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-sm font-semibold transition-colors"
               >
                 Voir
-              </a>
+              </button>
             </div>
           </article>
         ))}

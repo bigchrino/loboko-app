@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 
 export default function OnboardingProfile() {
   const { user, profile, createLobokoProfile } = useAuth();
@@ -9,7 +10,10 @@ export default function OnboardingProfile() {
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [metier, setMetier] = useState(user?.metier || '');
+  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
+  const [serviceCategoryName, setServiceCategoryName] = useState<string>(
+    user?.metier || '',
+  );
   const [bio, setBio] = useState('');
   const [role, setRole] = useState<'client' | 'prestataire'>(user?.role || 'client');
 
@@ -27,8 +31,8 @@ export default function OnboardingProfile() {
       toast.error("Nom d'utilisateur requis");
       return;
     }
-    if (role === 'prestataire' && !metier.trim()) {
-      toast.error('Veuillez indiquer le service que vous livrez');
+    if (role === 'prestataire' && !serviceCategoryId) {
+      toast.error('Veuillez choisir un service officiel dans la liste');
       return;
     }
     setLoading(true);
@@ -36,9 +40,10 @@ export default function OnboardingProfile() {
       await createLobokoProfile({
         username: username.trim(),
         display_name: displayName.trim() || username.trim(),
-        metier: metier.trim(),
+        metier: role === 'prestataire' ? serviceCategoryName : '',
         bio: bio.trim(),
         role,
+        service_category_id: role === 'prestataire' ? serviceCategoryId : null,
       });
       toast.success('Profil créé avec succès !');
       navigate('/home', { replace: true });
@@ -116,15 +121,18 @@ export default function OnboardingProfile() {
               <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
                 Service que vous livrez *
               </label>
-              <input
-                value={metier}
-                onChange={(e) => setMetier(e.target.value)}
-                placeholder="ex: Coiffeur, Menuisier, Photographe..."
+              <ServiceCategorySelect
+                value={serviceCategoryId}
+                onChange={(id, cat) => {
+                  setServiceCategoryId(id);
+                  setServiceCategoryName(cat?.name || '');
+                }}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                placeholder="Choisissez un service officiel…"
+                legacyMetier={user?.metier}
               />
               <p className="mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
-                Indiquez clairement le service que vous proposez (ex: coiffeur, menuisier, plombier...)
+                Choisissez une catégorie officielle LOBOKO. Si votre domaine est absent, contactez-nous.
               </p>
             </div>
           )}

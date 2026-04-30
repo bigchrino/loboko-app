@@ -1,0 +1,93 @@
+Nouvelle tâche : créer un vrai système de catégories de services pour LOBOKO.
+
+Objectif :
+Les prestataires ne doivent plus écrire librement leur métier/service. Ils doivent choisir un service existant dans la base de données.
+
+1. Base de données services
+Créer une table services_categories ou services avec :
+- id
+- name
+- slug
+- description
+- icon
+- is_active
+- created_at
+
+Ajouter des catégories importantes :
+- Électricien
+- Plombier
+- Coiffeur
+- Mécanicien
+- Réparateur téléphone
+- Réparateur ordinateur
+- Développeur web
+- Développeur mobile
+- Graphiste
+- Menuisier
+- Maçon
+- Peintre
+- Nettoyage / ménage
+- Cuisinier
+- Chauffeur
+- Jardinier
+- Couturier
+- Photographe
+- Vidéaste
+- Professeur / répétiteur
+- Technicien froid / climatisation
+- Serrurier
+- Soudeur
+- Décorateur
+- Agent de sécurité
+
+2. Inscription prestataire
+Dans l’inscription ou modification profil prestataire :
+- remplacer le champ libre “métier/service” par une liste déroulante ou autocomplete
+- l’utilisateur peut rechercher une catégorie
+- il ne peut choisir qu’une catégorie existante
+- s’il ne trouve pas son domaine, afficher :
+  “Ce domaine n’est pas encore disponible. Contactez LOBOKO pour l’ajouter.”
+- bloquer la création du compte prestataire si aucune catégorie valide n’est choisie
+
+3. Profil prestataire
+Chaque prestataire doit être lié à une catégorie officielle :
+- service_category_id
+- afficher le nom du service sur son profil
+- afficher aussi note moyenne, nombre d’avis si disponible
+
+4. Bouton “Trouver un prestataire”
+Quand le client clique sur “Trouver un prestataire” :
+- afficher les catégories de services disponibles
+- catégories sous forme de cartes : icône + nom + nombre de prestataires
+- quand on clique sur une catégorie, afficher tous les prestataires de ce domaine
+- exemple : Mécanicien → liste de tous les mécaniciens inscrits
+
+5. Bouton “Voir” sur les cartes publicitaires / catégories
+Quand on clique sur “Voir” sur une carte comme “Mécanicien à domicile” :
+- ouvrir la liste des prestataires de cette catégorie
+- pas seulement une page statique
+
+6. Recherche et filtres
+Sur la page des prestataires :
+- recherche par nom
+- filtre par catégorie
+- filtre par note
+- filtre par disponibilité si déjà disponible
+- afficher “Aucun prestataire disponible dans cette catégorie” si vide
+
+7. Admin / futur
+Prévoir que plus tard seuls les admins pourront ajouter/modifier les catégories.
+Pour l’instant, créer les catégories via SQL.
+
+8. SQL
+Créer SERVICES_CATEGORIES_SETUP.md avec :
+- création table services_categories
+- insertion des catégories de base
+- ajout de service_category_id dans profiles si nécessaire
+- policies RLS nécessaires
+
+Contraintes :
+- Ne pas casser les comptes existants
+- Si un prestataire avait déjà un métier texte, garder fallback d’affichage temporaire
+- Ne pas casser messages, groupes, appels, posts, statuts, commentaires, ratings
+- Build + lint à la fin

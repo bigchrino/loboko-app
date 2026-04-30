@@ -30,6 +30,8 @@ import Recherches from './pages/Recherches';
 import Menu from './pages/Menu';
 import UserProfilePage from './pages/UserProfile';
 import ContactInfo from './pages/ContactInfo';
+import FindProviders from './pages/FindProviders';
+import ProvidersByCategory from './pages/ProvidersByCategory';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -91,6 +93,8 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/menu', element: <Menu /> },
   { path: '/u/:userId', element: <UserProfilePage /> },
   { path: '/messages/contact/:userId', element: <ContactInfo /> },
+  { path: '/find', element: <FindProviders /> },
+  { path: '/services/:slug', element: <ProvidersByCategory /> },
 ];
 
 const AppRoutes = () => (

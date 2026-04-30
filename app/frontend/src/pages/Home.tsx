@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ComposePost from '@/components/ComposePost';
 import PostCard, { PostItem } from '@/components/PostCard';
@@ -9,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +39,7 @@ export default function Home() {
 
   return (
     <Layout title="Accueil">
-      <HeroBanner />
+      <HeroBanner onFindProvider={() => navigate('/find')} />
       <AdsCarousel />
       <h1 className="text-2xl font-bold mb-4 hidden lg:block">Fil d'actualité</h1>
       <div id="loboko-compose">

@@ -12,6 +12,7 @@ export interface Profile {
   avatar_key?: string;
   role: 'client' | 'prestataire';
   theme?: 'light' | 'dark';
+  service_category_id?: string | null;
 }
 
 export interface LobokoAccount {
@@ -43,6 +44,7 @@ interface AuthContextValue {
     bio?: string;
     metier?: string;
     role: 'client' | 'prestataire';
+    service_category_id?: string | null;
   }) => Promise<Profile>;
   updateLobokoProfile: (params: Partial<Omit<Profile, 'id' | 'user_id'>>) => Promise<Profile>;
   logout: () => Promise<void>;
@@ -167,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metier: params.metier || null,
         role: params.role,
         theme: 'dark',
+        service_category_id: params.service_category_id || null,
       };
       const { data, error } = await supabase
         .from('profiles')

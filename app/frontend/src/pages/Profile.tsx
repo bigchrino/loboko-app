@@ -7,6 +7,11 @@ import { Camera, Edit2, Save, X, Star, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard, { PostItem } from '@/components/PostCard';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
+import ServiceCategorySelect from '@/components/ServiceCategorySelect';
+import {
+  fetchCategoryById,
+  ServiceCategory,
+} from '@/lib/service-categories';
 
 export default function Profile() {
   const { profile, user, updateLobokoProfile } = useAuth();
@@ -16,6 +21,8 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [metier, setMetier] = useState('');
+  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory | null>(null);
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -29,10 +36,26 @@ export default function Profile() {
       setDisplayName(profile.display_name || '');
       setBio(profile.bio || '');
       setMetier(profile.metier || '');
+      setServiceCategoryId(profile.service_category_id || null);
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
       else setAvatarUrl(null);
     }
   }, [profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!profile?.service_category_id) {
+        setServiceCategory(null);
+        return;
+      }
+      const cat = await fetchCategoryById(profile.service_category_id);
+      if (!cancelled) setServiceCategory(cat);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.service_category_id]);
 
   useEffect(() => {
     (async () => {
@@ -85,9 +108,23 @@ export default function Profile() {
 
   const save = async () => {
     if (!profile) return;
+    if (profile.role === 'prestataire' && !serviceCategoryId) {
+      toast.error('Veuillez choisir un service officiel dans la liste');
+      return;
+    }
     setSaving(true);
     try {
-      await updateLobokoProfile({ display_name: displayName, bio, metier });
+      const patch: Record<string, unknown> = {
+        display_name: displayName,
+        bio,
+      };
+      if (profile.role === 'prestataire') {
+        patch.service_category_id = serviceCategoryId;
+        // Keep legacy metier in sync with the selected category name for
+        // backward compatibility with existing UI that reads profile.metier.
+        patch.metier = metier;
+      }
+      await updateLobokoProfile(patch as Partial<typeof profile>);
       toast.success('Profil mis à jour');
       setEditing(false);
     } catch (e) {
@@ -209,14 +246,21 @@ export default function Profile() {
                 className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Métier</label>
-              <input
-                value={metier}
-                onChange={(e) => setMetier(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-              />
-            </div>
+            {profile.role === 'prestataire' && (
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Service *</label>
+                <ServiceCategorySelect
+                  value={serviceCategoryId}
+                  onChange={(id, cat) => {
+                    setServiceCategoryId(id);
+                    setMetier(cat?.name || '');
+                  }}
+                  required
+                  placeholder="Choisissez un service officiel…"
+                  legacyMetier={profile.metier}
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Bio</label>
               <textarea
@@ -246,8 +290,15 @@ export default function Profile() {
           </div>
         ) : (
           <>
-            {profile.metier && (
-              <div className="text-sm text-[#2563eb] font-medium mb-2">{profile.metier}</div>
+            {profile.role === 'prestataire' && (serviceCategory?.name || profile.metier) && (
+              <div className="text-sm text-[#2563eb] font-medium mb-2">
+                {serviceCategory?.name || profile.metier}
+                {!serviceCategory && profile.metier && (
+                  <span className="ml-2 text-[10px] text-[var(--loboko-text-muted)] font-normal">
+                    (ancien service — à mettre à jour)
+                  </span>
+                )}
+              </div>
             )}
             {profile.bio && (
               <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap mb-3">

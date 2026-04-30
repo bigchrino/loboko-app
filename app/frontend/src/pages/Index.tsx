@@ -5,6 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon, Users, MessageCircle, Briefcase, Heart } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
+import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 
 type Mode = 'login' | 'register';
 
@@ -18,7 +19,8 @@ export default function Index() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'client' | 'prestataire'>('client');
-  const [metier, setMetier] = useState('');
+  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
+  const [serviceCategoryName, setServiceCategoryName] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -43,8 +45,8 @@ export default function Index() {
         toast.error('Nom complet requis');
         return;
       }
-      if (role === 'prestataire' && !metier.trim()) {
-        toast.error('Veuillez indiquer le service que vous livrez');
+      if (role === 'prestataire' && !serviceCategoryId) {
+        toast.error('Veuillez choisir un service officiel dans la liste');
         return;
       }
     }
@@ -59,7 +61,7 @@ export default function Index() {
           password,
           role,
           display_name: displayName.trim(),
-          metier: role === 'prestataire' ? metier.trim() : undefined,
+          metier: role === 'prestataire' ? serviceCategoryName : undefined,
         });
         toast.success('Compte créé ! Complétez votre profil.');
       }
@@ -237,15 +239,17 @@ export default function Index() {
                       <label className="block text-xs font-semibold mb-1.5 text-[var(--loboko-text-secondary)]">
                         Service que vous livrez *
                       </label>
-                      <input
-                        value={metier}
-                        onChange={(e) => setMetier(e.target.value)}
-                        placeholder="ex: Coiffeur, Menuisier, Plombier..."
+                      <ServiceCategorySelect
+                        value={serviceCategoryId}
+                        onChange={(id, cat) => {
+                          setServiceCategoryId(id);
+                          setServiceCategoryName(cat?.name || '');
+                        }}
                         required
-                        className="w-full px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-[var(--loboko-text)] placeholder:text-[var(--loboko-text-muted)] focus:outline-none focus:border-[#2563eb]"
+                        placeholder="Choisissez un service officiel…"
                       />
                       <p className="mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
-                        Indiquez clairement le service que vous proposez
+                        Choisissez un service existant dans la liste LOBOKO.
                       </p>
                     </div>
                   )}

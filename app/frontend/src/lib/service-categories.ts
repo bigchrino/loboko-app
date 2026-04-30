@@ -1,0 +1,157 @@
+import { supabase } from '@/lib/supabase';
+
+/**
+ * Service category system for LOBOKO.
+ *
+ * Prestataires must pick a category from `services_categories` instead of
+ * writing a free-text `metier`. The `metier` column is kept as a legacy
+ * fallback so older accounts keep rendering correctly.
+ */
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  icon?: string | null;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface ServiceCategoryWithCount extends ServiceCategory {
+  provider_count: number;
+}
+
+/** Fetch all active categories, sorted by name. */
+export async function fetchActiveCategories(): Promise<ServiceCategory[]> {
+  try {
+    const { data, error } = await supabase
+      .from('services_categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+    if (error) {
+      console.error('fetchActiveCategories error', error);
+      return [];
+    }
+    return (data as ServiceCategory[]) || [];
+  } catch (e) {
+    console.error('fetchActiveCategories exception', e);
+    return [];
+  }
+}
+
+/** Fetch one category by slug. */
+export async function fetchCategoryBySlug(
+  slug: string,
+): Promise<ServiceCategory | null> {
+  try {
+    const { data, error } = await supabase
+      .from('services_categories')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) {
+      console.error('fetchCategoryBySlug error', error);
+      return null;
+    }
+    return (data as ServiceCategory) || null;
+  } catch (e) {
+    console.error('fetchCategoryBySlug exception', e);
+    return null;
+  }
+}
+
+/** Fetch one category by id. */
+export async function fetchCategoryById(
+  id: string,
+): Promise<ServiceCategory | null> {
+  try {
+    const { data, error } = await supabase
+      .from('services_categories')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      console.error('fetchCategoryById error', error);
+      return null;
+    }
+    return (data as ServiceCategory) || null;
+  } catch (e) {
+    console.error('fetchCategoryById exception', e);
+    return null;
+  }
+}
+
+/**
+ * Fetch categories with a count of prestataires attached to each.
+ * Best-effort: if counting fails we still return categories with 0.
+ */
+export async function fetchCategoriesWithCounts(): Promise<ServiceCategoryWithCount[]> {
+  const categories = await fetchActiveCategories();
+  if (categories.length === 0) return [];
+
+  // One grouped count query — cheap and works with RLS on profiles.
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('service_category_id')
+      .eq('role', 'prestataire')
+      .not('service_category_id', 'is', null);
+    if (error) {
+      console.error('fetchCategoriesWithCounts count error', error);
+      return categories.map((c) => ({ ...c, provider_count: 0 }));
+    }
+    const counts = new Map<string, number>();
+    for (const row of (data as { service_category_id: string | null }[]) || []) {
+      if (!row.service_category_id) continue;
+      counts.set(
+        row.service_category_id,
+        (counts.get(row.service_category_id) || 0) + 1,
+      );
+    }
+    return categories.map((c) => ({
+      ...c,
+      provider_count: counts.get(c.id) || 0,
+    }));
+  } catch (e) {
+    console.error('fetchCategoriesWithCounts exception', e);
+    return categories.map((c) => ({ ...c, provider_count: 0 }));
+  }
+}
+
+export interface ProviderProfile {
+  id: string;
+  user_id: string;
+  username: string;
+  display_name?: string | null;
+  bio?: string | null;
+  metier?: string | null;
+  avatar_key?: string | null;
+  role: 'client' | 'prestataire';
+  service_category_id?: string | null;
+  created_at?: string;
+}
+
+/** Fetch all prestataires linked to a category id. */
+export async function fetchProvidersByCategory(
+  categoryId: string,
+): Promise<ProviderProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'prestataire')
+      .eq('service_category_id', categoryId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('fetchProvidersByCategory error', error);
+      return [];
+    }
+    return (data as ProviderProfile[]) || [];
+  } catch (e) {
+    console.error('fetchProvidersByCategory exception', e);
+    return [];
+  }
+}

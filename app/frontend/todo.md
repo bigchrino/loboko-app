@@ -66,3 +66,19 @@
 - [x] Mettre à jour `src/pages/Messages.tsx` - intégrer emoji picker, voice recorder, boutons d'appel
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
+
+### Phase 6 - Catégories officielles de services
+- [x] Créer `SERVICES_CATEGORIES_SETUP.md` (table `services_categories`, RLS, seed, colonne `profiles.service_category_id`)
+- [x] Créer `src/lib/service-categories.ts` - helpers (fetch, counts, providers by category)
+- [x] Créer `src/components/ServiceCategorySelect.tsx` - autocomplete obligatoire depuis le catalogue
+- [x] Mettre à jour `src/pages/Index.tsx` (inscription) - remplacer le champ libre par le select
+- [x] Mettre à jour `src/pages/OnboardingProfile.tsx` - select officiel obligatoire pour prestataire
+- [x] Mettre à jour `src/pages/Profile.tsx` - édition via select, fallback legacy `metier`
+- [x] Mettre à jour `src/contexts/AuthContext.tsx` - `service_category_id` dans Profile + createLobokoProfile
+- [x] Créer `src/pages/FindProviders.tsx` - grille de catégories avec compteurs
+- [x] Créer `src/pages/ProvidersByCategory.tsx` - liste + recherche + filtre note
+- [x] Router `/find` et `/services/:slug` dans `src/App.tsx`
+- [x] Wire "Trouver un prestataire" dans `HeroBanner` (via Home.tsx → /find)
+- [x] Wire "Voir" dans `AdsCarousel` → `/services/:slug`
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`
