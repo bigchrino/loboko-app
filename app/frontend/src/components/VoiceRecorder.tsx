@@ -172,12 +172,61 @@ export default function VoiceRecorder({ onSend, onClose }: Props) {
     }
   };
 
+  // Once we have a recorded blob the layout switches from a single-row
+  // "pill" to a vertically stacked card with:
+  //   row 1: audio preview (shrinkable, min-w-0)
+  //   row 2: [Supprimer]        [Envoyer]
+  // This guarantees the Envoyer button stays visible at 360px / 390px /
+  // 412px viewports (Android Chrome / Samsung Internet / iPhone SE),
+  // where the native <audio controls> element is wide enough to push
+  // adjacent buttons out of the visible area of a single flex row.
+  if (blob && !error) {
+    return (
+      <div className="flex-1 min-w-0 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl p-2 flex flex-col gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <audio
+            src={previewUrl || undefined}
+            controls
+            preload="metadata"
+            className="flex-1 min-w-0 h-9 max-w-full"
+          />
+          <span className="text-xs font-mono text-[var(--loboko-text-muted)] shrink-0">
+            {formatDuration(elapsed)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={discard}
+            disabled={uploading}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] text-sm disabled:opacity-50 shrink-0"
+            aria-label="Supprimer la note vocale"
+          >
+            <X size={16} />
+            <span className="hidden xs:inline">Supprimer</span>
+          </button>
+          <button
+            type="button"
+            onClick={send}
+            disabled={uploading}
+            className="flex-1 flex items-center justify-center gap-2 h-9 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white text-sm font-semibold disabled:opacity-50 px-4"
+            aria-label="Envoyer la note vocale"
+          >
+            <Send size={16} />
+            <span>{uploading ? 'Envoi…' : 'Envoyer'}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Default pill layout (idle, recording, or error state).
   return (
-    <div className="flex items-center gap-2 flex-1 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-full pl-3 pr-1 py-1">
+    <div className="flex items-center gap-2 flex-1 min-w-0 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-full pl-3 pr-1 py-1">
       <button
         type="button"
         onClick={discard}
-        className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--loboko-text-muted)] hover:bg-[var(--loboko-surface-hover)]"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--loboko-text-muted)] hover:bg-[var(--loboko-surface-hover)] shrink-0"
         aria-label="Annuler"
       >
         <X size={16} />
@@ -199,24 +248,26 @@ export default function VoiceRecorder({ onSend, onClose }: Props) {
               }
               setElapsed(0);
             }}
-            className="text-xs px-2 py-1 rounded-md bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)]"
+            className="text-xs px-2 py-1 rounded-md bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] shrink-0"
           >
             Réessayer
           </button>
         </div>
-      ) : !blob ? (
+      ) : (
         <>
-          <div className="flex-1 flex items-center gap-2 text-sm">
+          <div className="flex-1 flex items-center gap-2 text-sm min-w-0">
             {recording ? (
               <>
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="font-mono">{formatDuration(elapsed)}</span>
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                <span className="font-mono shrink-0">
+                  {formatDuration(elapsed)}
+                </span>
                 <span className="text-[var(--loboko-text-muted)] text-xs truncate">
                   Enregistrement... (max {MAX_SECONDS}s)
                 </span>
               </>
             ) : (
-              <span className="text-[var(--loboko-text-muted)] text-xs">
+              <span className="text-[var(--loboko-text-muted)] text-xs truncate">
                 Appuyez pour enregistrer
               </span>
             )}
@@ -225,7 +276,7 @@ export default function VoiceRecorder({ onSend, onClose }: Props) {
             <button
               type="button"
               onClick={start}
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
               aria-label="Démarrer"
             >
               <Mic size={16} />
@@ -234,28 +285,12 @@ export default function VoiceRecorder({ onSend, onClose }: Props) {
             <button
               type="button"
               onClick={stop}
-              className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center"
+              className="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0"
               aria-label="Arrêter"
             >
               <Square size={14} />
             </button>
           )}
-        </>
-      ) : (
-        <>
-          <audio src={previewUrl || undefined} controls className="flex-1 h-8" />
-          <span className="text-xs font-mono text-[var(--loboko-text-muted)]">
-            {formatDuration(elapsed)}
-          </span>
-          <button
-            type="button"
-            onClick={send}
-            disabled={uploading}
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center disabled:opacity-50"
-            aria-label="Envoyer"
-          >
-            <Send size={14} />
-          </button>
         </>
       )}
     </div>
