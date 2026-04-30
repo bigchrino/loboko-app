@@ -7,6 +7,14 @@ import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
 import CommentMenu from './CommentMenu';
 import EmojiPickerMini from './EmojiPickerMini';
+import MentionSuggestions from './MentionSuggestions';
+import MentionText from './MentionText';
+import {
+  applyMention,
+  extractMentionQuery,
+  resolveMentionedUserIds,
+  type MentionSuggestion,
+} from '@/lib/mentions';
 
 interface CommentRow {
   id: string;
@@ -61,8 +69,32 @@ export default function CommentsModal({
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
   const [likesSupported, setLikesSupported] = useState(true);
+  const [mentionState, setMentionState] = useState<{
+    open: boolean;
+    query: string;
+    start: number;
+    end: number;
+  }>({ open: false, query: '', start: 0, end: 0 });
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handlePickMention = (s: MentionSuggestion) => {
+    if (!s.username) return;
+    const { text, caret } = applyMention(
+      content,
+      { start: mentionState.start, end: mentionState.end },
+      s.username,
+    );
+    setContent(text);
+    setMentionState((p) => ({ ...p, open: false }));
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }
+    });
+  };
 
   const loadComments = async () => {
     setLoading(true);
@@ -316,6 +348,30 @@ export default function CommentsModal({
           console.error('[comments] notification error (non-blocking):', nErr);
         }
       }
+      // Notify any @mentioned users in the comment body (non-blocking).
+      try {
+        const mentionMap = await resolveMentionedUserIds(text);
+        const skip = new Set<string>([authUid]);
+        if (!wasReply && postAuthorId) skip.add(postAuthorId);
+        if (wasReply && replyTo) {
+          const target = comments.find((c) => c.id === replyTo.targetCommentId);
+          if (target) skip.add(target.user_id);
+        }
+        await Promise.all(
+          Object.entries(mentionMap).map(([, uid]) => {
+            if (skip.has(uid)) return Promise.resolve();
+            return createNotification({
+              recipientId: uid,
+              fromUserId: authUid,
+              type: 'comment',
+              postId,
+              message: 'vous a mentionné dans un commentaire',
+            });
+          }),
+        );
+      } catch (nErr) {
+        console.error('[comments] mention notifications failed', nErr);
+      }
       setTimeout(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
       }, 100);
@@ -505,7 +561,9 @@ export default function CommentsModal({
                     </span>
                   )}
                 </div>
-                <div className="text-sm whitespace-pre-wrap break-words">{c.content}</div>
+                <div className="text-sm">
+                  <MentionText text={c.content} />
+                </div>
               </div>
               <CommentMenu
                 content={c.content}
@@ -648,27 +706,56 @@ export default function CommentsModal({
 
         <div className="border-t border-[var(--loboko-border)] p-3 flex items-center gap-2 flex-shrink-0">
           <EmojiPickerMini onSelect={insertEmoji} disabled={!currentUserId || sending} />
-          <input
-            ref={inputRef}
-            type="text"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={content}
+              onChange={(e) => {
+                const v = e.target.value;
+                const caret = e.target.selectionStart ?? v.length;
+                setContent(v);
+                const r = extractMentionQuery(v, caret);
+                if (r) {
+                  setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                } else {
+                  setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                }
+              }}
+              onKeyUp={(e) => {
+                const el = e.currentTarget;
+                const caret = el.selectionStart ?? el.value.length;
+                const r = extractMentionQuery(el.value, caret);
+                if (r) {
+                  setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
+                  setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !mentionState.open) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={
+                !currentUserId
+                  ? 'Connectez-vous pour commenter'
+                  : replyTo
+                  ? `Répondre à ${replyTo.targetName}... (@ pour mentionner)`
+                  : 'Écrire un commentaire... (@ pour mentionner)'
               }
-            }}
-            placeholder={
-              !currentUserId
-                ? 'Connectez-vous pour commenter'
-                : replyTo
-                ? `Répondre à ${replyTo.targetName}...`
-                : 'Écrire un commentaire...'
-            }
-            disabled={!currentUserId || sending}
-            className="flex-1 bg-[var(--loboko-surface-hover)] border border-[var(--loboko-border)] rounded-full px-4 py-2 text-sm outline-none focus:border-[#2563eb] disabled:opacity-50"
-          />
+              disabled={!currentUserId || sending}
+              className="w-full bg-[var(--loboko-surface-hover)] border border-[var(--loboko-border)] rounded-full px-4 py-2 text-sm outline-none focus:border-[#2563eb] disabled:opacity-50"
+            />
+            <MentionSuggestions
+              open={mentionState.open}
+              query={mentionState.query}
+              position="above"
+              onSelect={handlePickMention}
+              onClose={() => setMentionState((p) => ({ ...p, open: false }))}
+            />
+          </div>
           <button
             onClick={handleSend}
             disabled={!currentUserId || sending || !content.trim()}

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import LikesModal from './LikesModal';
 import CommentsModal from './CommentsModal';
 import PostMenu from './PostMenu';
+import MentionText from './MentionText';
 import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
 
@@ -271,7 +272,9 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           />
         </header>
 
-        <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">{post.content}</p>
+        <p className="text-sm leading-relaxed mb-3">
+          <MentionText text={post.content} />
+        </p>
 
         {imageUrl && (
           <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)]">

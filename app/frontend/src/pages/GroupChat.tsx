@@ -24,6 +24,15 @@ import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import MentionSuggestions from '@/components/MentionSuggestions';
+import MentionText from '@/components/MentionText';
+import {
+  applyMention,
+  extractMentionQuery,
+  resolveMentionedUserIds,
+  type MentionSuggestion,
+} from '@/lib/mentions';
+import { createNotification } from '@/lib/notifications';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import {
   deleteGroupMessageForEveryone,
@@ -98,6 +107,12 @@ export default function GroupChat() {
   const [draft, setDraft] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
+  const [mentionState, setMentionState] = useState<{
+    open: boolean;
+    query: string;
+    start: number;
+    end: number;
+  }>({ open: false, query: '', start: 0, end: 0 });
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
   const [sendingMedia, setSendingMedia] = useState(false);
@@ -270,6 +285,24 @@ export default function GroupChat() {
     });
   }, []);
 
+  const handlePickMention = (s: MentionSuggestion) => {
+    if (!s.username) return;
+    const { text, caret } = applyMention(
+      draft,
+      { start: mentionState.start, end: mentionState.end },
+      s.username,
+    );
+    setDraft(text);
+    setMentionState((p) => ({ ...p, open: false }));
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }
+    });
+  };
+
   const handleSendText = async () => {
     if (!draft.trim() || !groupId || !myId) return;
     const text = draft.trim();
@@ -277,6 +310,7 @@ export default function GroupChat() {
     setDraft('');
     setReplyTo(null);
     setShowEmoji(false);
+    setMentionState((p) => ({ ...p, open: false }));
     try {
       await sendGroupMessage({
         groupId,
@@ -286,6 +320,23 @@ export default function GroupChat() {
       });
       const fresh = await loadGroupMessages(groupId);
       setMessages(fresh);
+      // Notify any @mentioned users (non-blocking).
+      try {
+        const mentionMap = await resolveMentionedUserIds(text);
+        await Promise.all(
+          Object.entries(mentionMap).map(([, uid]) => {
+            if (uid === myId) return Promise.resolve();
+            return createNotification({
+              recipientId: uid,
+              fromUserId: myId,
+              type: 'message',
+              message: 'vous a mentionné dans un groupe',
+            });
+          }),
+        );
+      } catch (nErr) {
+        console.error('[group-chat] mention notifications failed', nErr);
+      }
     } catch (e) {
       const err = e as { message?: string };
       toast.error(err?.message || "Échec de l'envoi");
@@ -700,9 +751,9 @@ export default function GroupChat() {
                           duration={payload.duration}
                         />
                       ) : (
-                        <span className="whitespace-pre-wrap break-words">
-                          {payload.kind === 'text' ? payload.text : ''}
-                        </span>
+                        <MentionText
+                          text={payload.kind === 'text' ? payload.text : ''}
+                        />
                       )}
                     </div>
                     {!isDeleted && Object.keys(reactionGroups).length > 0 && (
@@ -834,14 +885,45 @@ export default function GroupChat() {
                   </div>
                 )}
               </div>
-              <input
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                placeholder="Votre message..."
-                className="flex-1 min-w-0 w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-              />
+              <div className="flex-1 min-w-0 relative">
+                <input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const caret = e.target.selectionStart ?? v.length;
+                    setDraft(v);
+                    const r = extractMentionQuery(v, caret);
+                    if (r) {
+                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                    } else {
+                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                    }
+                  }}
+                  onKeyUp={(e) => {
+                    const el = e.currentTarget;
+                    const caret = el.selectionStart ?? el.value.length;
+                    const r = extractMentionQuery(el.value, caret);
+                    if (r) {
+                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                    } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
+                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !mentionState.open) handleSendText();
+                  }}
+                  placeholder="Votre message... (@ pour mentionner)"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                />
+                <MentionSuggestions
+                  open={mentionState.open}
+                  query={mentionState.query}
+                  position="above"
+                  onSelect={handlePickMention}
+                  onClose={() => setMentionState((p) => ({ ...p, open: false }))}
+                />
+              </div>
               {draft.trim() ? (
                 <button
                   onClick={handleSendText}

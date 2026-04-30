@@ -1,0 +1,68 @@
+Ajouter le système de mentions @ dans LOBOKO.
+
+Objectif :
+Permettre de mentionner des utilisateurs dans :
+- publications texte/photo/vidéo
+- commentaires
+- messages de groupe
+
+1. Mentions dans les publications
+Dans ComposePost :
+- Quand l’utilisateur tape @ puis des lettres, afficher une liste de suggestions.
+- Exemple : @C → afficher les utilisateurs dont le pseudo ou nom commence par C.
+- L’utilisateur peut cliquer sur une personne pour l’insérer dans le texte.
+- Format inséré : @username
+- Supporter plusieurs mentions dans une même publication.
+- Fonctionne aussi avec photo/vidéo + légende.
+
+2. Mentions dans les commentaires
+Dans CommentsModal :
+- Ajouter un bouton @ à droite du bouton emoji.
+- Cliquer sur @ insère @ dans le champ et ouvre les suggestions.
+- Même logique :
+  - recherche par username / display_name
+  - sélection → insertion @username
+  - plusieurs mentions possibles dans un même commentaire ou réponse.
+
+3. Mentions dans les groupes
+Dans GroupChat :
+- Pas de bouton @ spécifique.
+- L’utilisateur utilise le @ du clavier.
+- Quand il tape @ sans texte, afficher aussi une option spéciale :
+  - @tous
+- @tous mentionne tous les membres du groupe.
+- Quand il tape @C, afficher les membres du groupe dont le pseudo/nom commence par C.
+- Supporter plusieurs mentions dans un même message de groupe.
+
+4. Rendu visuel
+- Les mentions doivent être colorées/visibles dans :
+  - publications
+  - commentaires
+  - réponses
+  - messages de groupe
+- Exemple : @chrino en bleu.
+
+5. Notifications
+- Quand quelqu’un est mentionné dans une publication :
+  notification : “X vous a mentionné dans une publication”
+- Quand quelqu’un est mentionné dans un commentaire :
+  notification : “X vous a mentionné dans un commentaire”
+- Quand quelqu’un est mentionné dans un message de groupe :
+  notification : “X vous a mentionné dans un groupe”
+- Pour @tous :
+  notifier tous les membres du groupe sauf l’auteur.
+
+6. Base de données
+Si nécessaire, créer MENTIONS_SETUP.md avec :
+- table mentions
+- columns : id, mentioned_user_id, mentioned_by, source_type, source_id, created_at
+- source_type : post, comment, group_message
+- policies RLS nécessaires
+Mais si possible, utiliser la table notifications existante pour éviter de complexifier.
+
+7. Contraintes
+- Ne pas casser posts, commentaires, groupes, messages existants.
+- Ne pas casser emojis.
+- Ne pas casser médias.
+- Ne pas toucher aux appels.
+- Build + lint à la fin.

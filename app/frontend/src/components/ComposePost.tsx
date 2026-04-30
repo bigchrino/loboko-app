@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { uploadMediaEx } from '@/lib/storage-helpers';
@@ -6,6 +6,14 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import MediaPicker, { MediaSelection } from './MediaPicker';
 import MediaPreview from './MediaPreview';
+import MentionSuggestions from './MentionSuggestions';
+import {
+  applyMention,
+  extractMentionQuery,
+  resolveMentionedUserIds,
+  type MentionSuggestion,
+} from '@/lib/mentions';
+import { createNotification } from '@/lib/notifications';
 
 interface Props {
   onPosted: () => void;
@@ -18,6 +26,13 @@ export default function ComposePost({ onPosted }: Props) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [media, setMedia] = useState<MediaSelection | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionState, setMentionState] = useState<{
+    open: boolean;
+    query: string;
+    start: number;
+    end: number;
+  }>({ open: false, query: '', start: 0, end: 0 });
 
   const resetMedia = () => {
     setMedia((current) => {
@@ -32,6 +47,34 @@ export default function ComposePost({ onPosted }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleContentChange = (value: string, caret: number) => {
+    setContent(value);
+    const range = extractMentionQuery(value, caret);
+    if (range) {
+      setMentionState({ open: true, query: range.query, start: range.start, end: range.end });
+    } else {
+      setMentionState((prev) => (prev.open ? { ...prev, open: false } : prev));
+    }
+  };
+
+  const handlePickMention = (s: MentionSuggestion) => {
+    if (!s.username) return;
+    const { text, caret } = applyMention(
+      content,
+      { start: mentionState.start, end: mentionState.end },
+      s.username,
+    );
+    setContent(text);
+    setMentionState((prev) => ({ ...prev, open: false }));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }
+    });
+  };
 
   const submit = async () => {
     if (!user) {
@@ -59,9 +102,10 @@ export default function ComposePost({ onPosted }: Props) {
 
       // Try insert with both image_key + video_key; fall back to image_key only
       // if the DB schema does not have video_key yet.
+      const finalText = content.trim();
       const basePayload: Record<string, unknown> = {
         user_id: user.id,
-        content: content.trim(),
+        content: finalText,
         image_key,
         likes_count: 0,
         comments_count: 0,
@@ -69,7 +113,7 @@ export default function ComposePost({ onPosted }: Props) {
       };
       const fullPayload = { ...basePayload, video_key };
 
-      let res = await supabase.from('posts').insert(fullPayload);
+      let res = await supabase.from('posts').insert(fullPayload).select('id').single();
       if (res.error && /video_key/i.test(res.error.message)) {
         if (video_key) {
           toast.error(
@@ -78,9 +122,29 @@ export default function ComposePost({ onPosted }: Props) {
           setLoading(false);
           return;
         }
-        res = await supabase.from('posts').insert(basePayload);
+        res = await supabase.from('posts').insert(basePayload).select('id').single();
       }
       if (res.error) throw res.error;
+
+      // Notify mentioned users (non-blocking).
+      try {
+        const insertedId =
+          (res.data as { id?: string | number } | null)?.id ?? undefined;
+        const mentionMap = await resolveMentionedUserIds(finalText);
+        await Promise.all(
+          Object.entries(mentionMap).map(([, uid]) =>
+            createNotification({
+              recipientId: uid,
+              fromUserId: user.id,
+              type: 'comment', // reuse existing allowed type to avoid schema changes
+              postId: insertedId,
+              message: 'vous a mentionné dans une publication',
+            }),
+          ),
+        );
+      } catch (nErr) {
+        console.error('[compose-post] mention notifications failed', nErr);
+      }
 
       setContent('');
       resetMedia();
@@ -96,13 +160,31 @@ export default function ComposePost({ onPosted }: Props) {
 
   return (
     <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4">
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Quoi de neuf, LOBOKO ?"
-        rows={3}
-        className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
-      />
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(e) => handleContentChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+          onKeyUp={(e) => {
+            const el = e.currentTarget;
+            handleContentChange(el.value, el.selectionStart ?? el.value.length);
+          }}
+          onClick={(e) => {
+            const el = e.currentTarget;
+            handleContentChange(el.value, el.selectionStart ?? el.value.length);
+          }}
+          placeholder="Quoi de neuf, LOBOKO ? Utilisez @ pour mentionner quelqu'un"
+          rows={3}
+          className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
+        />
+        <MentionSuggestions
+          open={mentionState.open}
+          query={mentionState.query}
+          position="below"
+          onSelect={handlePickMention}
+          onClose={() => setMentionState((p) => ({ ...p, open: false }))}
+        />
+      </div>
       {media && (
         <div className="mt-2">
           <MediaPreview media={media} onRemove={resetMedia} />
@@ -128,7 +210,7 @@ export default function ComposePost({ onPosted }: Props) {
         </button>
       </div>
       <p className="text-[10px] text-[var(--loboko-text-muted)] mt-2">
-        Vidéo : 90 secondes max · Formats : jpg, png, webp, mp4, webm, mov
+        Vidéo : 90 secondes max · Formats : jpg, png, webp, mp4, webm, mov · @ pour mentionner
       </p>
     </div>
   );
