@@ -38,6 +38,7 @@ import ForwardDialog from '@/components/ForwardDialog';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
 import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus } from 'lucide-react';
 import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
+import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import {
   deleteForEveryone,
@@ -184,6 +185,19 @@ function groupPreviewOf(m: GroupMessage | undefined, senderName: string): string
   return `${senderName} ${text}`;
 }
 
+function UnreadBadge({ count }: { count: number }) {
+  if (!count || count <= 0) return null;
+  const label = count > 99 ? '99+' : String(count);
+  return (
+    <span
+      className="min-w-[20px] h-5 px-1.5 rounded-full bg-[#22c55e] text-white text-[10px] font-bold flex items-center justify-center shrink-0"
+      aria-label={`${count} message${count > 1 ? 's' : ''} non lu${count > 1 ? 's' : ''}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function GroupAvatar({ group }: { group: Group }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -263,6 +277,8 @@ export default function Messages() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>({});
   const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>({});
+  const [groupReads, setGroupReads] = useState<Record<string, string>>({});
+  const [groupUnreadCounts, setGroupUnreadCounts] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -315,18 +331,39 @@ export default function Messages() {
       const { groups: gs, membersByGroup } = await loadMyGroups(myId);
       setGroups(gs);
       setGroupMembers(membersByGroup);
-      // Fetch last message per group for list preview (in parallel, best-effort).
+
+      // Load this user's last_read_at for each group (may be empty if the
+      // SQL from UNREAD_BADGES_SETUP.md has not been executed yet).
+      const reads = await loadGroupReads(myId);
+      setGroupReads(reads);
+
+      // For each group, fetch recent messages (enough to count unread) to both
+      // build the preview and the unread badge count.
       const entries = await Promise.all(
         gs.map(async (g) => {
-          const msgs = await loadGroupMessages(g.id, 1);
-          return [g.id, msgs[0]] as const;
+          const msgs = await loadGroupMessages(g.id, 50);
+          return [g.id, msgs] as const;
         }),
       );
       const lm: Record<string, GroupMessage | undefined> = {};
-      entries.forEach(([id, m]) => {
-        lm[id] = m;
+      const unread: Record<string, number> = {};
+      entries.forEach(([id, msgs]) => {
+        lm[id] = msgs[0];
+        const lastRead = reads[id];
+        // If the user has never opened the group, count all foreign recent
+        // messages (capped at 99) as unread. Otherwise count messages strictly
+        // newer than last_read_at.
+        const count = msgs.filter((m) => {
+          if (m.user_id === myId) return false;
+          if (m.deleted_for_everyone_at) return false;
+          if (!m.created_at) return false;
+          if (!lastRead) return true;
+          return new Date(m.created_at).getTime() > new Date(lastRead).getTime();
+        }).length;
+        unread[id] = count;
       });
       setGroupLastMessages(lm);
+      setGroupUnreadCounts(unread);
     } catch (e) {
       console.error('[messages] loadGroups', e);
     }
@@ -465,6 +502,23 @@ export default function Messages() {
     () => conversations.filter((c) => !states[c.userId]?.archived),
     [conversations, states],
   );
+
+  // Per-conversation unread count for 1-to-1 (text/audio/image/video only,
+  // excluding signalling and call_events), based on `read` flag.
+  const unreadByUser = useMemo(() => {
+    const map: Record<string, number> = {};
+    allMessages.forEach((m) => {
+      if (m.receiver_id !== myId) return;
+      if (m.read === true) return;
+      if (m.deleted_for_everyone_at) return;
+      const p = decodePayload(m.content);
+      if (p.kind === 'signal') return;
+      if (p.kind === 'call_event') return;
+      const other = m.user_id;
+      map[other] = (map[other] || 0) + 1;
+    });
+    return map;
+  }, [allMessages, myId]);
 
   // Apply list search to the currently viewed list
   const visibleList = useMemo(() => {
@@ -1193,21 +1247,26 @@ export default function Messages() {
                         <GroupAvatar group={g} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="font-semibold text-sm truncate flex items-center gap-1">
-                              {g.name}
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
+                            <div className="font-semibold text-sm truncate flex items-center gap-1 min-w-0">
+                              <span className="truncate">{g.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold shrink-0">
                                 GROUPE
                               </span>
                             </div>
-                            <div className="text-[10px] text-[var(--loboko-text-muted)] shrink-0">
-                              {last?.created_at
-                                ? formatMessageTime(last.created_at)
-                                : ''}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="text-[10px] text-[var(--loboko-text-muted)]">
+                                {last?.created_at
+                                  ? formatMessageTime(last.created_at)
+                                  : ''}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-xs text-[var(--loboko-text-muted)] truncate">
-                            {preview ||
-                              `${memberCount} membre${memberCount > 1 ? 's' : ''}`}
+                          <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <div className="text-xs text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
+                              {preview ||
+                                `${memberCount} membre${memberCount > 1 ? 's' : ''}`}
+                            </div>
+                            <UnreadBadge count={groupUnreadCounts[g.id] || 0} />
                           </div>
                         </div>
                       </button>
@@ -1271,10 +1330,12 @@ export default function Messages() {
                     <Avatar profile={c.profile} online={online} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-sm truncate flex items-center gap-1">
-                          {highlightText(displayName, listQuery)}
+                        <div className="font-semibold text-sm truncate flex items-center gap-1 min-w-0">
+                          <span className="truncate">
+                            {highlightText(displayName, listQuery)}
+                          </span>
                           {isBlocked && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold shrink-0">
                               BLOQUÉ
                             </span>
                           )}
@@ -1283,9 +1344,12 @@ export default function Messages() {
                           {formatMessageTime(c.lastMessage?.created_at)}
                         </div>
                       </div>
-                      <div className="text-xs text-[var(--loboko-text-muted)] truncate">
-                        {c.lastMessage?.user_id === myId ? 'Vous: ' : ''}
-                        {highlightText(preview, listQuery)}
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <div className="text-xs text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
+                          {c.lastMessage?.user_id === myId ? 'Vous: ' : ''}
+                          {highlightText(preview, listQuery)}
+                        </div>
+                        <UnreadBadge count={unreadByUser[c.userId] || 0} />
                       </div>
                     </div>
                   </button>

@@ -34,6 +34,7 @@ import {
   sendGroupMessage,
 } from '@/lib/group-helpers';
 import { loadReactionsForMessages, Reaction, toggleReaction } from '@/lib/message-actions';
+import { markGroupRead } from '@/lib/group-reads';
 import { supabase as sb } from '@/lib/supabase'; // alias for clarity
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
@@ -184,6 +185,12 @@ export default function GroupChat() {
     setLoading(true);
     loadAll();
   }, [loadAll]);
+
+  // Mark this group as read whenever we enter / new messages arrive.
+  useEffect(() => {
+    if (!groupId || !myId) return;
+    markGroupRead(myId, groupId).catch(() => {});
+  }, [groupId, myId, messages.length]);
 
   // Refresh reactions when messages change
   useEffect(() => {
