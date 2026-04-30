@@ -1,0 +1,85 @@
+Priorité critique : corriger définitivement les appels audio/vidéo.
+
+Problème actuel :
+- L’appel peut s’afficher et être accepté
+- Mais l’audio bidirectionnel ne fonctionne pas correctement
+- Les états d’appel peuvent être incohérents entre appelant et appelé
+
+Objectif :
+Rendre les appels fiables.
+
+À corriger :
+
+1. Audio bidirectionnel
+- Vérifier getUserMedia({ audio: true })
+- Vérifier que le micro est bien demandé côté appelant et appelé
+- Ajouter les tracks audio locales dans RTCPeerConnection
+- Vérifier que ontrack reçoit bien le stream distant
+- Attacher le stream distant à un élément audio :
+  <audio ref={remoteAudioRef} autoPlay playsInline />
+- Forcer remoteAudioRef.current.play() après réception du stream si nécessaire
+
+2. Signalisation WebRTC
+- Vérifier offer
+- Vérifier answer
+- Vérifier ice candidates
+- Utiliser Supabase Realtime pour échanger :
+  - call_started
+  - call_accepted
+  - offer
+  - answer
+  - ice_candidate
+  - call_ended
+  - call_rejected
+
+3. États d’appel
+Synchroniser clairement :
+- idle
+- calling
+- ringing
+- connecting
+- connected
+- ended
+- rejected
+- failed
+
+4. UI
+- Afficher :
+  - “Appel en cours…”
+  - “Ça sonne…”
+  - “Connexion…”
+  - “Connecté”
+  - “Appel terminé”
+- Boutons :
+  - accepter
+  - refuser
+  - raccrocher
+  - mute micro
+  - haut-parleur si possible
+
+5. Logs de diagnostic
+Ajouter console logs clairs :
+- micro obtenu
+- track audio ajoutée
+- offer envoyée/reçue
+- answer envoyée/reçue
+- ICE envoyé/reçu
+- remote track reçue
+- connectionState
+- iceConnectionState
+
+6. Compatibilité mobile
+- Android Chrome
+- iPhone Safari
+- Desktop Chrome/Edge
+- gérer autoplay audio mobile
+
+Contraintes :
+- Ne pas toucher aux messages
+- Ne pas toucher aux groupes
+- Ne pas toucher aux posts
+- Ne pas toucher aux commentaires
+- Ne pas toucher aux ratings
+- Build + lint à la fin
+
+Si une limitation navigateur empêche le haut-parleur sur iPhone, afficher un fallback propre.

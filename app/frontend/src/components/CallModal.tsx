@@ -385,7 +385,10 @@ export default function CallModal({
         });
       } else if (ev.type === 'offer') {
         if (direction !== 'incoming') return;
+        // Always buffer the latest offer so a later accept can apply it
+        // even if it arrived before the user tapped "Accept".
         bufferedOfferSdpRef.current = ev.sdp;
+        console.info(`${TAG} incoming offer buffered (sdp len=${ev.sdp.length})`);
         if (answerPendingRef.current && pc) {
           try {
             await pc.setRemoteDescription({ type: 'offer', sdp: ev.sdp });
@@ -566,33 +569,32 @@ export default function CallModal({
   };
 
   /**
-   * Toggle loud speaker. On supported browsers we try to switch sinkId
-   * between the default ("") and the speakerphone. On iOS/Safari where
-   * setSinkId is unavailable, we fall back to adjusting volume so the user
-   * still has a functional "speaker off" experience without breaking the
-   * call. Mute / hangup / camera are untouched.
+   * Toggle "loud" output. We adjust volume on BOTH remote media elements
+   * (audio sink + video element, which also carries the remote audio track)
+   * so the user hears the change regardless of which element is actually
+   * rendering sound in the current browser.
+   *
+   * Note: true loudspeaker routing is a native-only capability on iOS. On
+   * Safari we cannot force the earpiece→speaker switch from web code, so
+   * we gracefully fall back to a volume-down behaviour. On Android
+   * Chromium, keeping the default sink ('' via setSinkId) already routes
+   * audio to the speakerphone during an active call.
    */
   const toggleSpeaker = async () => {
-    const audioEl = remoteAudioRef.current as SinkCapableMedia | null;
     const next = !speakerOn;
     setSpeakerOn(next);
-    if (!audioEl) return;
-    // Always reflect the intent via volume (safe fallback).
-    audioEl.volume = next ? 1 : 0.05;
-
-    if (typeof audioEl.setSinkId !== 'function') {
-      console.info(`${TAG} setSinkId unsupported — using volume fallback`);
-      return;
+    const audioEl = remoteAudioRef.current as SinkCapableMedia | null;
+    const videoEl = remoteVideoRef.current as SinkCapableMedia | null;
+    const targets = [audioEl, videoEl].filter(
+      (el): el is SinkCapableMedia => !!el,
+    );
+    for (const el of targets) {
+      el.volume = next ? 1 : 0.05;
     }
-    try {
-      // "" targets the browser's default output; on Android Chromium this
-      // typically routes to the loudspeaker. When turning the speaker off
-      // we leave the default sink active but lower the volume (above).
-      await audioEl.setSinkId(next ? '' : '');
-      console.info(`${TAG} speaker toggled via setSinkId`, { on: next });
-    } catch (e) {
-      console.warn(`${TAG} setSinkId failed, keeping volume fallback`, e);
-    }
+    console.info(`${TAG} speaker toggled`, {
+      on: next,
+      setSinkIdSupported: typeof audioEl?.setSinkId === 'function',
+    });
   };
 
   return (
@@ -602,6 +604,10 @@ export default function CallModal({
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          // In voice-only mode we rely on the hidden <audio> element below
+          // to render remote audio. In video mode we let the video element
+          // carry the audio as well — muting it here would also silence
+          // the remote voice.
           className="absolute inset-0 w-full h-full object-cover"
         />
       )}
