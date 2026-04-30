@@ -1758,7 +1758,7 @@ export default function Messages() {
               Vous avez bloqué ce contact. Vous ne pouvez plus lui écrire.
             </div>
           ) : (
-            <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 overflow-x-hidden">
+            <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0">
               {showRecorder ? (
                 <VoiceRecorder onSend={sendVoiceNote} onClose={() => setShowRecorder(false)} />
               ) : (
@@ -1782,20 +1782,27 @@ export default function Messages() {
                       <Paperclip size={18} />
                     </button>
                     {showMediaPicker && (
-                      <div className="absolute bottom-12 left-0 z-20 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
-                        <MediaPicker
-                          maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
-                          compact
-                          onSelect={(m) => {
-                            setShowMediaPicker(false);
-                            if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
-                            setPendingMedia(m);
-                          }}
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowMediaPicker(false)}
+                          aria-hidden="true"
                         />
-                        <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
-                          Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
+                        <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
+                          <MediaPicker
+                            maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
+                            compact
+                            onSelect={(m) => {
+                              setShowMediaPicker(false);
+                              if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
+                              setPendingMedia(m);
+                            }}
+                          />
+                          <div className="text-[10px] text-[var(--loboko-text-muted)] mt-1 px-1">
+                            Vidéo : {MAX_MESSAGE_VIDEO_SECONDS}s max
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
                   <div className="flex-1 min-w-0 relative">
