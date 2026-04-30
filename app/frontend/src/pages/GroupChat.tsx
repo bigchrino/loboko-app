@@ -59,6 +59,7 @@ import {
   subscribeGroupEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
+import EphemeralBadge from '@/components/EphemeralBadge';
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
@@ -972,11 +973,7 @@ export default function GroupChat() {
                     >
                       <span>{formatTime(m.created_at)}</span>
                       {(m.is_ephemeral || m.expires_at) && !isDeleted && (
-                        <Timer
-                          size={10}
-                          className="text-[#60a5fa]"
-                          aria-label="Message éphémère"
-                        />
+                        <EphemeralBadge expiresAt={m.expires_at} size={10} />
                       )}
                       {isStarred && !isDeleted && (
                         <StarIcon

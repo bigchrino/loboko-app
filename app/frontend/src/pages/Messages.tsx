@@ -77,6 +77,7 @@ import {
   subscribeDmEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
+import EphemeralBadge from '@/components/EphemeralBadge';
 import { Timer } from 'lucide-react';
 
 interface Message {
@@ -1838,11 +1839,7 @@ export default function Messages() {
                     >
                       <span>{formatMessageTime(m.created_at)}</span>
                       {(m.is_ephemeral || m.expires_at) && !isDeletedForEveryone && (
-                        <Timer
-                          size={10}
-                          className="text-[#60a5fa]"
-                          aria-label="Message éphémère"
-                        />
+                        <EphemeralBadge expiresAt={m.expires_at} size={10} />
                       )}
                       {isStarred && !isDeletedForEveryone && (
                         <StarIcon
