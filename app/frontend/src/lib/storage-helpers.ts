@@ -84,7 +84,38 @@ export async function uploadMediaEx(
 }
 
 /**
+ * Set of bucket IDs that are configured as **private** in Supabase
+ * Storage. For these, we must never call `getPublicUrl` — it returns a URL
+ * that won't be reachable without a signed token. Any caller that needs
+ * temporary access to a file in a private bucket should use
+ * `getSignedStorageUrl` instead and only at the moment of actual use
+ * (typically on click, not at render time).
+ */
+const PRIVATE_BUCKETS: ReadonlySet<string> = new Set(['message-documents']);
+
+/** Split a storage key "bucket::path" into its parts. */
+function parseStorageKey(storageKey: string): { bucket: string; path: string } {
+  let bucket = 'posts';
+  let path = storageKey;
+  if (storageKey.includes('::')) {
+    const [b, ...rest] = storageKey.split('::');
+    bucket = b;
+    path = rest.join('::');
+  }
+  return { bucket, path };
+}
+
+/**
  * Resolve a storage key produced by `uploadMedia` into a browser-usable URL.
+ *
+ * For **public** buckets (`avatars`, `posts`, `message-media`, `voice-notes`,
+ * `statuses`), this returns a standard public URL that can be placed in an
+ * `<img>`/`<video>` tag.
+ *
+ * For **private** buckets (`message-documents`), this returns `null` — the
+ * caller must use `getSignedStorageUrl` on demand instead. This prevents
+ * rendering a dead public URL and forces the caller to generate a short-
+ * lived signed URL only when the user explicitly asks for the file.
  */
 export async function getMediaUrl(storageKey?: string | null): Promise<string | null> {
   if (!storageKey) return null;
@@ -92,18 +123,60 @@ export async function getMediaUrl(storageKey?: string | null): Promise<string | 
     if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
       return storageKey;
     }
-    let bucket = 'posts';
-    let path = storageKey;
-    if (storageKey.includes('::')) {
-      const [b, ...rest] = storageKey.split('::');
-      bucket = b;
-      path = rest.join('::');
+    const { bucket, path } = parseStorageKey(storageKey);
+    if (PRIVATE_BUCKETS.has(bucket)) {
+      // Private buckets never return a public URL. The caller must use
+      // `getSignedStorageUrl` at click time.
+      return null;
     }
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
   } catch (e) {
     console.error('getMediaUrl error', e);
     return null;
+  }
+}
+
+/**
+ * Create a short-lived signed URL for a storage key. Use this for private
+ * buckets where direct access should only be granted at the moment the user
+ * actually wants the file (e.g. clicks "Open" on a document).
+ *
+ * The default TTL is 60 seconds, which is enough for the browser to fetch
+ * and download the file but short enough that an accidentally-shared URL
+ * becomes useless almost immediately.
+ *
+ * Row Level Security on the bucket still applies: the signed URL endpoint
+ * runs with the caller's auth context, so if RLS denies the SELECT, the
+ * signed URL call itself will fail.
+ */
+export async function getSignedStorageUrl(
+  storageKey: string | null | undefined,
+  expiresInSeconds = 60,
+): Promise<{ url: string | null; error: string | null }> {
+  if (!storageKey) return { url: null, error: 'missing_key' };
+  try {
+    if (storageKey.startsWith('http://') || storageKey.startsWith('https://')) {
+      return { url: storageKey, error: null };
+    }
+    const { bucket, path } = parseStorageKey(storageKey);
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, expiresInSeconds);
+    if (error) {
+      console.error('[getSignedStorageUrl] supabase error', error);
+      const msg = error.message || '';
+      const friendly = /not.?found|object/i.test(msg)
+        ? 'Fichier introuvable.'
+        : /row-level|not authorized|permission|denied/i.test(msg)
+          ? "Accès refusé à ce fichier."
+          : 'Lien temporaire indisponible.';
+      return { url: null, error: friendly };
+    }
+    return { url: data?.signedUrl || null, error: null };
+  } catch (e) {
+    console.error('[getSignedStorageUrl] exception', e);
+    return { url: null, error: 'Erreur inattendue.' };
   }
 }
 

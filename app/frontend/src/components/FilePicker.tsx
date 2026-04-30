@@ -18,6 +18,51 @@ export const ALLOWED_DOC_EXTENSIONS = [
   'zip',
 ] as const;
 
+/**
+ * Allowed MIME types, indexed by extension. We check both the extension
+ * and the browser-reported MIME type so that files with a "safe" extension
+ * but a suspicious content type (a disguised executable renamed to
+ * `.pdf`) are rejected client-side. Browsers sometimes leave `type` empty
+ * for exotic files; we accept an empty MIME only when the extension is
+ * already in the allow-list.
+ */
+const ALLOWED_MIME_BY_EXT: Record<string, readonly string[]> = {
+  pdf: ['application/pdf', 'application/x-pdf'],
+  doc: ['application/msword'],
+  docx: [
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
+  xls: ['application/vnd.ms-excel'],
+  xlsx: [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ],
+  zip: [
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-zip',
+    'multipart/x-zip',
+  ],
+};
+
+/**
+ * MIME prefixes that must **always** be rejected on the client, no matter
+ * what the extension claims. These match obvious dangerous content types
+ * (executables, scripts, HTML) that should never travel as a document.
+ */
+const BLOCKED_MIME_PREFIXES: readonly string[] = [
+  'application/x-msdownload',
+  'application/x-dosexec',
+  'application/x-sh',
+  'application/x-csh',
+  'application/x-bat',
+  'application/javascript',
+  'application/ecmascript',
+  'application/x-httpd-php',
+  'text/html',
+  'text/javascript',
+  'text/x-shellscript',
+];
+
 /** Extensions that must always be rejected for security reasons. */
 export const BLOCKED_EXTENSIONS = ['exe', 'apk', 'bat', 'sh', 'js'] as const;
 
@@ -27,6 +72,7 @@ export interface FileSelection {
   file: File;
   ext: string; // lowercase extension (pdf, doc, docx, xls, xlsx, zip)
   size: number; // bytes
+  mime: string; // lowercase, may be empty if the browser could not detect it
 }
 
 interface Props {
@@ -42,8 +88,33 @@ function extOf(name: string): string {
 }
 
 /**
+ * Check that the browser-reported MIME type matches the allow-list for the
+ * given extension. Returns a human-readable error or `null` when valid.
+ *
+ * We intentionally allow an empty MIME (some browsers do not detect the
+ * type of older Office formats) as long as the extension itself is in the
+ * allow-list. An empty MIME combined with an already-rejected extension
+ * would never reach this function.
+ */
+function validateMime(ext: string, mime: string): string | null {
+  const lowered = mime.toLowerCase();
+  for (const prefix of BLOCKED_MIME_PREFIXES) {
+    if (lowered.startsWith(prefix)) {
+      return 'Type de fichier bloqué pour des raisons de sécurité.';
+    }
+  }
+  const allowed = ALLOWED_MIME_BY_EXT[ext];
+  if (!allowed) return 'Format non supporté.';
+  if (lowered === '') return null; // tolerate unknown MIME when ext is allowed
+  if (!allowed.includes(lowered)) {
+    return "Le contenu du fichier ne correspond pas à son extension.";
+  }
+  return null;
+}
+
+/**
  * Small button that opens a document file picker. Validates the selected
- * file (size / extension / blocked types) before forwarding it to the
+ * file (extension, MIME, size, blocked types) before forwarding it to the
  * caller. The caller is responsible for uploading.
  */
 export default function FilePicker({ onSelect, compact, disabled }: Props) {
@@ -67,6 +138,12 @@ export default function FilePicker({ onSelect, compact, disabled }: Props) {
       );
       return;
     }
+    const mime = (file.type || '').toLowerCase();
+    const mimeErr = validateMime(ext, mime);
+    if (mimeErr) {
+      toast.error(mimeErr);
+      return;
+    }
     if (file.size > MAX_DOCUMENT_BYTES) {
       toast.error('Fichier trop volumineux (max 25 Mo).');
       return;
@@ -75,7 +152,7 @@ export default function FilePicker({ onSelect, compact, disabled }: Props) {
       toast.error('Fichier vide.');
       return;
     }
-    onSelect({ file, ext, size: file.size });
+    onSelect({ file, ext, size: file.size, mime });
   };
 
   const baseBtn = compact

@@ -106,3 +106,12 @@
 - [x] Intégrer dans `src/pages/GroupChat.tsx` (groupes) - preview, send, render, reply
 - [x] Mettre à jour `src/contexts/MessagesContext.tsx` - compter fichiers dans unread
 - [x] Run `pnpm run lint`
+
+### Phase 9 - Sécurisation des documents (bucket privé + signed URLs)
+- [x] Passer `message-documents` en bucket **privé** (DOCUMENTS_SETUP.md mis à jour)
+- [x] RLS `SELECT` restreinte aux participants (DM sender/receiver, membre du groupe, uploader)
+- [x] Ajouter `getSignedStorageUrl` (TTL 60s) dans `src/lib/storage-helpers.ts`
+- [x] Marquer `message-documents` comme `PRIVATE_BUCKETS` dans `getMediaUrl` (retourne null)
+- [x] `FileMessage.tsx` : ne génère plus l'URL au render, uniquement au clic, avec spinner
+- [x] Validation MIME stricte dans `FilePicker.tsx` (allow-list + MIME prefixes bloqués)
+- [x] Run `pnpm run lint`
