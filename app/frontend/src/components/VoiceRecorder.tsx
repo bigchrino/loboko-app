@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Send, X } from 'lucide-react';
 import { uploadMediaEx } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
+import { MAX_VOICE_NOTE_SECONDS } from '@/lib/voice-config';
 
 interface Props {
   onSend: (objectKey: string, duration: number) => void | Promise<void>;
@@ -9,7 +10,9 @@ interface Props {
 }
 
 // Max recording duration (safety guard in addition to the 10 MB upload cap).
-const MAX_SECONDS = 120;
+// Centralized in `@/lib/voice-config` so UI labels and recorder guard stay
+// in sync. Changing the value there affects every surface.
+const MAX_SECONDS = MAX_VOICE_NOTE_SECONDS;
 
 /**
  * Pick the best MediaRecorder mimeType supported by the current browser.
@@ -126,7 +129,23 @@ export default function VoiceRecorder({ onSend, onClose }: Props) {
       }, 250);
     } catch (e) {
       console.error('[voice] getUserMedia failed', e);
-      setError("Impossible d'accéder au micro. Autorisez le microphone.");
+      const err = e as DOMException | Error;
+      const name = (err as DOMException).name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        setError(
+          "Accès au micro refusé. Autorisez le microphone dans les réglages du navigateur, puis réessayez.",
+        );
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setError(
+          'Aucun micro détecté. Branchez un micro ou vérifiez les périphériques.',
+        );
+      } else if (name === 'NotReadableError') {
+        setError(
+          "Le micro est utilisé par une autre application. Fermez-la et réessayez.",
+        );
+      } else {
+        setError("Impossible d'accéder au micro. Autorisez le microphone.");
+      }
     }
   };
 

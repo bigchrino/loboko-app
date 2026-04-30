@@ -136,9 +136,40 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!pendingInvite) return;
     if (active) return;
+    const peerName = pendingInvite.fromName || 'Utilisateur';
+    const modeLabel = pendingInvite.mode === 'video' ? 'vidéo' : 'vocal';
+
+    // Best-effort browser notification for incoming calls. Shown only when
+    // the tab is hidden/backgrounded — otherwise the CallModal itself is
+    // already visible on top of the current page.
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden' &&
+      typeof Notification !== 'undefined' &&
+      Notification.permission === 'granted'
+    ) {
+      try {
+        const n = new Notification(`Appel ${modeLabel} entrant`, {
+          body: `${peerName} vous appelle…`,
+          tag: `call-${pendingInvite.callId}`,
+          requireInteraction: true,
+        });
+        n.onclick = () => {
+          try {
+            window.focus();
+          } catch {
+            // ignore
+          }
+          n.close();
+        };
+      } catch (e) {
+        console.warn('[call] notification failed', e);
+      }
+    }
+
     setActive({
       peerId: pendingInvite.fromId,
-      peerName: pendingInvite.fromName || 'Utilisateur',
+      peerName,
       mode: pendingInvite.mode,
       direction: 'incoming',
       callId: pendingInvite.callId,
@@ -146,6 +177,21 @@ export function CallProvider({ children }: { children: ReactNode }) {
     });
     setPendingInvite(null);
   }, [pendingInvite, active]);
+
+  // Request Notification permission once for the authenticated session so
+  // future incoming-call invites can surface a system notification when the
+  // tab is in the background. Silently no-ops when the API is unavailable
+  // or the user has already chosen.
+  useEffect(() => {
+    if (!myId) return;
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'default') return;
+    try {
+      Notification.requestPermission().catch(() => undefined);
+    } catch {
+      // ignore — Safari older versions throw on callback-less API.
+    }
+  }, [myId]);
 
   const startCall = useCallback(
     async (peerId: string, peerName: string, mode: Mode) => {

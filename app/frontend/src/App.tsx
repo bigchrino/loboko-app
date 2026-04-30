@@ -8,6 +8,7 @@ import AuthError from './pages/AuthError';
 import Home from './pages/Home';
 import Discover from './pages/Discover';
 import Messages from './pages/Messages';
+import Calls from './pages/Calls';
 import GroupChat from './pages/GroupChat';
 import GroupInfo from './pages/GroupInfo';
 import Profile from './pages/Profile';
@@ -68,6 +69,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/home', element: <Home /> },
   { path: '/discover', element: <Discover /> },
   { path: '/messages', element: <Messages /> },
+  { path: '/calls', element: <Calls /> },
   { path: '/messages/group/:groupId', element: <GroupChat /> },
   { path: '/messages/group/:groupId/info', element: <GroupInfo /> },
   { path: '/profile', element: <Profile /> },

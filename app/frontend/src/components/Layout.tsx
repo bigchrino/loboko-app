@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Siren,
   Search,
+  Phone,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -42,6 +43,7 @@ const desktopNavItems = [
   { to: '/home', label: 'Accueil', icon: Home },
   { to: '/discover', label: 'Découverte', icon: Compass },
   { to: '/messages', label: 'Messages', icon: MessageCircle },
+  { to: '/calls', label: 'Appels', icon: Phone },
   { to: '/suggestion', label: 'Suggestion', icon: Lightbulb },
   { to: '/entreprise', label: 'Entreprise', icon: Building2 },
   { to: '/notifications', label: 'Notifications', icon: Bell },

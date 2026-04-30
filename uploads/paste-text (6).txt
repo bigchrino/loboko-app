@@ -1,0 +1,58 @@
+Nouvelle tâche : améliorer appels et notes vocales.
+
+Objectif :
+Rendre les appels et les notes vocales plus complets, fiables et professionnels.
+
+1. Historique des appels
+Ajouter une page ou section “Historique des appels” avec :
+- appels entrants
+- appels sortants
+- appels manqués
+- appels refusés
+- appels terminés
+- durée de l’appel
+- date/heure
+- type : audio ou vidéo
+- nom/photo de l’utilisateur
+- bouton rappeler
+
+Dans la conversation avec une personne, afficher aussi les événements :
+- “Appel manqué”
+- “Appel vocal terminé · 02:35”
+- “Appel vidéo refusé”
+
+Si SQL nécessaire, créer CALLS_HISTORY_SETUP.md.
+
+2. Notifications push appels
+Préparer le support notifications push pour les appels entrants :
+- quand A appelle B, B doit recevoir une notification même s’il n’est pas sur la page Messages
+- notification : “Appel entrant de X”
+- type audio ou vidéo
+- clic sur notification → ouvrir l’appel
+- prévoir service worker / web push si PWA
+- si push complet nécessite backend, créer un fichier CALL_PUSH_NOTES.md expliquant ce qui manque
+
+Important :
+Ne pas casser l’appel actuel qui fonctionne avec TURN.
+
+3. Notes vocales
+Améliorer les notes vocales :
+- afficher une forme d’onde audio pendant la lecture
+- afficher durée réelle
+- afficher progression pendant lecture
+- limite de durée configurable
+- créer une constante, par exemple MAX_VOICE_NOTE_SECONDS = 120
+- si la durée dépasse la limite, arrêter ou bloquer avec message clair
+- garder support Android, iPhone, desktop
+
+4. Améliorations utiles à ajouter si possible
+- statut “enregistrement…” visible chez l’autre utilisateur
+- bouton lecture/pause plus propre
+- vitesse de lecture 1x / 1.5x / 2x
+- meilleure erreur si micro refusé
+- compression audio si possible sans casser la qualité
+
+Contraintes :
+- Ne pas toucher posts, commentaires, ratings, groupes sauf si nécessaire pour historique appels groupe plus tard
+- Ne pas casser messages texte, médias, appels existants
+- Build + lint à la fin
