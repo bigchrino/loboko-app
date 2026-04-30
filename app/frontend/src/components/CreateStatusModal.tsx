@@ -1,5 +1,12 @@
-import { ChangeEvent, useRef, useState } from 'react';
-import { X, Type, ImageIcon, Video as VideoIcon, Loader2 } from 'lucide-react';
+import { ChangeEvent, lazy, Suspense, useRef, useState } from 'react';
+import {
+  X,
+  Type,
+  ImageIcon,
+  Video as VideoIcon,
+  Loader2,
+  Smile,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { uploadMediaEx, getVideoDuration } from '@/lib/storage-helpers';
 import {
@@ -8,6 +15,10 @@ import {
   MAX_STATUS_VIDEO_SECONDS,
   STATUS_TEXT_BG_COLORS,
 } from '@/lib/status-helpers';
+import { insertAtCursor } from '@/components/EmojiPicker';
+
+// Lazy-load the emoji picker so it is NOT part of the initial JS bundle.
+const EmojiPicker = lazy(() => import('@/components/EmojiPicker'));
 
 interface Props {
   open: boolean;
@@ -36,6 +47,23 @@ export default function CreateStatusModal({ open, onClose, onCreated }: Props) {
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const captionInputRef = useRef<HTMLInputElement>(null);
+  // Which field currently owns the emoji picker: the text status textarea
+  // or the media caption input. `null` means the picker is closed.
+  const [emojiTarget, setEmojiTarget] = useState<null | 'text' | 'caption'>(
+    null,
+  );
+
+  const handleEmojiSelect = (emoji: string) => {
+    if (emojiTarget === 'text') {
+      setText((prev) => insertAtCursor(textAreaRef.current, prev, emoji, 500));
+    } else if (emojiTarget === 'caption') {
+      setCaption((prev) =>
+        insertAtCursor(captionInputRef.current, prev, emoji, 200),
+      );
+    }
+  };
 
   if (!open) return null;
 
@@ -235,6 +263,7 @@ export default function CreateStatusModal({ open, onClose, onCreated }: Props) {
               style={{ backgroundColor: bgColor }}
             >
               <textarea
+                ref={textAreaRef}
                 value={text}
                 onChange={(e) => setText(e.target.value.slice(0, 500))}
                 placeholder="Écrivez votre statut…"
@@ -244,6 +273,36 @@ export default function CreateStatusModal({ open, onClose, onCreated }: Props) {
                 autoFocus
               />
             </div>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  setEmojiTarget((t) => (t === 'text' ? null : 'text'))
+                }
+                className="h-9 px-3 rounded-full bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm flex items-center gap-2"
+                aria-label="Ouvrir les emojis"
+              >
+                <Smile size={16} />
+                <span>Emojis</span>
+              </button>
+              <div className="text-xs text-[var(--loboko-text-muted)]">
+                {text.length}/500
+              </div>
+            </div>
+            {emojiTarget === 'text' && (
+              <Suspense
+                fallback={
+                  <div className="h-[280px] rounded-2xl bg-[var(--loboko-surface)] flex items-center justify-center text-xs text-[var(--loboko-text-muted)]">
+                    Chargement des emojis…
+                  </div>
+                }
+              >
+                <EmojiPicker
+                  onSelect={handleEmojiSelect}
+                  onClose={() => setEmojiTarget(null)}
+                />
+              </Suspense>
+            )}
             <div className="flex items-center gap-2 overflow-x-auto">
               {STATUS_TEXT_BG_COLORS.map((c) => (
                 <button
@@ -309,14 +368,41 @@ export default function CreateStatusModal({ open, onClose, onCreated }: Props) {
                 Durée : {Math.round(pendingDuration)}s / {MAX_STATUS_VIDEO_SECONDS}s max
               </div>
             )}
-            <input
-              type="text"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value.slice(0, 200))}
-              placeholder="Ajouter une légende (optionnel)"
-              className="w-full h-10 px-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm outline-none focus:border-[#2563eb]"
-              maxLength={200}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                ref={captionInputRef}
+                type="text"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value.slice(0, 200))}
+                placeholder="Ajouter une légende (optionnel)"
+                className="flex-1 h-10 px-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm outline-none focus:border-[#2563eb]"
+                maxLength={200}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setEmojiTarget((t) => (t === 'caption' ? null : 'caption'))
+                }
+                className="h-10 w-10 shrink-0 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] flex items-center justify-center"
+                aria-label="Ouvrir les emojis"
+              >
+                <Smile size={18} />
+              </button>
+            </div>
+            {emojiTarget === 'caption' && (
+              <Suspense
+                fallback={
+                  <div className="h-[280px] rounded-2xl bg-[var(--loboko-surface)] flex items-center justify-center text-xs text-[var(--loboko-text-muted)]">
+                    Chargement des emojis…
+                  </div>
+                }
+              >
+                <EmojiPicker
+                  onSelect={handleEmojiSelect}
+                  onClose={() => setEmojiTarget(null)}
+                />
+              </Suspense>
+            )}
             <div className="flex items-center gap-2">
               <button
                 type="button"

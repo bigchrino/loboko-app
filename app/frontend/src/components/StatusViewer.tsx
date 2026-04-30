@@ -1,12 +1,14 @@
 import {
   PointerEvent as ReactPointerEvent,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { X, Eye, Trash2, Send } from 'lucide-react';
+import { X, Eye, Trash2, Send, Smile } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import {
@@ -16,6 +18,13 @@ import {
 } from '@/lib/status-helpers';
 import { supabase } from '@/lib/supabase';
 import { encodePayload } from '@/lib/message-format';
+import { insertAtCursor } from '@/components/EmojiPicker';
+
+// Lazy-loaded so the picker is not pulled into the initial bundle.
+const EmojiPicker = lazy(() => import('@/components/EmojiPicker'));
+
+// Quick reactions available via the 🙂+ button long-press / hover row.
+const QUICK_REACTIONS = ['❤️', '😂', '😮', '🔥', '👍', '👏'];
 
 interface Props {
   /** Groups to play through, in order. */
@@ -76,6 +85,12 @@ export default function StatusViewer({
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [reply, setReply] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const replyInputRef = useRef<HTMLInputElement>(null);
+
+  const handleReplyEmoji = (emoji: string) => {
+    setReply((prev) => insertAtCursor(replyInputRef.current, prev, emoji, 500));
+  };
   const [videoDurationMs, setVideoDurationMs] = useState<number | null>(null);
 
   const rafRef = useRef<number | null>(null);
@@ -468,31 +483,84 @@ export default function StatusViewer({
             <span className="text-sm font-semibold">Voir les vues</span>
           </button>
         ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendReply();
-            }}
-            className="flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={reply}
-              onChange={(e) => setReply(e.target.value.slice(0, 500))}
-              placeholder="Répondre…"
-              className="flex-1 h-11 px-4 rounded-full bg-white/10 border border-white/20 text-white placeholder-white/60 outline-none focus:border-white/60"
-              onFocus={() => setPaused(true)}
-              onBlur={() => setPaused(false)}
-            />
-            <button
-              type="submit"
-              disabled={!reply.trim() || sendingReply}
-              className="w-11 h-11 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] flex items-center justify-center disabled:opacity-50"
-              aria-label="Envoyer"
+          <div className="space-y-2">
+            {/* Quick reaction row — taps send the emoji immediately. */}
+            <div className="flex items-center gap-2 justify-center">
+              {QUICK_REACTIONS.map((emo) => (
+                <button
+                  key={emo}
+                  type="button"
+                  onClick={() => {
+                    setReply((prev) =>
+                      insertAtCursor(
+                        replyInputRef.current,
+                        prev,
+                        emo,
+                        500,
+                      ),
+                    );
+                    // Focus input so the user can keep typing after the emoji.
+                    replyInputRef.current?.focus();
+                    setPaused(true);
+                  }}
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 flex items-center justify-center text-lg"
+                  aria-label={`Réagir avec ${emo}`}
+                >
+                  {emo}
+                </button>
+              ))}
+            </div>
+
+            {emojiOpen && (
+              <Suspense
+                fallback={
+                  <div className="h-[220px] rounded-2xl bg-white/5 flex items-center justify-center text-xs text-white/60">
+                    Chargement des emojis…
+                  </div>
+                }
+              >
+                <EmojiPicker
+                  onSelect={handleReplyEmoji}
+                  onClose={() => setEmojiOpen(false)}
+                />
+              </Suspense>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendReply();
+              }}
+              className="flex items-center gap-2"
             >
-              <Send size={18} />
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={() => setEmojiOpen((v) => !v)}
+                className="w-11 h-11 shrink-0 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
+                aria-label="Ouvrir les emojis"
+              >
+                <Smile size={18} />
+              </button>
+              <input
+                ref={replyInputRef}
+                type="text"
+                value={reply}
+                onChange={(e) => setReply(e.target.value.slice(0, 500))}
+                placeholder="Répondre…"
+                className="flex-1 h-11 px-4 rounded-full bg-white/10 border border-white/20 text-white placeholder-white/60 outline-none focus:border-white/60"
+                onFocus={() => setPaused(true)}
+                onBlur={() => setPaused(false)}
+              />
+              <button
+                type="submit"
+                disabled={!reply.trim() || sendingReply}
+                className="w-11 h-11 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] flex items-center justify-center disabled:opacity-50"
+                aria-label="Envoyer"
+              >
+                <Send size={18} />
+              </button>
+            </form>
+          </div>
         )}
       </div>
     </div>

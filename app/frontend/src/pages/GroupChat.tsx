@@ -863,10 +863,12 @@ export default function GroupChat() {
                 </button>
               )}
               {showEmoji && (
-                <EmojiPicker
-                  onSelect={(emoji) => setDraft((d) => d + emoji)}
-                  onClose={() => setShowEmoji(false)}
-                />
+                <div className="absolute bottom-[calc(100%+6px)] left-2 right-2 z-30">
+                  <EmojiPicker
+                    onSelect={(emoji) => setDraft((d) => d + emoji)}
+                    onClose={() => setShowEmoji(false)}
+                  />
+                </div>
               )}
             </>
           )}
