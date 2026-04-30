@@ -255,6 +255,10 @@ export async function sendGroupMessage(params: {
   userId: string;
   content: string;
   replyToMessageId?: string | null;
+  // Per-message expiration timestamp, locked at send time. See
+  // computeExpiresAt() in lib/ephemeral.ts. Once written on a group_messages
+  // row, it is NEVER recomputed — changing the conversation's ephemeral
+  // duration only affects messages sent AFTER the change.
   expiresAt?: string | null;
 }): Promise<void> {
   const row: Record<string, unknown> = {

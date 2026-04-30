@@ -214,7 +214,27 @@ export function durationShort(seconds: number): string {
   return found?.short || '';
 }
 
-/** Compute expires_at ISO string from now() + duration, or null if disabled. */
+/**
+ * Compute expires_at ISO string from now() + duration, or null if disabled.
+ *
+ * ⚠️ INVARIANT — PER-MESSAGE EXPIRATION:
+ * This function MUST be called exactly once per message, at the moment the
+ * message is sent. The returned ISO timestamp is then persisted on that
+ * specific row (messages.expires_at / group_messages.expires_at) and never
+ * recomputed afterwards.
+ *
+ * Changing the conversation's ephemeral duration (via setDmEphemeralDuration
+ * or setGroupEphemeralDuration) updates ONLY `conversation_settings` and
+ * MUST NOT trigger any UPDATE on previously sent messages. Older messages
+ * keep their original expires_at; only messages sent AFTER the change use
+ * the new duration.
+ *
+ * Example timeline:
+ *   t0: user enables 24h  → conversation_settings = 24h
+ *   t1: sends message A   → A.expires_at = t1 + 24h   (locked)
+ *   t2: user changes 7d   → conversation_settings = 7d (A unchanged)
+ *   t3: sends message B   → B.expires_at = t3 + 7d
+ */
 export function computeExpiresAt(durationSeconds: number): string | null {
   if (!durationSeconds || durationSeconds <= 0) return null;
   return new Date(Date.now() + durationSeconds * 1000).toISOString();
@@ -292,6 +312,12 @@ export async function loadGroupEphemeralDuration(
 /**
  * Upsert a DM ephemeral setting (owner → peer). Throws a human-readable
  * error if the table is missing.
+ *
+ * ⚠️ IMPORTANT: This function MUST only write to `conversation_settings`.
+ * It must NEVER issue an UPDATE on the `messages` table to recompute
+ * expires_at for previously sent messages. Each message locks its own
+ * expires_at at send time (see computeExpiresAt). Changing the duration
+ * only affects messages sent AFTER the change.
  */
 export async function setDmEphemeralDuration(
   ownerId: string,
@@ -345,6 +371,12 @@ export async function setDmEphemeralDuration(
 /**
  * Upsert a group ephemeral setting (owner → group). Throws a human-readable
  * error if the table is missing.
+ *
+ * ⚠️ IMPORTANT: This function MUST only write to `conversation_settings`.
+ * It must NEVER issue an UPDATE on the `group_messages` table to recompute
+ * expires_at for previously sent messages. Each message locks its own
+ * expires_at at send time (see computeExpiresAt). Changing the duration
+ * only affects messages sent AFTER the change.
  */
 export async function setGroupEphemeralDuration(
   ownerId: string,

@@ -723,6 +723,14 @@ export default function Messages() {
     }
     // Attach ephemeral metadata if the conversation has it enabled. Caller may
     // override with ephemeralOverride (e.g. 0 to skip for a forwarded message).
+    //
+    // ⚠️ PER-MESSAGE EXPIRATION RULE:
+    // `expires_at` is computed HERE, at the moment of send, using the duration
+    // currently active on the conversation. Once written on the row, it is
+    // NEVER recomputed — even if the user changes the ephemeral duration
+    // later. Changing the duration only affects future messages. This applies
+    // uniformly to text, voice notes, photos and videos (they all go through
+    // this `sendMessage` path with their `content` payload).
     const duration =
       payload.ephemeralOverride !== undefined
         ? payload.ephemeralOverride ?? 0
