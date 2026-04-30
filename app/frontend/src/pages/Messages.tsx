@@ -1691,14 +1691,14 @@ export default function Messages() {
               Vous avez bloqué ce contact. Vous ne pouvez plus lui écrire.
             </div>
           ) : (
-            <div className="p-3 border-t border-[var(--loboko-border)] flex gap-2 relative items-center">
+            <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 overflow-x-hidden">
               {showRecorder ? (
                 <VoiceRecorder onSend={sendVoiceNote} onClose={() => setShowRecorder(false)} />
               ) : (
                 <>
                   <button
                     onClick={() => setShowEmoji((v) => !v)}
-                    className="w-10 h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
                     aria-label="Emojis"
                     type="button"
                   >
@@ -1707,7 +1707,7 @@ export default function Messages() {
                   <div className="relative shrink-0">
                     <button
                       onClick={() => setShowMediaPicker((v) => !v)}
-                      className="w-10 h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
                       aria-label="Joindre un média"
                       title="Photo ou vidéo"
                       type="button"
@@ -1737,12 +1737,13 @@ export default function Messages() {
                     onChange={(e) => handleDraftChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && sendText()}
                     placeholder="Votre message..."
-                    className="flex-1 px-4 py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                    className="flex-1 min-w-0 w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
                   />
                   {draft.trim() ? (
                     <button
                       onClick={sendText}
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                      type="button"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                       aria-label="Envoyer"
                     >
                       <Send size={16} />
@@ -1750,8 +1751,9 @@ export default function Messages() {
                   ) : (
                     <button
                       onClick={() => setShowRecorder(true)}
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                       aria-label="Note vocale"
+                      title="Note vocale"
                       type="button"
                     >
                       <Mic size={16} />
