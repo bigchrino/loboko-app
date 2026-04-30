@@ -66,11 +66,13 @@ import {
   unarchiveConversation,
 } from '@/lib/conversation-controls';
 import {
+  broadcastDmEphemeral,
   computeExpiresAt,
   durationShort,
   isExpired,
   loadDmEphemeralDuration,
   setDmEphemeralDuration,
+  subscribeDmEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 import { Timer } from 'lucide-react';
@@ -464,8 +466,23 @@ export default function Messages() {
     loadDmEphemeralDuration(myId, activeUserId).then((d) => {
       if (!cancelled) setEphemeralDuration(d);
     });
+    // Subscribe to realtime ephemeral updates from the peer. The peer's
+    // chosen duration is mirrored locally so both sides show the same banner
+    // and the same "auto-destruct" behavior when sending new messages.
+    const unsub = subscribeDmEphemeral(myId, activeUserId, ({ durationSeconds }) => {
+      if (cancelled) return;
+      setEphemeralDuration(durationSeconds);
+      if (durationSeconds > 0) {
+        toast.message(
+          `Messages éphémères activés par votre contact (${durationShort(durationSeconds)})`,
+        );
+      } else {
+        toast.message('Messages éphémères désactivés par votre contact');
+      }
+    });
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [myId, activeUserId]);
 
@@ -1171,6 +1188,9 @@ export default function Messages() {
     try {
       await setDmEphemeralDuration(myId, activeUserId, durationSeconds);
       setEphemeralDuration(durationSeconds);
+      // Fire-and-forget realtime broadcast so the peer mirrors the change
+      // without waiting for a DB round-trip. Errors are logged only.
+      broadcastDmEphemeral(myId, activeUserId, durationSeconds).catch(() => {});
       if (durationSeconds > 0) {
         toast.success(
           `Messages éphémères activés (${durationShort(durationSeconds)})`,

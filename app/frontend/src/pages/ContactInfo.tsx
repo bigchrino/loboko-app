@@ -32,9 +32,11 @@ import {
 } from '@/lib/conversation-controls';
 import { decodePayload } from '@/lib/message-format';
 import {
+  broadcastDmEphemeral,
   durationShort,
   loadDmEphemeralDuration,
   setDmEphemeralDuration,
+  subscribeDmEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 
@@ -131,7 +133,9 @@ export default function ContactInfo() {
     })();
   }, [peerId, myId]);
 
-  // Load the current ephemeral duration for this 1-to-1 conversation.
+  // Load the current ephemeral duration for this 1-to-1 conversation and
+  // listen to realtime updates broadcast by the peer so the row reflects
+  // the current duration without needing to reload the page.
   useEffect(() => {
     if (!myId || !peerId) {
       setEphemeralDuration(0);
@@ -141,8 +145,13 @@ export default function ContactInfo() {
     loadDmEphemeralDuration(myId, peerId).then((d) => {
       if (!cancelled) setEphemeralDuration(d);
     });
+    const unsub = subscribeDmEphemeral(myId, peerId, ({ durationSeconds }) => {
+      if (cancelled) return;
+      setEphemeralDuration(durationSeconds);
+    });
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [myId, peerId]);
 
@@ -151,6 +160,9 @@ export default function ContactInfo() {
     try {
       await setDmEphemeralDuration(myId, peerId, durationSeconds);
       setEphemeralDuration(durationSeconds);
+      // Notify the peer in realtime so their conversation header and info
+      // page update immediately.
+      broadcastDmEphemeral(myId, peerId, durationSeconds).catch(() => {});
       if (durationSeconds > 0) {
         toast.success(
           `Messages éphémères activés (${durationShort(durationSeconds)})`,

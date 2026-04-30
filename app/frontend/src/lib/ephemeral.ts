@@ -7,8 +7,187 @@
 // working.
 
 import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export type EphemeralScope = 'dm' | 'group';
+
+// ---------------------------------------------------------------------------
+// Realtime synchronization
+// ---------------------------------------------------------------------------
+//
+// The `conversation_settings` table has RLS `owner_id = auth.uid()`, which
+// means user B cannot listen to postgres_changes on user A's row. To keep
+// RLS strict and still provide realtime sync between the two participants of
+// a conversation, we use a Supabase Realtime **broadcast** channel with a
+// deterministic name derived from the conversation target. Both users join
+// the same channel; whoever changes the duration also broadcasts it.
+//
+// Payload shape: { durationSeconds: number, from: string (userId) }
+// ---------------------------------------------------------------------------
+
+const BROADCAST_EVENT = 'ephemeral_update';
+
+function dmChannelName(a: string, b: string): string {
+  // Deterministic: sort to get the same name on both sides.
+  const [x, y] = [a, b].sort();
+  return `ephemeral:dm:${x}:${y}`;
+}
+
+function groupChannelName(groupId: string): string {
+  return `ephemeral:group:${groupId}`;
+}
+
+export interface EphemeralUpdatePayload {
+  durationSeconds: number;
+  from: string;
+}
+
+/**
+ * Subscribe to realtime ephemeral-duration changes for a DM conversation
+ * between `myId` and `peerId`. The callback is invoked whenever the peer
+ * broadcasts a new duration. Returns an unsubscribe function.
+ */
+export function subscribeDmEphemeral(
+  myId: string,
+  peerId: string,
+  onUpdate: (payload: EphemeralUpdatePayload) => void,
+): () => void {
+  if (!myId || !peerId) return () => {};
+  const name = dmChannelName(myId, peerId);
+  const ch: RealtimeChannel = supabase.channel(name, {
+    config: { broadcast: { self: false } },
+  });
+  ch.on('broadcast', { event: BROADCAST_EVENT }, ({ payload }) => {
+    const p = payload as EphemeralUpdatePayload | undefined;
+    if (!p) return;
+    // Ignore our own broadcasts (belt + suspenders: `self: false` already does
+    // this, but a second tab of the same user could still echo).
+    if (p.from === myId) return;
+    onUpdate(p);
+  });
+  ch.subscribe();
+  return () => {
+    try {
+      supabase.removeChannel(ch);
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+/**
+ * Subscribe to realtime ephemeral-duration changes for a group. Any member
+ * who changes the duration broadcasts it to all other members.
+ */
+export function subscribeGroupEphemeral(
+  myId: string,
+  groupId: string,
+  onUpdate: (payload: EphemeralUpdatePayload) => void,
+): () => void {
+  if (!myId || !groupId) return () => {};
+  const name = groupChannelName(groupId);
+  const ch: RealtimeChannel = supabase.channel(name, {
+    config: { broadcast: { self: false } },
+  });
+  ch.on('broadcast', { event: BROADCAST_EVENT }, ({ payload }) => {
+    const p = payload as EphemeralUpdatePayload | undefined;
+    if (!p) return;
+    if (p.from === myId) return;
+    onUpdate(p);
+  });
+  ch.subscribe();
+  return () => {
+    try {
+      supabase.removeChannel(ch);
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+/**
+ * Broadcast a DM ephemeral-duration update to the peer. Best-effort: if the
+ * channel is not ready yet, the message is still queued by supabase-js.
+ */
+export async function broadcastDmEphemeral(
+  myId: string,
+  peerId: string,
+  durationSeconds: number,
+): Promise<void> {
+  if (!myId || !peerId) return;
+  const name = dmChannelName(myId, peerId);
+  const ch = supabase.channel(name, {
+    config: { broadcast: { self: false } },
+  });
+  try {
+    await new Promise<void>((resolve) => {
+      ch.subscribe((status) => {
+        if (status === 'SUBSCRIBED') resolve();
+      });
+      // Safety timeout: resolve anyway after 1.5s so we don't hang the UI.
+      setTimeout(resolve, 1500);
+    });
+    await ch.send({
+      type: 'broadcast',
+      event: BROADCAST_EVENT,
+      payload: {
+        durationSeconds,
+        from: myId,
+      } as EphemeralUpdatePayload,
+    });
+  } catch (e) {
+    console.warn('[ephemeral] broadcastDmEphemeral failed', e);
+  } finally {
+    setTimeout(() => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    }, 500);
+  }
+}
+
+/**
+ * Broadcast a group ephemeral-duration update to all other group members.
+ */
+export async function broadcastGroupEphemeral(
+  myId: string,
+  groupId: string,
+  durationSeconds: number,
+): Promise<void> {
+  if (!myId || !groupId) return;
+  const name = groupChannelName(groupId);
+  const ch = supabase.channel(name, {
+    config: { broadcast: { self: false } },
+  });
+  try {
+    await new Promise<void>((resolve) => {
+      ch.subscribe((status) => {
+        if (status === 'SUBSCRIBED') resolve();
+      });
+      setTimeout(resolve, 1500);
+    });
+    await ch.send({
+      type: 'broadcast',
+      event: BROADCAST_EVENT,
+      payload: {
+        durationSeconds,
+        from: myId,
+      } as EphemeralUpdatePayload,
+    });
+  } catch (e) {
+    console.warn('[ephemeral] broadcastGroupEphemeral failed', e);
+  } finally {
+    setTimeout(() => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    }, 500);
+  }
+}
 
 /** Allowed durations in seconds. 0 = disabled. */
 export const EPHEMERAL_DURATIONS: Array<{

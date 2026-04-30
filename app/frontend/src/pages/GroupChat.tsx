@@ -48,11 +48,13 @@ import { loadReactionsForMessages, Reaction, toggleReaction } from '@/lib/messag
 import { markGroupRead } from '@/lib/group-reads';
 import { supabase as sb } from '@/lib/supabase'; // alias for clarity
 import {
+  broadcastGroupEphemeral,
   computeExpiresAt,
   durationShort,
   isExpired,
   loadGroupEphemeralDuration,
   setGroupEphemeralDuration,
+  subscribeGroupEphemeral,
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 
@@ -214,15 +216,28 @@ export default function GroupChat() {
     loadAll();
   }, [loadAll]);
 
-  // Load the user's ephemeral duration setting for this group.
+  // Load the user's ephemeral duration setting for this group and listen
+  // for realtime updates broadcast by other group members.
   useEffect(() => {
     if (!myId || !groupId) return;
     let cancelled = false;
     loadGroupEphemeralDuration(myId, groupId).then((d) => {
       if (!cancelled) setEphemeralDuration(d);
     });
+    const unsub = subscribeGroupEphemeral(myId, groupId, ({ durationSeconds }) => {
+      if (cancelled) return;
+      setEphemeralDuration(durationSeconds);
+      if (durationSeconds > 0) {
+        toast.message(
+          `Messages éphémères activés dans le groupe (${durationShort(durationSeconds)})`,
+        );
+      } else {
+        toast.message('Messages éphémères désactivés dans le groupe');
+      }
+    });
     return () => {
       cancelled = true;
+      unsub();
     };
   }, [myId, groupId]);
 
@@ -622,6 +637,9 @@ export default function GroupChat() {
     try {
       await setGroupEphemeralDuration(myId, groupId, durationSeconds);
       setEphemeralDuration(durationSeconds);
+      // Broadcast to every other member of the group so their UI updates
+      // instantly, without waiting for a reload.
+      broadcastGroupEphemeral(myId, groupId, durationSeconds).catch(() => {});
       if (durationSeconds > 0) {
         toast.success(
           `Messages éphémères activés (${durationShort(durationSeconds)})`,
