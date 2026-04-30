@@ -8,6 +8,7 @@ import {
   Phone,
   Volume2,
   VolumeX,
+  SwitchCamera,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatDuration } from '@/lib/message-format';
@@ -175,6 +176,18 @@ export default function CallModal({
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [speakerOn, setSpeakerOn] = useState(true);
+  /** Current camera facing mode. Only used for video calls on mobile. */
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  /** Whether camera switching is supported (multiple video inputs present). */
+  const [canSwitchCamera, setCanSwitchCamera] = useState(false);
+  /**
+   * Separate tracking for audio vs video remote streams. Used to display
+   * accurate status: "Audio connecté, vidéo indisponible" when the peer's
+   * video track is missing even though audio works.
+   */
+  const [remoteHasAudio, setRemoteHasAudio] = useState(false);
+  const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+  const [remoteVideoPlaying, setRemoteVideoPlaying] = useState(false);
 
   /**
    * Debug diagnostics surfaced in a small dev-only panel and streamed to
@@ -234,9 +247,19 @@ export default function CallModal({
   const localOfferSdpRef = useRef<string>('');
   const bufferedOfferSdpRef = useRef<string>('');
 
-  const constraints = useMemo(
-    () => ({ audio: true, video: mode === 'video' }),
-    [mode],
+  const constraints = useMemo<MediaStreamConstraints>(
+    () => ({
+      audio: true,
+      video:
+        mode === 'video'
+          ? {
+              facingMode: { ideal: facingMode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            }
+          : false,
+    }),
+    [mode, facingMode],
   );
 
   const sendEvent = useCallback(
@@ -335,11 +358,18 @@ export default function CallModal({
    * Attach the remote MediaStream to the hidden audio element and, if
    * applicable, to the video element. We do this lazily on `ontrack` and
    * then again whenever additional tracks are added so we never end up with
-   * a stale srcObject.
+   * a stale srcObject. The remote <video> element is NEVER muted — its
+   * `muted` attribute would also silence the remote voice in video mode.
    */
   const attachRemoteStream = useCallback(
     (stream: MediaStream) => {
       remoteStreamRef.current = stream;
+
+      const hasAudio = stream.getAudioTracks().length > 0;
+      const hasVideo = stream.getVideoTracks().length > 0;
+      setRemoteHasAudio(hasAudio);
+      setRemoteHasVideo(hasVideo);
+
       const audioEl = remoteAudioRef.current;
       if (audioEl) {
         if (audioEl.srcObject !== stream) {
@@ -350,11 +380,25 @@ export default function CallModal({
         safePlay(audioEl, 'remote audio');
       }
       if (mode === 'video' && remoteVideoRef.current) {
-        if (remoteVideoRef.current.srcObject !== stream) {
-          remoteVideoRef.current.srcObject = stream;
+        const videoEl = remoteVideoRef.current;
+        if (videoEl.srcObject !== stream) {
+          videoEl.srcObject = stream;
         }
-        safePlay(remoteVideoRef.current, 'remote video');
+        // IMPORTANT: never muted — remote audio travels on the video element
+        // in video mode. Muting would silence the peer entirely.
+        videoEl.muted = false;
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        videoEl.volume = speakerOn ? 1 : 0.05;
+        safePlay(videoEl, 'remote video');
       }
+
+      console.info(
+        `${TAG} attachRemoteStream — audio tracks:`,
+        stream.getAudioTracks().length,
+        'video tracks:',
+        stream.getVideoTracks().length,
+      );
     },
     [mode, speakerOn],
   );
@@ -387,6 +431,33 @@ export default function CallModal({
         hasStream: !!stream,
       });
       setDebugPatch({ remoteTrack: true });
+
+      if (ev.track.kind === 'video') {
+        console.info(`${TAG} remote video track received`, {
+          id: ev.track.id,
+          enabled: ev.track.enabled,
+          muted: ev.track.muted,
+          readyState: ev.track.readyState,
+        });
+        setRemoteHasVideo(true);
+        ev.track.onunmute = () => {
+          console.info(`${TAG} remote video track unmuted`);
+          setRemoteHasVideo(true);
+          if (remoteVideoRef.current) {
+            safePlay(remoteVideoRef.current, 'remote video (unmute)');
+          }
+        };
+        ev.track.onmute = () => {
+          console.info(`${TAG} remote video track muted (peer paused camera)`);
+        };
+        ev.track.onended = () => {
+          console.info(`${TAG} remote video track ended`);
+          setRemoteHasVideo(false);
+        };
+      } else if (ev.track.kind === 'audio') {
+        setRemoteHasAudio(true);
+      }
+
       if (!stream) {
         // Some browsers (older Safari) do not populate ev.streams. Build one.
         const fallback = new MediaStream([ev.track]);
@@ -396,7 +467,13 @@ export default function CallModal({
       attachRemoteStream(stream);
       stream.onaddtrack = (addEv) => {
         console.info(`${TAG} remote stream onaddtrack`, addEv.track.kind);
+        if (addEv.track.kind === 'video') setRemoteHasVideo(true);
+        if (addEv.track.kind === 'audio') setRemoteHasAudio(true);
         attachRemoteStream(stream);
+      };
+      stream.onremovetrack = (rmEv) => {
+        console.info(`${TAG} remote stream onremovetrack`, rmEv.track.kind);
+        if (rmEv.track.kind === 'video') setRemoteHasVideo(false);
       };
     };
 
@@ -444,19 +521,75 @@ export default function CallModal({
   const getMedia = useCallback(async () => {
     try {
       console.info(`${TAG} getUserMedia request`, constraints);
-      const stream =
-        await navigator.mediaDevices.getUserMedia(constraints);
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (firstErr) {
+        // Fallback: if the user denied video only or the exact facingMode is
+        // unavailable, retry with audio-only for a voice call rather than
+        // blowing up the whole call.
+        if (
+          mode === 'video' &&
+          firstErr instanceof DOMException &&
+          (firstErr.name === 'OverconstrainedError' ||
+            firstErr.name === 'NotReadableError' ||
+            firstErr.name === 'NotFoundError')
+        ) {
+          console.warn(
+            `${TAG} camera error (${firstErr.name}), retrying with basic video constraints`,
+            firstErr,
+          );
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true,
+          });
+        } else {
+          throw firstErr;
+        }
+      }
+
+      const audioTracks = stream.getAudioTracks();
+      const videoTracks = stream.getVideoTracks();
       console.info(
         `${TAG} local stream obtained — audio tracks:`,
-        stream.getAudioTracks().length,
+        audioTracks.length,
         'video tracks:',
-        stream.getVideoTracks().length,
+        videoTracks.length,
       );
+      if (mode === 'video') {
+        if (videoTracks.length > 0) {
+          const vt = videoTracks[0];
+          console.info(`${TAG} local video track obtained`, {
+            id: vt.id,
+            label: vt.label,
+            enabled: vt.enabled,
+            settings: vt.getSettings?.(),
+          });
+        } else {
+          console.warn(`${TAG} local video track MISSING despite video mode`);
+        }
+      }
       localStreamRef.current = stream;
 
       if (mode === 'video' && localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        // Local preview must stay muted to avoid echo of the user's own mic.
+        localVideoRef.current.muted = true;
+        localVideoRef.current.playsInline = true;
         safePlay(localVideoRef.current, 'local video');
+      }
+
+      // Detect if the device has multiple cameras so we can show the
+      // switch-camera button on mobile.
+      if (mode === 'video') {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const cams = devices.filter((d) => d.kind === 'videoinput');
+          setCanSwitchCamera(cams.length > 1);
+          console.info(`${TAG} video input devices detected`, cams.length);
+        } catch (e) {
+          console.warn(`${TAG} enumerateDevices failed`, e);
+        }
       }
 
       const pc = pcRef.current;
@@ -468,8 +601,21 @@ export default function CallModal({
       }
       return stream;
     } catch (e) {
-      console.error(`${TAG} getUserMedia failed`, e);
-      setError("Impossible d'accéder au micro/caméra");
+      console.error(`${TAG} getUserMedia / camera error`, e);
+      const err = e as DOMException;
+      if (err?.name === 'NotAllowedError' || err?.name === 'SecurityError') {
+        setError(
+          mode === 'video'
+            ? 'Accès caméra/micro refusé'
+            : 'Accès micro refusé',
+        );
+      } else if (err?.name === 'NotFoundError' && mode === 'video') {
+        setError('Aucune caméra détectée sur cet appareil');
+      } else if (err?.name === 'NotReadableError') {
+        setError('Caméra/micro utilisé(e) par une autre application');
+      } else {
+        setError("Impossible d'accéder au micro/caméra");
+      }
       return null;
     }
   }, [constraints, mode]);
@@ -709,8 +855,78 @@ export default function CallModal({
     stream.getVideoTracks().forEach((t) => {
       t.enabled = !next;
     });
+    console.info(
+      `${TAG} local video track ${next ? 'disabled' : 'enabled'}`,
+    );
     setCamOff(next);
   };
+
+  /**
+   * Switch between front ("user") and back ("environment") cameras without
+   * renegotiating the peer connection. We:
+   *   1. Open a new MediaStream with the opposite facingMode.
+   *   2. Replace the outgoing video track via RTCRtpSender.replaceTrack so
+   *      the remote side keeps receiving video seamlessly.
+   *   3. Stop the old video track and swap the local preview source.
+   * On failure we roll back to the previous facingMode and surface the
+   * error.
+   */
+  const switchCamera = useCallback(async () => {
+    if (mode !== 'video') return;
+    const pc = pcRef.current;
+    const currentStream = localStreamRef.current;
+    if (!pc || !currentStream) return;
+
+    const next: 'user' | 'environment' =
+      facingMode === 'user' ? 'environment' : 'user';
+    console.info(`${TAG} switchCamera → ${next}`);
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: next },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) {
+        console.warn(`${TAG} switchCamera: new stream has no video track`);
+        newStream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      const videoSender = pc
+        .getSenders()
+        .find((s) => s.track && s.track.kind === 'video');
+      if (videoSender) {
+        await videoSender.replaceTrack(newVideoTrack);
+        console.info(`${TAG} RTCRtpSender.replaceTrack done`);
+      }
+
+      // Stop and remove the old video track from the current stream, then
+      // add the new one so the local preview shows the new camera feed.
+      const oldVideoTrack = currentStream.getVideoTracks()[0];
+      if (oldVideoTrack) {
+        currentStream.removeTrack(oldVideoTrack);
+        oldVideoTrack.stop();
+      }
+      currentStream.addTrack(newVideoTrack);
+
+      if (localVideoRef.current) {
+        // Reset srcObject to force Safari to render the swapped track.
+        localVideoRef.current.srcObject = null;
+        localVideoRef.current.srcObject = currentStream;
+        safePlay(localVideoRef.current, 'local video (switch)');
+      }
+
+      setFacingMode(next);
+    } catch (e) {
+      console.error(`${TAG} switchCamera failed`, e);
+      setError('Changement de caméra impossible');
+    }
+  }, [mode, facingMode]);
 
   /**
    * Toggle "loud" output. We adjust volume on BOTH remote media elements
@@ -849,13 +1065,45 @@ export default function CallModal({
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          onPlaying={() => {
+            console.info(`${TAG} remote video element playing`);
+            setRemoteVideoPlaying(true);
+          }}
+          onPause={() => setRemoteVideoPlaying(false)}
+          onLoadedMetadata={() => {
+            // Some mobile browsers need an extra nudge after metadata to
+            // actually start rendering frames.
+            safePlay(remoteVideoRef.current, 'remote video (loadedmetadata)');
+          }}
           // In voice-only mode we rely on the hidden <audio> element below
           // to render remote audio. In video mode we let the video element
           // carry the audio as well — muting it here would also silence
           // the remote voice.
-          className="absolute inset-0 w-full h-full object-cover"
+          className={`absolute inset-0 w-full h-full object-cover ${
+            remoteHasVideo && remoteVideoPlaying ? 'opacity-100' : 'opacity-0'
+          }`}
         />
       )}
+
+      {/* Video-mode overlay: shown while waiting for the remote video
+          frames, OR when only audio is flowing (camera off/unavailable). */}
+      {mode === 'video' &&
+        status === 'connected' &&
+        !(remoteHasVideo && remoteVideoPlaying) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/60 pointer-events-none">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-2xl font-bold mb-4 shadow-xl">
+              {peerName.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="text-lg font-semibold mb-1">{peerName}</div>
+            <div className="text-sm text-white/70">
+              {remoteHasAudio && !remoteHasVideo
+                ? 'Audio connecté, vidéo indisponible'
+                : remoteHasVideo && !remoteVideoPlaying
+                  ? 'Connexion vidéo…'
+                  : 'Connexion vidéo…'}
+            </div>
+          </div>
+        )}
       {/* Always mount the remote audio element. Keeping it in the DOM from
           the very start lets us attach the remote MediaStream as soon as
           ontrack fires, which is critical for Safari / iOS autoplay. */}
@@ -881,8 +1129,19 @@ export default function CallModal({
         )}
 
         {mode === 'video' && status === 'connected' && (
-          <div className="absolute top-6 left-6 text-white/90 text-sm font-mono bg-black/40 px-3 py-1 rounded-full">
-            {formatDuration(elapsed)} · {peerName}
+          <div className="absolute top-6 left-6 flex items-center gap-2 text-white/90 text-sm font-mono bg-black/40 px-3 py-1 rounded-full">
+            <span>
+              {formatDuration(elapsed)} · {peerName}
+            </span>
+            {remoteHasVideo && remoteVideoPlaying ? (
+              <span className="text-[11px] text-green-400 font-semibold">
+                · Vidéo connectée
+              </span>
+            ) : remoteHasAudio && !remoteHasVideo ? (
+              <span className="text-[11px] text-yellow-400 font-semibold">
+                · Audio seul
+              </span>
+            ) : null}
           </div>
         )}
 
@@ -943,6 +1202,16 @@ export default function CallModal({
                 aria-label={camOff ? 'Activer caméra' : 'Couper caméra'}
               >
                 {camOff ? <VideoOff size={20} /> : <Video size={20} />}
+              </button>
+            )}
+            {mode === 'video' && canSwitchCamera && !camOff && (
+              <button
+                onClick={switchCamera}
+                className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
+                aria-label="Changer de caméra"
+                title="Changer de caméra (avant / arrière)"
+              >
+                <SwitchCamera size={20} />
               </button>
             )}
             <button
