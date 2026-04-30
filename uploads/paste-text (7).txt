@@ -1,0 +1,56 @@
+Corriger le lecteur des notes vocales.
+
+Problème :
+Quand on écoute une note vocale :
+- impossible de mettre pause
+- impossible de voir clairement la progression
+- impossible de reprendre au début facilement
+- la waveform ne montre pas assez l’avancement réel
+
+Objectif :
+Créer un vrai lecteur de note vocale comme WhatsApp/Telegram.
+
+À faire :
+
+1. Bouton lecture / pause
+- Quand l’audio est arrêté : bouton Play
+- Quand l’audio joue : bouton Pause
+- Le bouton doit fonctionner sur Android, iPhone, desktop
+
+2. Progression visible
+- La waveform doit changer visuellement selon la progression
+- Afficher le temps écoulé à gauche
+- Afficher la durée totale à droite
+- Mettre à jour en temps réel pendant la lecture
+
+3. Navigation dans l’audio
+- L’utilisateur doit pouvoir cliquer/toucher la waveform pour avancer ou reculer
+- Support mobile tactile
+- Éviter bugs de seek sur Safari iPhone
+
+4. Recommencer depuis le début
+- Si l’audio est terminé, le bouton Play doit relancer depuis 0
+- Ajouter éventuellement un petit bouton replay si nécessaire
+
+5. États propres
+- loading
+- ready
+- playing
+- paused
+- ended
+- error
+
+6. Vitesse
+- garder 1x / 1.5x / 2x
+- la vitesse ne doit pas casser la progression
+
+7. Compatibilité
+- Android Chrome
+- iPhone Safari
+- Desktop Chrome/Edge
+
+Contraintes :
+- Ne pas casser l’envoi des notes vocales
+- Ne pas casser les messages texte/photo/vidéo
+- Ne pas toucher appels, posts, commentaires, ratings, groupes
+- Build + lint à la fin
