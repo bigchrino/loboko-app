@@ -13,6 +13,7 @@ import {
   Lightbulb,
   ShoppingCart,
   Phone,
+  Circle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
@@ -30,6 +31,13 @@ interface MenuItem {
 
 const items: MenuItem[] = [
   { to: '/profile', label: 'Mon Profil', desc: 'Voir et modifier votre profil', icon: User, color: '#2563eb' },
+  {
+    to: '/statuses',
+    label: 'Statuts',
+    desc: 'Photos, vidéos et textes à partager 24h',
+    icon: Circle,
+    color: '#7c3aed',
+  },
   {
     to: '/calls',
     label: 'Appels',

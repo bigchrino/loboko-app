@@ -1,0 +1,62 @@
+Nouvelle fonctionnalité : Statuts / Stories LOBOKO.
+
+Objectif :
+Ajouter un système de statuts comme WhatsApp/Instagram Stories pour augmenter l’engagement.
+
+Fonctionnalités à ajouter :
+
+1. Création de statut
+- L’utilisateur peut publier :
+  - photo
+  - vidéo
+  - texte court
+- Durée de vie : 24h
+- Après 24h, le statut n’apparaît plus.
+- Limite vidéo : 30 secondes.
+- Si la vidéo dépasse 30 secondes, afficher un message clair.
+
+2. Affichage des statuts
+- Ajouter une section “Statuts” dans l’app.
+- Afficher les statuts des utilisateurs avec qui on a déjà discuté ou que l’on suit.
+- Afficher en haut “Mon statut”.
+- Statuts non vus avec cercle coloré.
+- Statuts vus avec cercle gris.
+
+3. Viewer de statut
+- Plein écran.
+- Navigation :
+  - tap droite = statut suivant
+  - tap gauche = statut précédent
+  - fermer avec X
+- Barre de progression en haut.
+- Afficher nom + photo de l’auteur.
+- Afficher l’heure du statut.
+
+4. Répondre à un statut
+- Champ “Répondre…” en bas.
+- La réponse est envoyée comme message privé à l’auteur du statut.
+- Exemple : “A répondu à votre statut” + aperçu.
+
+5. Vues
+- L’auteur peut voir qui a vu son statut.
+- Afficher compteur de vues.
+- Liste des vues avec nom + photo.
+
+6. Stockage
+- Utiliser Supabase Storage pour les médias.
+- Créer bucket si nécessaire : statuses
+- Si SQL nécessaire, créer STATUS_SETUP.md avec :
+  - table statuses
+  - table status_views
+  - policies RLS
+  - expiration logique 24h
+
+7. Navigation
+- Ajouter “Statuts” dans le menu ou la navigation mobile si possible.
+- Ne pas surcharger la barre du bas si elle est déjà pleine.
+
+Contraintes :
+- Ne pas casser messages, groupes, appels, posts, commentaires, ratings.
+- Ne pas modifier les fonctions existantes sauf navigation.
+- Mobile-first.
+- Build + lint à la fin.

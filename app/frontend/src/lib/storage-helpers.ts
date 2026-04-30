@@ -7,9 +7,15 @@ const MAX_SIZES: Record<string, number> = {
   posts: 80 * 1024 * 1024, // 80 MB (videos allowed here)
   'voice-notes': 10 * 1024 * 1024, // 10 MB ~ several minutes of opus
   'message-media': 50 * 1024 * 1024, // 50 MB (short videos / photos)
+  statuses: 50 * 1024 * 1024, // 50 MB (short videos / photos for stories)
 };
 
-export type UploadFolder = 'avatars' | 'posts' | 'voice-notes' | 'message-media';
+export type UploadFolder =
+  | 'avatars'
+  | 'posts'
+  | 'voice-notes'
+  | 'message-media'
+  | 'statuses';
 
 export interface UploadResult {
   key: string | null;
