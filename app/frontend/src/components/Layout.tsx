@@ -1,6 +1,7 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import LogoutConfirm from '@/components/LogoutConfirm';
+import { getMediaUrl } from '@/lib/storage-helpers';
 import {
   Home,
   Compass,
@@ -58,6 +59,35 @@ export default function Layout({ children, title }: LayoutProps) {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Resolve avatar_key -> signed/public URL whenever the profile's avatar changes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!profile?.avatar_key) {
+        if (!cancelled) setAvatarUrl(null);
+        return;
+      }
+      try {
+        const url = await getMediaUrl(profile.avatar_key);
+        if (!cancelled) setAvatarUrl(url || null);
+      } catch {
+        if (!cancelled) setAvatarUrl(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.avatar_key]);
+
+  const avatarInitials = (
+    profile?.display_name ||
+    profile?.username ||
+    'U'
+  )
+    .slice(0, 2)
+    .toUpperCase();
 
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
   const unreadMessagesLabel =
@@ -168,13 +198,31 @@ export default function Layout({ children, title }: LayoutProps) {
             </>
           )}
         </div>
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)]"
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate('/profile')}
+            className="w-9 h-9 rounded-full bg-[var(--loboko-surface)] border border-[var(--loboko-border)] overflow-hidden flex items-center justify-center text-[11px] font-bold text-[var(--loboko-text)] hover:opacity-80 hover:scale-105 transition shrink-0"
+            aria-label="Mon profil"
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Mon profil"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{avatarInitials}</span>
+            )}
+          </button>
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-full bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)] flex items-center justify-center shrink-0"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </header>
 
       {/* Main content */}
