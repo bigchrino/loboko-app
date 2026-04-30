@@ -120,6 +120,18 @@ export default function FileMessage({
     // Prevent long-press-to-action from firing on the wrapping bubble.
     e.stopPropagation();
     if (state === 'loading') return;
+
+    // ⚠️ iOS Safari gotcha: `window.open()` is only allowed during a
+    // direct user gesture. Any `await` before the call kills the
+    // gesture chain and the popup is blocked. We therefore open a
+    // blank tab *synchronously* here, before awaiting the signed URL,
+    // and later redirect it with `iosPopup.location.href = signedUrl`.
+    // On non-iOS platforms we don't need this and skip it to avoid
+    // empty tabs flashing on desktop/Android.
+    const iosPopup: Window | null = isIOS()
+      ? window.open('', '_blank')
+      : null;
+
     setState('loading');
     try {
       // Short TTL is deliberate: the signed URL is only useful for the
@@ -128,6 +140,15 @@ export default function FileMessage({
       // if the URL is accidentally shared or captured.
       const { url, error } = await getSignedStorageUrl(objectKey, 60);
       if (!url) {
+        // Close the pre-opened iOS tab so the user isn't left on
+        // about:blank.
+        if (iosPopup && !iosPopup.closed) {
+          try {
+            iosPopup.close();
+          } catch {
+            /* noop */
+          }
+        }
         toast.error(error || 'Impossible de télécharger le fichier.');
         setState('error');
         // Auto-reset to idle so the user can retry.
@@ -137,9 +158,19 @@ export default function FileMessage({
 
       if (isIOS()) {
         // iOS Safari / iPadOS: <a download> is ignored for cross-origin
-        // URLs. Best we can do is open in a new tab and let the user
-        // long-press to save into Files.
-        window.open(url, '_blank', 'noopener,noreferrer');
+        // URLs, AND window.open() is blocked if called AFTER an async
+        // gap (the await on getSignedStorageUrl above). The fix is to
+        // open the blank tab *synchronously* at click time (see
+        // `iosPopup` below, opened before awaiting the signed URL),
+        // then redirect it to the signed URL once we have it.
+        if (iosPopup && !iosPopup.closed) {
+          iosPopup.location.href = url;
+        } else {
+          // Popup was blocked or closed. Last resort: navigate the
+          // current tab. The user can use the browser back button to
+          // return to the conversation after saving.
+          window.location.href = url;
+        }
         toast.info('Maintenez le fichier pour l’enregistrer.');
         setState('done');
         setTimeout(() => setState('idle'), 1500);
@@ -171,6 +202,13 @@ export default function FileMessage({
       setTimeout(() => setState('idle'), 1500);
     } catch (err) {
       console.error('[FileMessage] download error', err);
+      if (iosPopup && !iosPopup.closed) {
+        try {
+          iosPopup.close();
+        } catch {
+          /* noop */
+        }
+      }
       toast.error('Échec du téléchargement.');
       setState('error');
       setTimeout(() => setState('idle'), 1500);
