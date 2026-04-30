@@ -115,3 +115,11 @@
 - [x] `FileMessage.tsx` : ne génère plus l'URL au render, uniquement au clic, avec spinner
 - [x] Validation MIME stricte dans `FilePicker.tsx` (allow-list + MIME prefixes bloqués)
 - [x] Run `pnpm run lint`
+
+### Phase 10 - Vrai téléchargement des documents (blob + fallback iOS)
+- [x] `FileMessage.tsx` : fetch signed URL → Blob → `<a download>` pour forcer le téléchargement
+- [x] Fallback iOS/iPadOS : `window.open` nouvel onglet + toast "Maintenez pour enregistrer"
+- [x] États UI : idle (icône) / loading (spinner + "Téléchargement…") / done (check) / error
+- [x] Fallback secondaire : `<a download target="_blank">` si le fetch Blob échoue (CORS)
+- [x] Signed URL générée uniquement au clic (non au render) — TTL 60s conservé
+- [x] Run `pnpm run lint`
