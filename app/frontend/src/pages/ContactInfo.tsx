@@ -31,6 +31,12 @@ import {
   unblockUser,
 } from '@/lib/conversation-controls';
 import { decodePayload } from '@/lib/message-format';
+import {
+  durationShort,
+  loadDmEphemeralDuration,
+  setDmEphemeralDuration,
+} from '@/lib/ephemeral';
+import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 
 interface MediaItem {
   kind: 'image' | 'video';
@@ -60,6 +66,8 @@ export default function ContactInfo() {
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [confirmUnblock, setConfirmUnblock] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [openEphemeral, setOpenEphemeral] = useState(false);
+  const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -122,6 +130,39 @@ export default function ContactInfo() {
       }
     })();
   }, [peerId, myId]);
+
+  // Load the current ephemeral duration for this 1-to-1 conversation.
+  useEffect(() => {
+    if (!myId || !peerId) {
+      setEphemeralDuration(0);
+      return;
+    }
+    let cancelled = false;
+    loadDmEphemeralDuration(myId, peerId).then((d) => {
+      if (!cancelled) setEphemeralDuration(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId, peerId]);
+
+  const handleEphemeralConfirm = async (durationSeconds: number) => {
+    if (!myId || !peerId) return;
+    try {
+      await setDmEphemeralDuration(myId, peerId, durationSeconds);
+      setEphemeralDuration(durationSeconds);
+      if (durationSeconds > 0) {
+        toast.success(
+          `Messages éphémères activés (${durationShort(durationSeconds)})`,
+        );
+      } else {
+        toast.success('Messages éphémères désactivés');
+      }
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+    }
+  };
 
   const peerName = useMemo(
     () => peer?.display_name || peer?.username || 'Utilisateur',
@@ -314,24 +355,38 @@ export default function ContactInfo() {
             {/* Feature list (sections stubs) */}
             <section className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
               {[
-                { label: 'Messages importants', icon: Star },
-                { label: 'Thème de la discussion', icon: Palette },
-                { label: 'Messages éphémères', icon: Clock },
-                { label: 'Verrouiller la discussion', icon: Lock },
-                { label: 'Créer un groupe avec cette personne', icon: Users },
-                { label: 'Ajouter aux favoris', icon: Heart },
-              ].map(({ label, icon: Icon }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => comingSoon(label)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--loboko-surface-hover)] border-b border-[var(--loboko-border)] last:border-b-0"
-                >
-                  <Icon size={18} className="text-[#2563eb] shrink-0" />
-                  <span className="text-sm flex-1">{label}</span>
-                  <ChevronRight size={16} className="text-[var(--loboko-text-muted)]" />
-                </button>
-              ))}
+                { key: 'important', label: 'Messages importants', icon: Star },
+                { key: 'theme', label: 'Thème de la discussion', icon: Palette },
+                { key: 'ephemeral', label: 'Messages éphémères', icon: Clock },
+                { key: 'lock', label: 'Verrouiller la discussion', icon: Lock },
+                {
+                  key: 'group',
+                  label: 'Créer un groupe avec cette personne',
+                  icon: Users,
+                },
+                { key: 'favorite', label: 'Ajouter aux favoris', icon: Heart },
+              ].map(({ key, label, icon: Icon }) => {
+                const isEphemeral = key === 'ephemeral';
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() =>
+                      isEphemeral ? setOpenEphemeral(true) : comingSoon(label)
+                    }
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--loboko-surface-hover)] border-b border-[var(--loboko-border)] last:border-b-0"
+                  >
+                    <Icon size={18} className="text-[#2563eb] shrink-0" />
+                    <span className="text-sm flex-1">{label}</span>
+                    {isEphemeral && ephemeralDuration > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[rgba(37,99,235,0.18)] text-[#60a5fa] font-semibold">
+                        {durationShort(ephemeralDuration)}
+                      </span>
+                    )}
+                    <ChevronRight size={16} className="text-[var(--loboko-text-muted)]" />
+                  </button>
+                );
+              })}
             </section>
 
             {/* Destructive section */}
@@ -389,6 +444,13 @@ export default function ContactInfo() {
         loading={busy}
         onConfirm={handleUnblock}
         onCancel={() => setConfirmUnblock(false)}
+      />
+
+      <EphemeralSettingsDialog
+        open={openEphemeral}
+        currentDuration={ephemeralDuration}
+        onClose={() => setOpenEphemeral(false)}
+        onConfirm={handleEphemeralConfirm}
       />
     </Layout>
   );
