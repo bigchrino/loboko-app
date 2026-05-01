@@ -1,0 +1,69 @@
+Améliorer l’ouverture des publications et des commentaires, style Facebook.
+
+Problèmes actuels :
+1. Quand on clique sur une publication dans le feed, rien ne se passe.
+2. Les commentaires s’ouvrent en modal, mais derrière la page continue parfois à défiler ou bugger.
+3. Quand le modal commentaires est ouvert, l’utilisateur peut encore interagir indirectement avec le feed derrière.
+4. Le bouton retour / fermeture n’est pas toujours naturel.
+
+Objectif :
+Créer une vraie page / vue détail publication comme Facebook.
+
+À faire :
+
+1. Clic sur publication
+- Quand on clique n’importe où sur le cadre principal d’une publication, ouvrir la publication en détail.
+- Route recommandée : /post/:postId
+- Ne pas déclencher si l’utilisateur clique sur :
+  - like
+  - commentaire
+  - partager
+  - menu trois points
+  - bouton profil/auteur
+
+2. Page détail publication
+Créer ou améliorer PostDetail.tsx :
+- afficher la publication complète en haut
+- afficher directement les commentaires en dessous
+- zone de saisie commentaire en bas
+- bouton retour en haut
+- bouton menu si nécessaire
+- comportement mobile propre
+
+3. Commentaires
+- Quand on clique sur l’icône commentaire depuis le feed :
+  - ouvrir directement /post/:postId
+  - focus ou scroll vers la section commentaires
+- Ne plus utiliser un modal fragile pour ce cas principal.
+- Garder le modal seulement si déjà utilisé ailleurs et stable, sinon migrer vers la page détail.
+
+4. Blocage du scroll arrière
+Si un modal reste utilisé :
+- quand le modal est ouvert, bloquer le scroll du body
+- empêcher les interactions avec les publications derrière
+- cleanup au démontage
+
+5. Navigation retour
+Depuis /post/:postId :
+- bouton retour = navigate(-1) si historique
+- fallback vers /home ou /
+- ne jamais renvoyer arbitrairement au début de l’accueil si l’utilisateur venait d’un profil, d’un groupe ou d’un partage
+
+6. Expérience attendue
+- Feed → clic publication → page détail
+- Feed → clic commentaire → page détail avec commentaires visibles
+- Profil → clic publication → page détail, retour profil
+- Message partagé → clic → page détail, retour conversation
+- Aucun scroll parasite derrière
+- Aucun bug où le feed défile pendant les commentaires
+
+7. Contraintes
+- Ne pas casser :
+  - likes
+  - commentaires
+  - réponses
+  - mentions
+  - partage de publication
+  - notifications
+  - PostCard existant
+- Build + lint à la fin.

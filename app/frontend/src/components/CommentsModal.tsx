@@ -40,18 +40,16 @@ interface Props {
   onClose: () => void;
   currentUserId?: string;
   onCommentAdded?: () => void;
-  // When provided, the modal auto-scrolls to this comment and briefly
-  // highlights it. Used when the user clicks "back" on a profile page
-  // reached from a mention inside that specific comment.
+  // When provided, auto-scrolls to this comment and briefly highlights it.
   highlightCommentId?: string;
+  // When true, render inline (no overlay, no fixed position) — used on the
+  // PostDetail page so comments appear directly under the post like Facebook.
+  inline?: boolean;
 }
 
 interface ReplyTarget {
-  // The comment the user is replying to (can be a top-level comment or another reply).
   targetCommentId: string;
-  // The thread root (top-level comment id) where the reply will be stored.
   rootCommentId: string;
-  // Display name of the person being replied to (for "— name" prefix and placeholder).
   targetName: string;
 }
 
@@ -63,6 +61,7 @@ export default function CommentsModal({
   currentUserId,
   onCommentAdded,
   highlightCommentId,
+  inline = false,
 }: Props) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [authors, setAuthors] = useState<Record<string, Author>>({});
@@ -85,6 +84,27 @@ export default function CommentsModal({
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const commentRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  /**
+   * Lock the body scroll while the comments modal (overlay variant) is
+   * open, so the feed behind does not scroll or capture interactions.
+   * Inline mode never touches the body scroll.
+   */
+  useEffect(() => {
+    if (inline) return;
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [open, inline]);
 
   const handlePickMention = (s: MentionSuggestion) => {
     if (!s.username) return;
@@ -144,7 +164,6 @@ export default function CommentsModal({
         setAuthors(map);
       }
 
-      // Load likes (graceful fallback if table does not exist yet)
       if (rows.length > 0) {
         const ids = rows.map((r) => r.id);
         const { data: likeRows, error: likeErr } = await supabase
@@ -191,17 +210,14 @@ export default function CommentsModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, postId]);
 
-  // Build thread structure: top-level comments and their replies.
   const { topLevel, repliesByRoot } = useMemo(() => {
     const visible = comments.filter((c) => !hidden.has(c.id));
     const byId = new Map(visible.map((c) => [c.id, c] as const));
     const top: CommentRow[] = [];
     const replies = new Map<string, CommentRow[]>();
 
-    // Helper: find the root of a thread (top-level ancestor).
     const findRoot = (c: CommentRow): string => {
       let cur = c;
-      // Walk up parent chain using full list (not filtered) so hidden parents still resolve root.
       const all = new Map(comments.map((x) => [x.id, x] as const));
       while (cur.parent_comment_id) {
         const parent = all.get(cur.parent_comment_id);
@@ -215,15 +231,12 @@ export default function CommentsModal({
       if (!c.parent_comment_id) {
         top.push(c);
       } else {
-        // This is a reply. Store under its thread root.
         const rootId = findRoot(c);
-        // Skip if its own id is the root (shouldn't happen) or if parent missing entirely in visible.
         if (rootId === c.id) {
           top.push(c);
           continue;
         }
         if (!byId.has(rootId) && !comments.find((x) => x.id === rootId)) {
-          // Root not found at all, treat as top-level
           top.push(c);
           continue;
         }
@@ -232,27 +245,19 @@ export default function CommentsModal({
         replies.set(rootId, arr);
       }
     }
-    // Sort replies by created_at ascending
     replies.forEach((arr) => {
       arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
     });
     return { topLevel: top, repliesByRoot: replies };
   }, [comments, hidden]);
 
-  /**
-   * When a `highlightCommentId` is provided (e.g. the user came back from
-   * a profile page opened from a mention inside this comment), auto-expand
-   * the thread that contains it, scroll it into view and pulse it.
-   */
   useEffect(() => {
     if (!open || !highlightCommentId) return;
     if (comments.length === 0) return;
     const target = comments.find((c) => c.id === highlightCommentId);
     if (!target) return;
 
-    // If the comment is a reply, expand its thread so it renders.
     if (target.parent_comment_id) {
-      // Resolve root to expand.
       const all = new Map(comments.map((x) => [x.id, x] as const));
       let cur = target;
       while (cur.parent_comment_id) {
@@ -269,7 +274,6 @@ export default function CommentsModal({
       });
     }
 
-    // Defer scroll to allow the (possibly) expanded DOM to render.
     const t = window.setTimeout(() => {
       const el = commentRefs.current[highlightCommentId];
       if (el) {
@@ -313,7 +317,6 @@ export default function CommentsModal({
         content: text,
       };
       if (replyTo) {
-        // Store parent as the thread root so listing stays flat (single-level visual).
         payload.parent_comment_id = replyTo.rootCommentId;
       }
 
@@ -323,7 +326,6 @@ export default function CommentsModal({
         .select()
         .single();
 
-      // Fallback if parent_comment_id column does not exist yet.
       if (
         error &&
         replyTo &&
@@ -374,7 +376,6 @@ export default function CommentsModal({
       }
       onCommentAdded?.();
       if (wasReply && replyTo) {
-        // Notify the owner of the specific comment/reply being answered.
         const target = comments.find((c) => c.id === replyTo.targetCommentId);
         if (target && target.user_id !== authUid) {
           try {
@@ -402,7 +403,6 @@ export default function CommentsModal({
           console.error('[comments] notification error (non-blocking):', nErr);
         }
       }
-      // Notify any @mentioned users in the comment body (non-blocking) + push.
       try {
         const mentionMap = await resolveMentionedUserIds(text);
         const skip = new Set<string>([authUid]);
@@ -411,7 +411,6 @@ export default function CommentsModal({
           const target = comments.find((c) => c.id === replyTo.targetCommentId);
           if (target) skip.add(target.user_id);
         }
-        // Resolve actor display name for push body.
         let actorName = 'Quelqu’un';
         try {
           const { data: pr } = await supabase
@@ -427,7 +426,6 @@ export default function CommentsModal({
         await Promise.all(
           Object.entries(mentionMap).map(([, uid]) => {
             if (skip.has(uid)) return Promise.resolve();
-            // In-app notification
             const p = createNotification({
               recipientId: uid,
               fromUserId: authUid,
@@ -435,7 +433,6 @@ export default function CommentsModal({
               postId,
               message: 'vous a mentionné dans un commentaire',
             });
-            // Push notification (fire-and-forget)
             triggerMentionPush({
               recipientId: uid,
               actorName,
@@ -473,7 +470,6 @@ export default function CommentsModal({
       return;
     }
     const liked = myLikes.has(commentId);
-    // Optimistic update
     setMyLikes((prev) => {
       const next = new Set(prev);
       if (liked) next.delete(commentId);
@@ -497,7 +493,6 @@ export default function CommentsModal({
           .from('comment_likes')
           .insert({ comment_id: commentId, user_id: currentUserId });
         if (error && (error as { code?: string }).code !== '23505') throw error;
-        // Notify comment owner (no-op if self).
         const target = comments.find((c) => c.id === commentId);
         if (target && target.user_id !== currentUserId) {
           await createNotification({
@@ -518,7 +513,6 @@ export default function CommentsModal({
       } else {
         toast.error(err?.message || 'Action impossible');
       }
-      // Revert optimistic state
       setMyLikes((prev) => {
         const next = new Set(prev);
         if (liked) next.add(commentId);
@@ -673,7 +667,6 @@ export default function CommentsModal({
             <button
               type="button"
               onClick={() => {
-                // If this comment is itself a reply, its root is already the parent.
                 const effectiveRoot = c.parent_comment_id ? c.parent_comment_id : c.id;
                 startReply(c, effectiveRoot);
               }}
@@ -687,25 +680,216 @@ export default function CommentsModal({
     );
   };
 
+  const pulseStyle = (
+    <style>{`
+      .loboko-comment-pulse {
+        animation: lobokoCommentPulse 2s ease-out;
+        border-radius: 1rem;
+      }
+      @keyframes lobokoCommentPulse {
+        0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
+        40% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.25); }
+        100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+      }
+    `}</style>
+  );
+
+  const listSection = (
+    <div
+      ref={listRef}
+      className={
+        inline
+          ? 'px-1 py-2'
+          : 'flex-1 overflow-y-auto px-4 py-3'
+      }
+    >
+      {loading ? (
+        <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
+          Chargement...
+        </div>
+      ) : topLevel.length === 0 ? (
+        <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
+          Soyez le premier à commenter !
+        </div>
+      ) : (
+        <ul className="space-y-4">
+          {topLevel.map((c) => {
+            const replies = repliesByRoot.get(c.id) || [];
+            const expanded = expandedThreads.has(c.id);
+            return (
+              <li
+                key={c.id}
+                ref={(el) => {
+                  commentRefs.current[c.id] = el;
+                }}
+                className={`space-y-2 ${
+                  pulseCommentId === c.id ? 'loboko-comment-pulse' : ''
+                }`}
+              >
+                {renderCommentBubble(c, { isReply: false })}
+                {replies.length > 0 && (
+                  <div className="pl-10">
+                    <button
+                      type="button"
+                      onClick={() => toggleThread(c.id)}
+                      className="text-[11px] text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] transition"
+                    >
+                      {expanded
+                        ? 'Masquer les réponses'
+                        : `Afficher ${replies.length} ${
+                            replies.length > 1 ? 'réponses' : 'réponse'
+                          }`}
+                    </button>
+                    {expanded && (
+                      <ul className="mt-2 space-y-3">
+                        {replies.map((r) => {
+                          let replyToName: string | undefined;
+                          if (r.parent_comment_id) {
+                            const parent = comments.find((x) => x.id === r.parent_comment_id);
+                            if (parent) replyToName = getName(parent.user_id);
+                          }
+                          return (
+                            <li
+                              key={r.id}
+                              ref={(el) => {
+                                commentRefs.current[r.id] = el;
+                              }}
+                              className={
+                                pulseCommentId === r.id ? 'loboko-comment-pulse' : ''
+                              }
+                            >
+                              {renderCommentBubble(r, {
+                                isReply: true,
+                                replyToName,
+                              })}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  const replyBar = replyTo && (
+    <div
+      className={`${
+        inline ? 'mt-2 rounded-xl' : 'border-t border-[var(--loboko-border)]'
+      } px-4 py-2 text-[11px] text-[var(--loboko-text-muted)] flex items-center justify-between flex-shrink-0 bg-[var(--loboko-surface-hover)]`}
+    >
+      <span>
+        Réponse à <span className="font-semibold">{replyTo.targetName}</span>
+      </span>
+      <button
+        type="button"
+        onClick={cancelReply}
+        className="hover:text-[var(--loboko-text)]"
+      >
+        Annuler
+      </button>
+    </div>
+  );
+
+  const inputBar = (
+    <div
+      className={`${
+        inline
+          ? 'mt-2 border border-[var(--loboko-border)] rounded-2xl bg-[var(--loboko-surface)]'
+          : 'border-t border-[var(--loboko-border)]'
+      } p-3 flex items-center gap-2 flex-shrink-0`}
+    >
+      <EmojiPickerMini onSelect={insertEmoji} disabled={!currentUserId || sending} />
+      <div className="flex-1 relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={content}
+          onChange={(e) => {
+            const v = e.target.value;
+            const caret = e.target.selectionStart ?? v.length;
+            setContent(v);
+            const r = extractMentionQuery(v, caret);
+            if (r) {
+              setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+            } else {
+              setMentionState((p) => (p.open ? { ...p, open: false } : p));
+            }
+          }}
+          onKeyUp={(e) => {
+            const el = e.currentTarget;
+            const caret = el.selectionStart ?? el.value.length;
+            const r = extractMentionQuery(el.value, caret);
+            if (r) {
+              setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+            } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
+              setMentionState((p) => (p.open ? { ...p, open: false } : p));
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !mentionState.open) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={
+            !currentUserId
+              ? 'Connectez-vous pour commenter'
+              : replyTo
+              ? `Répondre à ${replyTo.targetName}... (@ pour mentionner)`
+              : 'Écrire un commentaire... (@ pour mentionner)'
+          }
+          disabled={!currentUserId || sending}
+          className="w-full bg-[var(--loboko-surface-hover)] border border-[var(--loboko-border)] rounded-full px-4 py-2 text-sm outline-none focus:border-[#2563eb] disabled:opacity-50"
+        />
+        <MentionSuggestions
+          open={mentionState.open}
+          query={mentionState.query}
+          position="above"
+          onSelect={handlePickMention}
+          onClose={() => setMentionState((p) => ({ ...p, open: false }))}
+        />
+      </div>
+      <button
+        onClick={handleSend}
+        disabled={!currentUserId || sending || !content.trim()}
+        className="w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center hover:bg-[#1d4ed8] transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+      >
+        <Send size={16} />
+      </button>
+    </div>
+  );
+
+  if (inline) {
+    return (
+      <section className="mt-2">
+        {pulseStyle}
+        <h3 className="text-sm font-semibold mb-2 px-1">Commentaires</h3>
+        {listSection}
+        {replyBar}
+        {inputBar}
+      </section>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
-      <style>{`
-        .loboko-comment-pulse {
-          animation: lobokoCommentPulse 2s ease-out;
-          border-radius: 1rem;
-        }
-        @keyframes lobokoCommentPulse {
-          0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
-          40% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.25); }
-          100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-        }
-      `}</style>
+      {pulseStyle}
       <div
         className="bg-[var(--loboko-surface)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl border border-[var(--loboko-border)] h-[85vh] sm:h-[75vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-4 py-3 border-b border-[var(--loboko-border)] flex-shrink-0">
           <h3 className="font-semibold text-sm">Commentaires</h3>
@@ -717,161 +901,9 @@ export default function CommentsModal({
           </button>
         </header>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
-          {loading ? (
-            <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
-              Chargement...
-            </div>
-          ) : topLevel.length === 0 ? (
-            <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
-              Soyez le premier à commenter !
-            </div>
-          ) : (
-            <ul className="space-y-4">
-              {topLevel.map((c) => {
-                const replies = repliesByRoot.get(c.id) || [];
-                const expanded = expandedThreads.has(c.id);
-                return (
-                  <li
-                    key={c.id}
-                    ref={(el) => {
-                      commentRefs.current[c.id] = el;
-                    }}
-                    className={`space-y-2 ${
-                      pulseCommentId === c.id ? 'loboko-comment-pulse' : ''
-                    }`}
-                  >
-                    {renderCommentBubble(c, { isReply: false })}
-                    {replies.length > 0 && (
-                      <div className="pl-10">
-                        <button
-                          type="button"
-                          onClick={() => toggleThread(c.id)}
-                          className="text-[11px] text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] transition"
-                        >
-                          {expanded
-                            ? 'Masquer les réponses'
-                            : `Afficher ${replies.length} ${
-                                replies.length > 1 ? 'réponses' : 'réponse'
-                              }`}
-                        </button>
-                        {expanded && (
-                          <ul className="mt-2 space-y-3">
-                            {replies.map((r) => {
-                              // Determine who this reply is addressed to.
-                              // If parent is the root (top-level comment), show "author — rootAuthor".
-                              // If parent is another reply, show "author — thatReplyAuthor".
-                              let replyToName: string | undefined;
-                              if (r.parent_comment_id) {
-                                // Find most recent sibling reply this one follows, if any.
-                                // Simpler: if parent_comment_id is the root, show root author;
-                                // else show parent's author (but we flatten to root, so parent IS root).
-                                const parent = comments.find((x) => x.id === r.parent_comment_id);
-                                if (parent) replyToName = getName(parent.user_id);
-                              }
-                              return (
-                                <li
-                                  key={r.id}
-                                  ref={(el) => {
-                                    commentRefs.current[r.id] = el;
-                                  }}
-                                  className={
-                                    pulseCommentId === r.id ? 'loboko-comment-pulse' : ''
-                                  }
-                                >
-                                  {renderCommentBubble(r, {
-                                    isReply: true,
-                                    replyToName,
-                                  })}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {replyTo && (
-          <div className="px-4 py-2 border-t border-[var(--loboko-border)] text-[11px] text-[var(--loboko-text-muted)] flex items-center justify-between flex-shrink-0 bg-[var(--loboko-surface-hover)]">
-            <span>
-              Réponse à <span className="font-semibold">{replyTo.targetName}</span>
-            </span>
-            <button
-              type="button"
-              onClick={cancelReply}
-              className="hover:text-[var(--loboko-text)]"
-            >
-              Annuler
-            </button>
-          </div>
-        )}
-
-        <div className="border-t border-[var(--loboko-border)] p-3 flex items-center gap-2 flex-shrink-0">
-          <EmojiPickerMini onSelect={insertEmoji} disabled={!currentUserId || sending} />
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={content}
-              onChange={(e) => {
-                const v = e.target.value;
-                const caret = e.target.selectionStart ?? v.length;
-                setContent(v);
-                const r = extractMentionQuery(v, caret);
-                if (r) {
-                  setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-                } else {
-                  setMentionState((p) => (p.open ? { ...p, open: false } : p));
-                }
-              }}
-              onKeyUp={(e) => {
-                const el = e.currentTarget;
-                const caret = el.selectionStart ?? el.value.length;
-                const r = extractMentionQuery(el.value, caret);
-                if (r) {
-                  setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-                } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
-                  setMentionState((p) => (p.open ? { ...p, open: false } : p));
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !mentionState.open) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder={
-                !currentUserId
-                  ? 'Connectez-vous pour commenter'
-                  : replyTo
-                  ? `Répondre à ${replyTo.targetName}... (@ pour mentionner)`
-                  : 'Écrire un commentaire... (@ pour mentionner)'
-              }
-              disabled={!currentUserId || sending}
-              className="w-full bg-[var(--loboko-surface-hover)] border border-[var(--loboko-border)] rounded-full px-4 py-2 text-sm outline-none focus:border-[#2563eb] disabled:opacity-50"
-            />
-            <MentionSuggestions
-              open={mentionState.open}
-              query={mentionState.query}
-              position="above"
-              onSelect={handlePickMention}
-              onClose={() => setMentionState((p) => ({ ...p, open: false }))}
-            />
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={!currentUserId || sending || !content.trim()}
-            className="w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center hover:bg-[#1d4ed8] transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-          >
-            <Send size={16} />
-          </button>
-        </div>
+        {listSection}
+        {replyBar}
+        {inputBar}
       </div>
     </div>
   );

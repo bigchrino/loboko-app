@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -37,6 +37,13 @@ interface Props {
   post: PostItem;
   currentUserId?: string;
   onDeleted?: () => void;
+  /**
+   * `feed` (default): the card navigates to `/post/:id` when the main frame
+   * is clicked, and the comments button also navigates there (no modal).
+   * `detail`: used on the PostDetail page. The card does NOT navigate away
+   * on frame click, and comments are rendered inline below by the page.
+   */
+  variant?: 'feed' | 'detail';
 }
 
 interface ReturnContextState {
@@ -47,8 +54,14 @@ interface ReturnContextState {
   } | null;
 }
 
-export default function PostCard({ post, currentUserId, onDeleted }: Props) {
+export default function PostCard({
+  post,
+  currentUserId,
+  onDeleted,
+  variant = 'feed',
+}: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [author, setAuthor] = useState<Author | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -89,7 +102,6 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         const url = await getMediaUrl(post.video_key);
         setVideoUrl(url);
       }
-      // Real counts from DB
       try {
         const { count: lc } = await supabase
           .from('likes')
@@ -103,7 +115,6 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           .eq('post_id', post.id);
         if (typeof cc === 'number') setCommentsCount(cc);
 
-        // Shares count: prefer post_shares count, fallback to stored value.
         try {
           const { count: sc, error: scErr } = await supabase
             .from('post_shares')
@@ -136,19 +147,24 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
   }, [post.id, post.user_id, post.image_key, post.video_key, currentUserId]);
 
   /**
-   * When the user returns from UserProfile after clicking a mention inside
-   * one of this post's comments, the profile page forwards a
-   * `returnContext` in `location.state`. If that context targets THIS post,
-   * we auto-open the comments modal with the right comment highlighted.
+   * Auto-open the comments modal with a highlighted comment when returning
+   * from a profile page reached via a mention inside one of this post's
+   * comments. Only applicable in feed variant (detail page handles this
+   * differently via its own inline comments).
    */
   useEffect(() => {
+    if (variant !== 'feed') return;
     const state = (location.state as ReturnContextState | null) || null;
     const ctx = state?.returnContext;
     if (!ctx || !ctx.openComments) return;
     if (ctx.postId !== post.id) return;
-    setHighlightCommentId(ctx.commentId || null);
-    setShowComments(true);
-  }, [location.state, post.id]);
+    // Prefer navigating into the detail page when coming from a mention-return
+    // so the experience matches the new "click opens detail" model.
+    navigate(`/post/${post.id}#comments`, {
+      state: { returnContext: ctx },
+      replace: true,
+    });
+  }, [location.state, post.id, navigate, variant]);
 
   const toggleLike = async () => {
     if (!currentUserId) {
@@ -172,7 +188,6 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         setLiked(true);
         if (data?.id) setLikeId(data.id as string);
         setLikesCount((c) => c + 1);
-        // Create a notification for the post author (no-op if self)
         await createNotification({
           recipientId: post.user_id,
           fromUserId: currentUserId,
@@ -195,7 +210,6 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         .insert({ post_id: post.id, user_id: currentUserId });
       if (error) {
         const code = (error as { code?: string }).code;
-        // Table missing → silently skip counting, still notify via notifications table.
         if (code === '42P01' || error.message?.toLowerCase().includes('does not exist')) {
           console.warn('[post] post_shares table missing; run SOCIAL_NOTIFICATIONS_SETUP.md');
         } else {
@@ -207,7 +221,6 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
     } catch (e) {
       console.error('[post] share insert unexpected error:', e);
     }
-    // Notify post author (no-op if self).
     await createNotification({
       recipientId: post.user_id,
       fromUserId: currentUserId,
@@ -327,23 +340,106 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
     }
   };
 
+  /**
+   * Open the post detail page. Only triggered from the feed variant's frame
+   * click. The click handler checks that the click didn't originate from an
+   * interactive element via `data-stop-card-click`.
+   */
+  const openDetail = () => {
+    navigate(`/post/${post.id}`, {
+      state: {
+        from: `${location.pathname}${location.search}${location.hash}`,
+      },
+    });
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (variant !== 'feed') return;
+    const target = e.target as HTMLElement;
+    // Any descendant marked with data-stop-card-click (or its ancestors up to
+    // the card) should NOT trigger frame navigation. This covers like,
+    // comment, share, menu, author, avatar, images, videos, mentions.
+    if (target.closest('[data-stop-card-click="1"]')) return;
+    // Also skip if user is selecting text.
+    const selection = window.getSelection?.();
+    if (selection && selection.toString().length > 0) return;
+    openDetail();
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (variant !== 'feed') return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const target = e.target as HTMLElement;
+    // Only trigger when the article itself is the focused target.
+    if (target !== e.currentTarget) return;
+    e.preventDefault();
+    openDetail();
+  };
+
+  const handleCommentClick = () => {
+    if (variant === 'feed') {
+      navigate(`/post/${post.id}#comments`, {
+        state: {
+          from: `${location.pathname}${location.search}${location.hash}`,
+        },
+      });
+      return;
+    }
+    // In detail variant, the page renders inline comments and handles focus
+    // itself; fall back to a modal only if somehow used elsewhere.
+    setShowComments(true);
+  };
+
   const authorName = author?.display_name || author?.username || 'Utilisateur';
   const initials = authorName.slice(0, 2).toUpperCase();
+  const isFeed = variant === 'feed';
 
   return (
     <>
-      <article className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4">
+      <article
+        className={`bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4 ${
+          isFeed
+            ? 'cursor-pointer hover:border-[rgba(37,99,235,0.45)] transition-colors'
+            : ''
+        }`}
+        role={isFeed ? 'link' : undefined}
+        tabIndex={isFeed ? 0 : undefined}
+        aria-label={isFeed ? 'Ouvrir la publication' : undefined}
+        onClick={isFeed ? handleCardClick : undefined}
+        onKeyDown={isFeed ? handleCardKeyDown : undefined}
+      >
         <header className="flex items-center gap-3 mb-3">
-          <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm">
+          <button
+            type="button"
+            data-stop-card-click="1"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/u/${post.user_id}`);
+            }}
+            className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm !bg-transparent-off"
+            aria-label={`Voir le profil de ${authorName}`}
+          >
             {avatarUrl ? (
               <img src={avatarUrl} alt={authorName} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
-              initials
+              <span className="bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] w-full h-full flex items-center justify-center">
+                {initials}
+              </span>
             )}
-          </div>
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm truncate">{authorName}</span>
+              <button
+                type="button"
+                data-stop-card-click="1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/u/${post.user_id}`);
+                }}
+                className="font-semibold text-sm truncate !bg-transparent !hover:bg-transparent hover:underline text-left"
+              >
+                {authorName}
+              </button>
               {author?.role === 'prestataire' && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
                   PRO
@@ -368,15 +464,21 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
               )}
             </div>
           </div>
-          <PostMenu
-            postId={post.id}
-            postAuthorId={post.user_id}
-            currentUserId={currentUserId}
-            onDeleted={onDeleted}
-          />
+          <div data-stop-card-click="1" onClick={(e) => e.stopPropagation()}>
+            <PostMenu
+              postId={post.id}
+              postAuthorId={post.user_id}
+              currentUserId={currentUserId}
+              onDeleted={onDeleted}
+            />
+          </div>
         </header>
 
-        <p className="text-sm leading-relaxed mb-3">
+        <p
+          className="text-sm leading-relaxed mb-3"
+          data-stop-card-click="1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <MentionText
             text={post.content}
             returnContext={{ postId: post.id }}
@@ -390,7 +492,11 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         )}
 
         {videoUrl && (
-          <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)] bg-black">
+          <div
+            className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)] bg-black"
+            data-stop-card-click="1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <video
               src={videoUrl}
               className="w-full max-h-[480px] block"
@@ -401,9 +507,16 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           </div>
         )}
 
-        <footer className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)]">
+        <footer
+          className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)]"
+          data-stop-card-click="1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
-            onClick={toggleLike}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleLike();
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-[var(--loboko-surface-hover)] transition ${
               liked ? 'text-[#ec4899]' : ''
             }`}
@@ -412,7 +525,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
             <Heart size={18} fill={liked ? 'currentColor' : 'none'} />
           </button>
           <button
-            onClick={() => setShowLikes(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowLikes(true);
+            }}
             className="text-xs font-medium px-1 hover:underline"
             aria-label="Voir les personnes qui ont aimé"
           >
@@ -420,7 +536,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           </button>
 
           <button
-            onClick={() => setShowComments(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCommentClick();
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[var(--loboko-surface-hover)] transition ml-2"
             aria-label="Commenter"
           >
@@ -429,7 +548,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           </button>
 
           <button
-            onClick={handleShare}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShare();
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[var(--loboko-surface-hover)] transition ml-auto"
             aria-label="Partager"
           >
@@ -450,18 +572,20 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
           onShareToGroups={handleShareToGroups}
         />
       )}
-      <CommentsModal
-        postId={post.id}
-        postAuthorId={post.user_id}
-        open={showComments}
-        onClose={() => {
-          setShowComments(false);
-          setHighlightCommentId(null);
-        }}
-        currentUserId={currentUserId}
-        onCommentAdded={() => setCommentsCount((c) => c + 1)}
-        highlightCommentId={highlightCommentId || undefined}
-      />
+      {showComments && (
+        <CommentsModal
+          postId={post.id}
+          postAuthorId={post.user_id}
+          open={showComments}
+          onClose={() => {
+            setShowComments(false);
+            setHighlightCommentId(null);
+          }}
+          currentUserId={currentUserId}
+          onCommentAdded={() => setCommentsCount((c) => c + 1)}
+          highlightCommentId={highlightCommentId || undefined}
+        />
+      )}
     </>
   );
 }

@@ -1,21 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import PostCard, { PostItem } from '@/components/PostCard';
+import CommentsModal from '@/components/CommentsModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft } from 'lucide-react';
 
+interface LocationState {
+  from?: string;
+  returnContext?: {
+    postId?: string;
+    commentId?: string;
+    openComments?: boolean;
+  } | null;
+}
+
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
-  const goBack = useBackNavigation('/');
+  const location = useLocation();
+  const fallbackBack = useBackNavigation('/');
   const { user } = useAuth();
   const [post, setPost] = useState<PostItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const commentsRef = useRef<HTMLDivElement>(null);
+
+  const state = (location.state as LocationState | null) || null;
+  const returnCtx =
+    state?.returnContext && state.returnContext.postId === postId
+      ? state.returnContext
+      : null;
+  const highlightCommentId = returnCtx?.commentId || undefined;
+  const shouldFocusComments =
+    !!highlightCommentId || location.hash === '#comments';
 
   const loadPost = useCallback(async () => {
     if (!postId) return;
@@ -45,41 +66,40 @@ export default function PostDetail() {
     loadPost();
   }, [loadPost]);
 
-  // Scroll + highlight after post is loaded
+  // If the user arrived with #comments or a highlighted comment, scroll to
+  // the comments section once the post is loaded.
   useEffect(() => {
-    if (!post || !cardRef.current) return;
-    const el = cardRef.current;
-    // Slight delay to allow layout/images to settle
+    if (!post) return;
+    if (!shouldFocusComments) return;
     const t = window.setTimeout(() => {
+      const el = commentsRef.current;
+      if (!el) return;
       try {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch {
         el.scrollIntoView();
       }
-      el.classList.add('loboko-post-highlight');
-      window.setTimeout(() => {
-        el.classList.remove('loboko-post-highlight');
-      }, 2200);
-    }, 120);
+    }, 200);
     return () => window.clearTimeout(t);
-  }, [post]);
+  }, [post, shouldFocusComments]);
+
+  /**
+   * Back navigation: if we have an explicit `from` url (usually set by
+   * PostCard when opening detail), return there. Otherwise fall back to
+   * the standard back helper which tries `navigate(-1)` then `/`.
+   */
+  const handleBack = () => {
+    if (state?.from) {
+      navigate(state.from);
+      return;
+    }
+    fallbackBack();
+  };
 
   return (
     <Layout title="Publication">
-      <style>{`
-        .loboko-post-highlight {
-          animation: lobokoPostHighlight 2s ease-out;
-          border-radius: 1rem;
-        }
-        @keyframes lobokoPostHighlight {
-          0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
-          40% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.25); }
-          100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-        }
-      `}</style>
-
       <button
-        onClick={goBack}
+        onClick={handleBack}
         className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
       >
         <ArrowLeft size={16} />
@@ -101,13 +121,29 @@ export default function PostDetail() {
           </p>
         </div>
       ) : (
-        <div ref={cardRef}>
-          <PostCard
-            post={post}
-            currentUserId={user?.id || ''}
-            onDeleted={() => navigate('/home')}
-          />
-        </div>
+        <>
+          <div ref={cardRef}>
+            <PostCard
+              post={post}
+              currentUserId={user?.id || ''}
+              onDeleted={() => navigate('/home')}
+              variant="detail"
+            />
+          </div>
+          <div id="comments" ref={commentsRef} className="scroll-mt-4">
+            <CommentsModal
+              postId={post.id}
+              postAuthorId={post.user_id}
+              open={true}
+              onClose={() => {
+                /* inline mode: no-op */
+              }}
+              currentUserId={user?.id || ''}
+              highlightCommentId={highlightCommentId}
+              inline
+            />
+          </div>
+        </>
       )}
     </Layout>
   );
