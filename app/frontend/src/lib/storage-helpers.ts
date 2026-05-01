@@ -3,14 +3,34 @@ import { compressImage } from '@/utils/mediaCompression';
 
 // Hard size limits (client-side guard). Supabase buckets may also enforce
 // their own limit, but we want to fail fast with a clear message.
+//
+// Aligned with the product brief for weak-network performance:
+//   - Images  : 5 MB (post-compression)
+//   - Videos  : 15 MB
+//   - Voice   : 10 MB (~several minutes of opus)
+//   - Docs    : 25 MB (PDF, Word, Excel, ZIP)
+//
+// Buckets that accept both images and videos (posts, message-media, statuses)
+// use the per-type limits `MAX_IMAGE_SIZE` / `MAX_VIDEO_SIZE` below. The map
+// here provides the *default* fallback.
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_VIDEO_SIZE = 15 * 1024 * 1024; // 15 MB
+
 const MAX_SIZES: Record<string, number> = {
-  avatars: 5 * 1024 * 1024, // 5 MB
-  posts: 80 * 1024 * 1024, // 80 MB (videos allowed here)
-  'voice-notes': 10 * 1024 * 1024, // 10 MB ~ several minutes of opus
-  'message-media': 50 * 1024 * 1024, // 50 MB (short videos / photos)
-  'message-documents': 25 * 1024 * 1024, // 25 MB (PDF, Word, Excel, ZIP)
-  statuses: 50 * 1024 * 1024, // 50 MB (short videos / photos for stories)
+  avatars: MAX_IMAGE_SIZE, // images only
+  posts: MAX_VIDEO_SIZE, // mixed, tighter per-type check below
+  'voice-notes': 10 * 1024 * 1024,
+  'message-media': MAX_VIDEO_SIZE, // mixed, tighter per-type check below
+  'message-documents': 25 * 1024 * 1024,
+  statuses: MAX_VIDEO_SIZE, // mixed, tighter per-type check below
 };
+
+/** Buckets that may receive both images and videos. */
+const MIXED_BUCKETS: ReadonlySet<string> = new Set([
+  'posts',
+  'message-media',
+  'statuses',
+]);
 
 export type UploadFolder =
   | 'avatars'
@@ -59,10 +79,27 @@ export async function uploadMediaEx(
       }
     }
 
-    const maxSize = MAX_SIZES[folder];
-    if (maxSize && uploadFile.size > maxSize) {
-      const mb = (maxSize / (1024 * 1024)).toFixed(0);
-      return { key: null, error: `Fichier trop volumineux (max ${mb} Mo)` };
+    // Per-type limits for mixed buckets: 5 MB for images, 15 MB for videos.
+    // Single-type buckets use the map value as-is.
+    const type = (uploadFile.type || '').toLowerCase();
+    let effectiveMax = MAX_SIZES[folder];
+    let kindLabel = '';
+    if (MIXED_BUCKETS.has(folder)) {
+      if (type.startsWith('image/')) {
+        effectiveMax = MAX_IMAGE_SIZE;
+        kindLabel = ' pour les images';
+      } else if (type.startsWith('video/')) {
+        effectiveMax = MAX_VIDEO_SIZE;
+        kindLabel = ' pour les vidéos';
+      }
+    }
+    if (effectiveMax && uploadFile.size > effectiveMax) {
+      const mb = (effectiveMax / (1024 * 1024)).toFixed(0);
+      const actual = (uploadFile.size / (1024 * 1024)).toFixed(1);
+      return {
+        key: null,
+        error: `Fichier trop volumineux (${actual} Mo). Maximum ${mb} Mo${kindLabel}.`,
+      };
     }
 
     const {

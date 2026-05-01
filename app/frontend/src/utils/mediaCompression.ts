@@ -3,7 +3,7 @@
  *
  * These utilities are intentionally minimal and safe:
  *  - compressImage(): downscale an image to a reasonable max size and
- *    re-encode it (JPEG/WebP) with quality 0.82. Falls back to the original
+ *    re-encode it (JPEG/WebP) with quality 0.72. Falls back to the original
  *    file if anything goes wrong so we never block a legitimate send.
  *  - checkVideoSize(): enforce a hard upper bound on video uploads. No
  *    in-browser transcoding is attempted (too heavy on mobile). If the video
@@ -11,24 +11,28 @@
  *    to the user.
  *
  * The goal is to reduce bandwidth on low-quality networks without changing
- * any existing message flow. Callers may ignore these helpers and behavior
- * stays identical to before.
+ * any existing message flow.
  */
 
-// Reasonable defaults for messaging: 1920px longest side is enough for a
-// full-screen phone view while keeping payloads small on weak networks.
-const DEFAULT_MAX_DIMENSION = 1920;
-const DEFAULT_QUALITY = 0.82;
+// Defaults tuned for weak networks (3G/4G) while preserving good visual
+// quality. 1280px longest side is enough for any phone / tablet screen, and
+// quality 0.72 keeps photos visually clean while typically cutting file size
+// by 4-8x.
+const DEFAULT_MAX_DIMENSION = 1280;
+const DEFAULT_QUALITY = 0.72;
 
-// Hard cap on video uploads, independent of the storage bucket\'s own limit.
-// The current bucket "message-media" allows 50 MB server-side. We keep the
-// same value here so users get a fast client-side rejection.
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+// Hard cap on video uploads. Aligned with the product brief: 15 MB max.
+// The bucket may allow more server-side, but we want a fast client-side
+// rejection with a clear error message.
+export const MAX_VIDEO_BYTES = 15 * 1024 * 1024;
+
+// Hard cap on image uploads (post-compression). Aligned with the brief.
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export interface CompressImageOptions {
-  /** Max longest-side in pixels. Defaults to 1920. */
+  /** Max longest-side in pixels. Defaults to 1280. */
   maxDimension?: number;
-  /** JPEG/WebP quality between 0 and 1. Defaults to 0.82. */
+  /** JPEG/WebP quality between 0 and 1. Defaults to 0.72. */
   quality?: number;
 }
 
@@ -42,7 +46,7 @@ function isCompressibleImage(file: File): boolean {
   if (t === 'image/jpeg' || t === 'image/jpg') return true;
   if (t === 'image/png') return true;
   if (t === 'image/webp') return true;
-  // Fallback on extension if the browser didn\'t set a MIME type.
+  // Fallback on extension if the browser didn't set a MIME type.
   const name = file.name.toLowerCase();
   return /\.(jpe?g|png|webp)$/.test(name);
 }
@@ -57,11 +61,38 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Detect whether a PNG image has any non-opaque pixel. We sample a small
+ * downscaled version to keep this fast even on large pictures. If we find
+ * any transparency, we keep the PNG as WebP (preserves alpha + still small).
+ * Otherwise we convert to JPEG (smaller, no alpha needed).
+ */
+function hasTransparency(img: HTMLImageElement): boolean {
+  try {
+    const w = Math.min(64, img.width);
+    const h = Math.min(64, img.height);
+    if (!w || !h) return false;
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Compress an image to at most `maxDimension` on its longest side and
- * re-encode it as JPEG (or WebP for transparent PNGs). Returns the original
- * file unchanged when:
+ * re-encode it as JPEG (or WebP only when the source PNG has transparency).
+ * Returns the original file unchanged when:
  *   - the file is not a compressible raster image (GIF, SVG, HEIC, …)
- *   - the image is already smaller than `maxDimension` and under 300 KB
+ *   - the image is tiny (< 300 KB) and already small enough
  *   - anything throws during canvas decode / encode
  *
  * Never throws — callers can use the result directly.
@@ -75,8 +106,8 @@ export async function compressImage(
     const maxDim = options.maxDimension ?? DEFAULT_MAX_DIMENSION;
     const quality = options.quality ?? DEFAULT_QUALITY;
 
-    // Tiny images are not worth re-encoding — re-encoding can actually make
-    // some small PNG icons larger.
+    // Very small files: not worth re-encoding. Below 300 KB the bandwidth
+    // savings are negligible and re-encoding can actually hurt quality.
     if (file.size < 300 * 1024) return file;
 
     const url = URL.createObjectURL(file);
@@ -95,9 +126,6 @@ export async function compressImage(
     const targetW = Math.round(width * scale);
     const targetH = Math.round(height * scale);
 
-    // Nothing to do: small picture, and we already skipped tiny files above.
-    if (scale === 1 && file.size < 1.5 * 1024 * 1024) return file;
-
     const canvas = document.createElement('canvas');
     canvas.width = targetW;
     canvas.height = targetH;
@@ -105,10 +133,12 @@ export async function compressImage(
     if (!ctx) return file;
     ctx.drawImage(img, 0, 0, targetW, targetH);
 
-    // PNG with transparency → keep as WebP (smaller + keeps alpha). Every
-    // other case → JPEG.
-    const outType =
-      (file.type || '').toLowerCase() === 'image/png' ? 'image/webp' : 'image/jpeg';
+    // Only keep WebP (with alpha) for PNGs that actually use transparency.
+    // Opaque PNGs are re-encoded to JPEG (much smaller for photos).
+    const srcType = (file.type || '').toLowerCase();
+    const keepAlpha = srcType === 'image/png' && hasTransparency(img);
+    const outType = keepAlpha ? 'image/webp' : 'image/jpeg';
+
     const blob: Blob | null = await new Promise((resolve) => {
       canvas.toBlob((b) => resolve(b), outType, quality);
     });
@@ -133,5 +163,17 @@ export function checkVideoSize(file: File, maxBytes = MAX_VIDEO_BYTES): string |
   if (file.size <= maxBytes) return null;
   const mb = (maxBytes / (1024 * 1024)).toFixed(0);
   const actual = (file.size / (1024 * 1024)).toFixed(1);
-  return `Vidéo trop volumineuse (${actual} Mo). Maximum ${mb} Mo. Choisissez une vidéo plus courte ou de meilleure qualité réduite.`;
+  return `Fichier trop volumineux (${actual} Mo). Maximum ${mb} Mo pour les vidéos.`;
+}
+
+/**
+ * Validate an image file against the hard size cap (post-compression).
+ * Returns a human-readable error message if the file is too big, otherwise
+ * `null`.
+ */
+export function checkImageSize(file: File, maxBytes = MAX_IMAGE_BYTES): string | null {
+  if (file.size <= maxBytes) return null;
+  const mb = (maxBytes / (1024 * 1024)).toFixed(0);
+  const actual = (file.size / (1024 * 1024)).toFixed(1);
+  return `Fichier trop volumineux (${actual} Mo). Maximum ${mb} Mo pour les images.`;
 }

@@ -165,6 +165,18 @@
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
 
+### Phase 15 - Compression médias & limites de taille (réseau faible)
+- [x] `mediaCompression.ts` : `DEFAULT_MAX_DIMENSION = 1280px`, `DEFAULT_QUALITY = 0.72`, seuil de compression relevé à 300 Ko
+- [x] `mediaCompression.ts` : PNG opaque → JPEG, PNG avec transparence → WebP (détection alpha via canvas)
+- [x] `mediaCompression.ts` : `MAX_VIDEO_BYTES = 15 Mo`, `MAX_IMAGE_BYTES = 5 Mo` + helper `checkImageSize`
+- [x] `mediaCompression.ts` : message d'erreur clair « Fichier trop volumineux (X Mo). Maximum Y Mo pour les vidéos/images. »
+- [x] `storage-helpers.ts` : limite unique par bucket côté MIME type (mixed buckets: image 5 Mo / vidéo 15 Mo)
+- [x] `storage-helpers.ts` : compression auto des images dans `uploadMediaEx` (déjà en place, conserve le fallback sans casser)
+- [x] `MediaPicker` : utilise déjà `checkVideoSize` + `compressImage` (aucun changement nécessaire)
+- [x] UI loader pendant compression (`busy` dans MediaPicker, `uploading` dans callers) — déjà en place
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`
+
 ### Phase 14 - Performance fine & correctif viewport mobile
 - [x] Réduire la pagination initiale à 20 messages (DM + groupes) pour un premier rendu plus rapide
 - [x] Garder le chargement progressif de 20 messages supplémentaires au scroll vers le haut

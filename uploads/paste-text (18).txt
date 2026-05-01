@@ -1,0 +1,88 @@
+Améliorer la performance réseau en ajoutant la compression des médias et des limites de taille.
+
+PRIORITÉ 2 — optimisation upload (important pour connexions lentes)
+
+---
+
+1. Compression des images (OBLIGATOIRE)
+
+Objectif :
+Réduire la taille des images avant upload sans trop perdre en qualité.
+
+À faire :
+- Compresser toutes les images avant upload côté client
+- Utiliser une librairie type :
+  - browser-image-compression (recommandé)
+
+Configuration :
+- Qualité : 0.6 – 0.7
+- Max width/height : 1280px
+- Convertir en JPEG si nécessaire
+
+Exemple logique :
+- image sélectionnée → compression → upload → stockage
+
+Contraintes :
+- garder une bonne qualité visuelle
+- ne pas casser preview avant envoi
+- compatible messages privés + groupes
+
+---
+
+2. Compression des vidéos (IMPORTANT)
+
+Objectif :
+Réduire la taille des vidéos pour éviter uploads trop lourds.
+
+À faire :
+- Redimensionner vidéos avant upload si possible
+- Limiter résolution :
+  - max 720p
+- Si compression côté navigateur trop complexe :
+  - au minimum refuser les vidéos trop lourdes
+
+---
+
+3. Limite taille fichiers (OBLIGATOIRE)
+
+Ajouter des limites strictes :
+
+- Images : max 5 MB
+- Vidéos : max 15 MB
+- Documents : max 25 MB (déjà en place → garder)
+
+À faire :
+- Vérification avant upload
+- Afficher un message clair si dépassement :
+  - "Fichier trop volumineux"
+
+---
+
+4. Optimisation upload
+
+- Ne pas bloquer UI pendant compression
+- Afficher loader pendant traitement
+- Gérer erreurs proprement
+
+---
+
+Contraintes :
+
+- Ne pas casser :
+  - upload existant
+  - messages
+  - documents
+  - push notifications
+- Code propre et optimisé
+- Compatible mobile (iOS + Android + desktop)
+
+---
+
+Objectif final :
+
+Réduire drastiquement :
+- consommation data
+- temps d’upload
+- lenteur en 3G/4G
+
+App fluide même avec connexion faible.
