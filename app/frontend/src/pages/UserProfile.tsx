@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
@@ -20,10 +20,21 @@ import {
   RatingSummary,
 } from '@/lib/ratings';
 
+interface IncomingState {
+  from?: string;
+  returnContext?: {
+    postId?: string;
+    commentId?: string;
+    openComments?: boolean;
+  } | null;
+}
+
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const goBack = useBackNavigation('/');
+  const location = useLocation();
+  const incoming = (location.state as IncomingState | null) || null;
+  const fallbackBack = useBackNavigation('/');
   const { profile: myProfile, user } = useAuth();
 
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
@@ -93,6 +104,28 @@ export default function UserProfilePage() {
     loadAll();
   }, [loadAll]);
 
+  /**
+   * Custom back handler: when the user arrived here via a mention click,
+   * we know the exact previous URL and can optionally request the target
+   * page to re-open the comments modal on the right post/comment.
+   *
+   * This is what makes "clicking a mention inside a comment, then pressing
+   * back" return the user directly to the original comment instead of the
+   * home screen.
+   */
+  const handleBack = () => {
+    const from = incoming?.from;
+    const ctx = incoming?.returnContext || null;
+    if (from) {
+      navigate(from, {
+        replace: false,
+        state: ctx ? { returnContext: ctx } : undefined,
+      });
+      return;
+    }
+    fallbackBack();
+  };
+
   if (loading) {
     return (
       <Layout title="Profil">
@@ -123,7 +156,7 @@ export default function UserProfilePage() {
   return (
     <Layout title="Profil">
       <button
-        onClick={goBack}
+        onClick={handleBack}
         className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
       >
         <ArrowLeft size={16} />

@@ -40,6 +40,10 @@ interface Props {
   onClose: () => void;
   currentUserId?: string;
   onCommentAdded?: () => void;
+  // When provided, the modal auto-scrolls to this comment and briefly
+  // highlights it. Used when the user clicks "back" on a profile page
+  // reached from a mention inside that specific comment.
+  highlightCommentId?: string;
 }
 
 interface ReplyTarget {
@@ -58,6 +62,7 @@ export default function CommentsModal({
   onClose,
   currentUserId,
   onCommentAdded,
+  highlightCommentId,
 }: Props) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [authors, setAuthors] = useState<Record<string, Author>>({});
@@ -70,6 +75,7 @@ export default function CommentsModal({
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [myLikes, setMyLikes] = useState<Set<string>>(new Set());
   const [likesSupported, setLikesSupported] = useState(true);
+  const [pulseCommentId, setPulseCommentId] = useState<string | null>(null);
   const [mentionState, setMentionState] = useState<{
     open: boolean;
     query: string;
@@ -78,6 +84,7 @@ export default function CommentsModal({
   }>({ open: false, query: '', start: 0, end: 0 });
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const commentRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   const handlePickMention = (s: MentionSuggestion) => {
     if (!s.username) return;
@@ -231,6 +238,52 @@ export default function CommentsModal({
     });
     return { topLevel: top, repliesByRoot: replies };
   }, [comments, hidden]);
+
+  /**
+   * When a `highlightCommentId` is provided (e.g. the user came back from
+   * a profile page opened from a mention inside this comment), auto-expand
+   * the thread that contains it, scroll it into view and pulse it.
+   */
+  useEffect(() => {
+    if (!open || !highlightCommentId) return;
+    if (comments.length === 0) return;
+    const target = comments.find((c) => c.id === highlightCommentId);
+    if (!target) return;
+
+    // If the comment is a reply, expand its thread so it renders.
+    if (target.parent_comment_id) {
+      // Resolve root to expand.
+      const all = new Map(comments.map((x) => [x.id, x] as const));
+      let cur = target;
+      while (cur.parent_comment_id) {
+        const parent = all.get(cur.parent_comment_id);
+        if (!parent) break;
+        cur = parent;
+      }
+      const rootId = cur.id;
+      setExpandedThreads((prev) => {
+        if (prev.has(rootId)) return prev;
+        const next = new Set(prev);
+        next.add(rootId);
+        return next;
+      });
+    }
+
+    // Defer scroll to allow the (possibly) expanded DOM to render.
+    const t = window.setTimeout(() => {
+      const el = commentRefs.current[highlightCommentId];
+      if (el) {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch {
+          el.scrollIntoView();
+        }
+      }
+      setPulseCommentId(highlightCommentId);
+      window.setTimeout(() => setPulseCommentId(null), 2200);
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [open, highlightCommentId, comments]);
 
   const getName = (userId: string): string => {
     const a = authors[userId];
@@ -586,7 +639,14 @@ export default function CommentsModal({
                   )}
                 </div>
                 <div className="text-sm">
-                  <MentionText text={c.content} />
+                  <MentionText
+                    text={c.content}
+                    returnContext={{
+                      postId,
+                      commentId: c.id,
+                      openComments: true,
+                    }}
+                  />
                 </div>
               </div>
               <CommentMenu
@@ -613,9 +673,6 @@ export default function CommentsModal({
             <button
               type="button"
               onClick={() => {
-                const rootId =
-                  (c.parent_comment_id && comments.find((x) => x.id === c.parent_comment_id)?.id) ||
-                  c.id;
                 // If this comment is itself a reply, its root is already the parent.
                 const effectiveRoot = c.parent_comment_id ? c.parent_comment_id : c.id;
                 startReply(c, effectiveRoot);
@@ -635,6 +692,17 @@ export default function CommentsModal({
       className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
+      <style>{`
+        .loboko-comment-pulse {
+          animation: lobokoCommentPulse 2s ease-out;
+          border-radius: 1rem;
+        }
+        @keyframes lobokoCommentPulse {
+          0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
+          40% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.25); }
+          100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+      `}</style>
       <div
         className="bg-[var(--loboko-surface)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl border border-[var(--loboko-border)] h-[85vh] sm:h-[75vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -664,7 +732,15 @@ export default function CommentsModal({
                 const replies = repliesByRoot.get(c.id) || [];
                 const expanded = expandedThreads.has(c.id);
                 return (
-                  <li key={c.id} className="space-y-2">
+                  <li
+                    key={c.id}
+                    ref={(el) => {
+                      commentRefs.current[c.id] = el;
+                    }}
+                    className={`space-y-2 ${
+                      pulseCommentId === c.id ? 'loboko-comment-pulse' : ''
+                    }`}
+                  >
                     {renderCommentBubble(c, { isReply: false })}
                     {replies.length > 0 && (
                       <div className="pl-10">
@@ -694,7 +770,15 @@ export default function CommentsModal({
                                 if (parent) replyToName = getName(parent.user_id);
                               }
                               return (
-                                <li key={r.id}>
+                                <li
+                                  key={r.id}
+                                  ref={(el) => {
+                                    commentRefs.current[r.id] = el;
+                                  }}
+                                  className={
+                                    pulseCommentId === r.id ? 'loboko-comment-pulse' : ''
+                                  }
+                                >
                                   {renderCommentBubble(r, {
                                     isReply: true,
                                     replyToName,

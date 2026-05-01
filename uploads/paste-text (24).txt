@@ -1,0 +1,50 @@
+Corriger précisément le retour après clic sur une mention dans un commentaire.
+
+Problème :
+Quand je clique sur @username dans un commentaire, ça ouvre bien le profil.
+Mais quand je clique sur Retour depuis ce profil, ça ne revient pas au commentaire où j’étais. Ça revient à l’accueil.
+
+Objectif :
+Après clic sur une mention, Retour doit ramener exactement à l’endroit précédent :
+- même publication
+- même modal/commentaires ouverts
+- même commentaire visible si possible
+
+À faire :
+1. Quand on clique sur une mention depuis un commentaire :
+- naviguer vers le profil avec un state React Router :
+  navigate('/u/:userId', {
+    state: {
+      from: currentLocation.pathname + currentLocation.search,
+      returnToComment: true,
+      postId,
+      commentId
+    }
+  })
+
+2. Dans la page profil/public profile :
+- le bouton Retour doit d’abord vérifier location.state?.from
+- si présent : navigate(location.state.from, { state: location.state })
+- sinon : navigate(-1)
+- sinon fallback vers /home
+
+3. Sur la page cible :
+- si state contient postId/commentId :
+  - rouvrir les commentaires de ce post
+  - scroller ou surligner le commentaire si possible
+
+4. Appliquer aussi aux mentions depuis :
+- publication
+- commentaire
+- réponse
+- message privé
+- groupe
+
+5. Ne pas casser :
+- lien profil normal
+- navigation depuis menu
+- navigation depuis recherche
+- shared_post
+- messages/groupes
+
+Build + lint à la fin.

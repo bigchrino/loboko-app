@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { splitMentionChunks, resolveUsernameToId } from '@/lib/mentions';
 
@@ -8,15 +8,39 @@ interface Props {
   // Called when a mention is clicked — if provided it is invoked INSTEAD of
   // navigating, so callers can handle mention clicks inside modals.
   onMentionClick?: (username: string) => void;
+  // Optional context passed as navigation state so that the target profile
+  // screen can "come back" to the exact original location (including
+  // re-opening the comments modal for the right post/comment).
+  returnContext?: {
+    // Post id if the mention was rendered inside a post or a comment.
+    postId?: string;
+    // Comment id if the mention was inside a specific comment.
+    commentId?: string;
+    // When true, UserProfile back button should re-open the comments modal
+    // on that post and scroll to `commentId`.
+    openComments?: boolean;
+  };
 }
 
 /**
  * Render text with @mentions highlighted as clickable links that resolve
  * the username to a user id and navigate to `/u/:userId`. Shows a toast
  * "Profil introuvable" when the mentioned user no longer exists.
+ *
+ * When navigating, we attach the current pathname+search as `state.from`
+ * along with an optional `returnContext`, so the profile page's back
+ * button can bring the user back to their exact previous location
+ * (e.g. the same feed scroll position + open the comments modal on the
+ * original comment).
  */
-export default function MentionText({ text, className, onMentionClick }: Props) {
+export default function MentionText({
+  text,
+  className,
+  onMentionClick,
+  returnContext,
+}: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const chunks = splitMentionChunks(text || '');
 
   const handleClick = async (username: string, e: React.MouseEvent) => {
@@ -32,7 +56,12 @@ export default function MentionText({ text, className, onMentionClick }: Props) 
         toast.error('Profil introuvable');
         return;
       }
-      navigate(`/u/${userId}`);
+      navigate(`/u/${userId}`, {
+        state: {
+          from: `${location.pathname}${location.search}${location.hash}`,
+          returnContext: returnContext || null,
+        },
+      });
     } catch (err) {
       console.error('Mention navigate failed:', err);
       toast.error('Profil introuvable');

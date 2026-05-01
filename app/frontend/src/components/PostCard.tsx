@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Heart, MessageCircle, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -38,7 +39,16 @@ interface Props {
   onDeleted?: () => void;
 }
 
+interface ReturnContextState {
+  returnContext?: {
+    postId?: string;
+    commentId?: string;
+    openComments?: boolean;
+  } | null;
+}
+
 export default function PostCard({ post, currentUserId, onDeleted }: Props) {
+  const location = useLocation();
   const [author, setAuthor] = useState<Author | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -50,6 +60,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
   const [sharesCount, setSharesCount] = useState(post.shares_count || 0);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
@@ -123,6 +134,21 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
       }
     })();
   }, [post.id, post.user_id, post.image_key, post.video_key, currentUserId]);
+
+  /**
+   * When the user returns from UserProfile after clicking a mention inside
+   * one of this post's comments, the profile page forwards a
+   * `returnContext` in `location.state`. If that context targets THIS post,
+   * we auto-open the comments modal with the right comment highlighted.
+   */
+  useEffect(() => {
+    const state = (location.state as ReturnContextState | null) || null;
+    const ctx = state?.returnContext;
+    if (!ctx || !ctx.openComments) return;
+    if (ctx.postId !== post.id) return;
+    setHighlightCommentId(ctx.commentId || null);
+    setShowComments(true);
+  }, [location.state, post.id]);
 
   const toggleLike = async () => {
     if (!currentUserId) {
@@ -351,7 +377,10 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         </header>
 
         <p className="text-sm leading-relaxed mb-3">
-          <MentionText text={post.content} />
+          <MentionText
+            text={post.content}
+            returnContext={{ postId: post.id }}
+          />
         </p>
 
         {imageUrl && (
@@ -425,9 +454,13 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         postId={post.id}
         postAuthorId={post.user_id}
         open={showComments}
-        onClose={() => setShowComments(false)}
+        onClose={() => {
+          setShowComments(false);
+          setHighlightCommentId(null);
+        }}
         currentUserId={currentUserId}
         onCommentAdded={() => setCommentsCount((c) => c + 1)}
+        highlightCommentId={highlightCommentId || undefined}
       />
     </>
   );
