@@ -41,7 +41,7 @@ function PeerAvatar({ profile }: { profile?: Profile }) {
   return (
     <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm shrink-0">
       {url ? (
-        <img src={url} alt={name} className="w-full h-full object-cover" />
+        <img src={url} alt={name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
       ) : (
         name.slice(0, 2).toUpperCase()
       )}

@@ -13,10 +13,10 @@ import { supabase } from '@/lib/supabase';
 //  - first load: enough to fill 1-2 screens without feeling empty
 //  - subsequent pages: slightly larger to reduce round-trips while the
 //    user is actively scrolling up through history
-export const DM_PAGE_SIZE = 40;
-export const DM_NEXT_PAGE_SIZE = 40;
-export const GROUP_PAGE_SIZE = 40;
-export const GROUP_NEXT_PAGE_SIZE = 40;
+export const DM_PAGE_SIZE = 20;
+export const DM_NEXT_PAGE_SIZE = 20;
+export const GROUP_PAGE_SIZE = 20;
+export const GROUP_NEXT_PAGE_SIZE = 20;
 
 export interface PageResult<T> {
   // Ascending order (oldest first) so callers can prepend/append directly.

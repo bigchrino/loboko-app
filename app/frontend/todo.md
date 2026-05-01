@@ -164,3 +164,14 @@
 - [x] `GroupChat.tsx` : delete-for-everyone patche localement + merge (reste cohérent avec les vieilles pages)
 - [x] Run `pnpm run lint`
 - [x] Run `pnpm run build`
+
+### Phase 14 - Performance fine & correctif viewport mobile
+- [x] Réduire la pagination initiale à 20 messages (DM + groupes) pour un premier rendu plus rapide
+- [x] Garder le chargement progressif de 20 messages supplémentaires au scroll vers le haut
+- [x] Viewport mobile : `<meta name="viewport" content="width=device-width, initial-scale=1">` (sans `maximum-scale`/`user-scalable=no`, accessibilité préservée)
+- [x] `index.css` : `html, body { overflow-x: hidden; max-width: 100vw }` + `#root` idem, empêche les débordements horizontaux
+- [x] `index.css` : `input/textarea/select` à `16px` sur ≤640px pour éviter le zoom iOS Safari au focus
+- [x] `index.css` : `img, video { max-width: 100%; height: auto }` global
+- [x] Ajouter `loading="lazy"` + `decoding="async"` sur les images (posts, avatars, statuts, viewers, listes, profils)
+- [x] Run `pnpm run lint`
+- [x] Run `pnpm run build`

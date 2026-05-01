@@ -1,0 +1,75 @@
+Améliorer les performances et corriger les bugs UI critiques.
+
+PRIORITÉ 1 — à implémenter maintenant
+
+---
+
+1. Pagination des messages (OBLIGATOIRE)
+
+Problème :
+Actuellement trop de messages sont chargés d’un coup → ralentissement.
+
+À faire :
+- Charger seulement 20 messages au départ
+- Ajouter un système de "load more" au scroll (infinite scroll vers le haut)
+- Requête Supabase avec :
+  - limit(20)
+  - order by created_at DESC
+- Quand l’utilisateur scroll vers le haut :
+  - charger les 20 messages suivants
+- Garder la position du scroll stable (ne pas faire sauter la vue)
+
+Doit fonctionner pour :
+- messages privés
+- groupes
+
+---
+
+2. Lazy loading images / vidéos
+
+Problème :
+Tous les médias se chargent même hors écran.
+
+À faire :
+- Ajouter loading="lazy" sur toutes les images
+- Pour vidéos :
+  - ne pas charger automatiquement
+  - charger seulement quand visible (IntersectionObserver)
+- Ne pas casser :
+  - preview images
+  - vidéos
+  - documents
+
+---
+
+3. Correction bug zoom / layout (CRITIQUE mobile)
+
+Problème :
+La page se zoom / dézoome ou sort du cadre.
+
+À faire :
+- Vérifier et corriger le viewport :
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+- Empêcher overflow horizontal :
+  html, body { overflow-x: hidden; }
+- Vérifier :
+  - aucun élément dépasse 100vw
+  - corriger les width: 100vw problématiques
+- Tester :
+  - iPhone Safari
+  - Android Chrome
+  - Desktop
+
+---
+
+Contraintes :
+- Ne pas casser :
+  - messages existants
+  - appels
+  - fichiers
+  - push notifications
+- Code propre et optimisé
+- Build + lint OK
+
+Objectif final :
+App fluide même avec connexion lente.

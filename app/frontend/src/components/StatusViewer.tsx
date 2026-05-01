@@ -592,7 +592,7 @@ function AuthorAvatar({
   return (
     <div className="w-9 h-9 rounded-full bg-white/20 overflow-hidden flex items-center justify-center text-xs font-bold shrink-0">
       {url ? (
-        <img src={url} alt="" className="w-full h-full object-cover" />
+        <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
       ) : (
         <span>{initials}</span>
       )}

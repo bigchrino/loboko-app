@@ -193,7 +193,7 @@ export default function ProvidersByCategory() {
                   aria-label={`Voir le profil de ${name}`}
                 >
                   {p.avatar_url ? (
-                    <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <img src={p.avatar_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     initials
                   )}

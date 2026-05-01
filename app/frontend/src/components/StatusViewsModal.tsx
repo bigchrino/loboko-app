@@ -102,7 +102,7 @@ function ViewerRow({ viewer }: { viewer: StatusViewer }) {
     <li className="flex items-center gap-3 px-4 py-3">
       <div className="w-10 h-10 rounded-full bg-[var(--loboko-surface)] overflow-hidden flex items-center justify-center text-sm font-bold">
         {url ? (
-          <img src={url} alt="" className="w-full h-full object-cover" />
+          <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
           <span>{label.slice(0, 2).toUpperCase()}</span>
         )}

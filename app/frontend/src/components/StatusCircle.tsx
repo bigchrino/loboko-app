@@ -59,7 +59,7 @@ export default function StatusCircle({
           className="w-full h-full rounded-full bg-[var(--loboko-surface)] overflow-hidden flex items-center justify-center text-sm font-bold text-[var(--loboko-text)]"
         >
           {url ? (
-            <img src={url} alt="" className="w-full h-full object-cover" />
+            <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
           ) : (
             <span>{fallbackLabel.slice(0, 2).toUpperCase()}</span>
           )}

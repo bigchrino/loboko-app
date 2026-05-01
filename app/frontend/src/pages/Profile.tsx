@@ -152,7 +152,7 @@ export default function Profile() {
           <div className="relative">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                <img src={avatarUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               ) : (
                 initials
               )}

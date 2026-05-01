@@ -127,7 +127,7 @@ export default function UserProfilePage() {
         <div className="flex items-start gap-4 mb-4">
           <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl shrink-0">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+              <img src={avatarUrl} alt={name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               initials
             )}

@@ -28,7 +28,7 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
     >
       <div className="w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold shrink-0">
         {avatarUrl ? (
-          <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+          <img src={avatarUrl} alt={name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
           initials
         )}

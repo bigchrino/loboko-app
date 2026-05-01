@@ -232,7 +232,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         <header className="flex items-center gap-3 mb-3">
           <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={authorName} className="w-full h-full object-cover" />
+              <img src={avatarUrl} alt={authorName} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               initials
             )}
@@ -278,7 +278,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
 
         {imageUrl && (
           <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)]">
-            <img src={imageUrl} alt="" className="w-full h-auto object-cover max-h-[480px]" />
+            <img src={imageUrl} alt="" loading="lazy" decoding="async" className="w-full h-auto object-cover max-h-[480px]" />
           </div>
         )}
 
