@@ -35,6 +35,10 @@ import ContactInfo from './pages/ContactInfo';
 import FindProviders from './pages/FindProviders';
 import AdminReports from './pages/AdminReports';
 import ProvidersByCategory from './pages/ProvidersByCategory';
+import Works from './pages/Works';
+import ServiceRequests from './pages/ServiceRequests';
+import ServiceRequestDetail from './pages/ServiceRequestDetail';
+import Favorites from './pages/Favorites';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -101,6 +105,10 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
   { path: '/admin/reports', element: <AdminReports /> },
+  { path: '/works', element: <Works /> },
+  { path: '/requests', element: <ServiceRequests /> },
+  { path: '/requests/:requestId', element: <ServiceRequestDetail /> },
+  { path: '/favorites', element: <Favorites /> },
 ];
 
 const AppRoutes = () => (

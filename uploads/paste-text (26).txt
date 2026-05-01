@@ -1,0 +1,103 @@
+Nouvelle phase LOBOKO : feed de réalisations, demandes de service, favoris et recommandations.
+
+Objectif :
+Transformer LOBOKO en vraie plateforme de services, pas seulement une messagerie.
+
+1. Feed de réalisations
+
+Créer une page où les prestataires publient leurs travaux réalisés.
+
+Exemples :
+- coiffeur : coiffures réalisées
+- mécanicien : réparations
+- graphiste : designs
+- développeur : sites/apps
+- menuisier : meubles
+- peintre : chantiers
+
+À faire :
+- créer une page “Réalisations”
+- permettre aux prestataires de publier :
+  - photo ou vidéo
+  - titre
+  - description courte
+  - catégorie de service
+  - localisation optionnelle
+- afficher un feed type Instagram/TikTok simple
+- chaque réalisation doit mener vers le profil du prestataire
+- permettre liker/commenter/partager si les composants existent déjà
+- ne pas confondre avec les posts sociaux normaux : c’est une vitrine professionnelle
+
+2. Demande de service
+
+Créer un système où un client peut poster son besoin.
+
+Exemple :
+“Je cherche un plombier à Kinshasa aujourd’hui.”
+
+À faire :
+- page “Demandes”
+- bouton “Publier une demande”
+- champs :
+  - titre
+  - description
+  - catégorie
+  - ville
+  - urgence : normal / urgent
+  - budget optionnel
+- les prestataires peuvent répondre à une demande
+- le client peut contacter un prestataire depuis sa réponse
+- afficher les demandes par catégorie et ville
+
+3. Favoris
+
+Permettre aux utilisateurs d’enregistrer :
+- prestataires
+- services/catégories
+- réalisations
+
+À faire :
+- bouton favoris sur cartes prestataires, profils, réalisations
+- page “Favoris”
+- filtres : prestataires / services / réalisations
+- sauvegarde en base par utilisateur
+
+4. Recommandations simples
+
+Ajouter sur /find et accueil :
+- Top prestataires
+- Les mieux notés
+- Prestataires disponibles
+- Réalisations populaires
+
+Logique simple pour commencer :
+- premium plus tard
+- note moyenne
+- nombre d’avis
+- disponibilité
+- nombre de missions
+- récence
+
+5. Base de données
+
+Si SQL nécessaire, créer MARKETPLACE_FEATURES_SETUP.md avec :
+- table provider_works ou service_showcase pour les réalisations
+- table service_requests
+- table service_request_responses
+- table favorites
+- policies RLS propres
+- scripts idempotents
+
+6. Contraintes
+
+- Ne pas casser :
+  - messages
+  - groupes
+  - appels
+  - posts existants
+  - commentaires
+  - avis
+  - documents
+  - notifications
+- Réutiliser les composants existants quand possible
+- Build + lint à la fin
