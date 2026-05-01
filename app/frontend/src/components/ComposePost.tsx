@@ -14,6 +14,7 @@ import {
   type MentionSuggestion,
 } from '@/lib/mentions';
 import { createNotification } from '@/lib/notifications';
+import { triggerMentionPush } from '@/lib/push-trigger';
 
 interface Props {
   onPosted: () => void;
@@ -126,21 +127,45 @@ export default function ComposePost({ onPosted }: Props) {
       }
       if (res.error) throw res.error;
 
-      // Notify mentioned users (non-blocking).
+      // Notify mentioned users (non-blocking) + fire push.
       try {
         const insertedId =
           (res.data as { id?: string | number } | null)?.id ?? undefined;
         const mentionMap = await resolveMentionedUserIds(finalText);
+        // Look up actor display name from profiles (fallback: email-local-part).
+        let actorName = user.email?.split('@')[0] ?? 'Quelqu’un';
+        try {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('username, display_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          if (p?.display_name) actorName = p.display_name;
+          else if (p?.username) actorName = p.username;
+        } catch {
+          /* ignore; fall back to email local part */
+        }
         await Promise.all(
-          Object.entries(mentionMap).map(([, uid]) =>
-            createNotification({
+          Object.entries(mentionMap).map(([, uid]) => {
+            if (uid === user.id) return Promise.resolve();
+            // In-app notification
+            const p = createNotification({
               recipientId: uid,
               fromUserId: user.id,
               type: 'comment', // reuse existing allowed type to avoid schema changes
               postId: insertedId,
               message: 'vous a mentionné dans une publication',
-            }),
-          ),
+            });
+            // Push notification (fire-and-forget)
+            triggerMentionPush({
+              recipientId: uid,
+              actorName,
+              mentionType: 'post',
+              postId: insertedId,
+              body: finalText,
+            });
+            return p;
+          }),
         );
       } catch (nErr) {
         console.error('[compose-post] mention notifications failed', nErr);

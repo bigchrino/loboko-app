@@ -48,7 +48,9 @@ import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import MentionText from '@/components/MentionText';
 import LoadOlderTrigger from '@/components/LoadOlderTrigger';
-import { triggerPushNotification, notificationPreview } from '@/lib/push-trigger';
+import { triggerPushNotification, triggerMentionPush, notificationPreview } from '@/lib/push-trigger';
+import { resolveMentionedUserIds } from '@/lib/mentions';
+import { createNotification } from '@/lib/notifications';
 import {
   setActiveConversation,
   clearActiveConversation,
@@ -1003,6 +1005,44 @@ export default function Messages() {
       });
     } catch (e) {
       console.warn('[messages] push trigger failed', e);
+    }
+
+    // Mention handling for DMs (fire-and-forget): detect @username in the
+    // outgoing text and deliver both an in-app notification and a push to
+    // anyone mentioned other than the recipient themselves (who already
+    // gets the regular DM push).
+    try {
+      const decodedForMentions = decodePayload(payload.content);
+      const rawText =
+        decodedForMentions?.kind === 'text'
+          ? decodedForMentions.text ?? ''
+          : '';
+      if (rawText && /@[A-Za-z0-9_.-]/.test(rawText)) {
+        const mentionMap = await resolveMentionedUserIds(rawText);
+        const actorName =
+          profile?.display_name || profile?.username || 'Quelqu’un';
+        const skip = new Set<string>([myId, payload.receiver_id]);
+        await Promise.all(
+          Object.entries(mentionMap).map(([, uid]) => {
+            if (skip.has(uid)) return Promise.resolve();
+            const p = createNotification({
+              recipientId: uid,
+              fromUserId: myId,
+              type: 'message',
+              message: 'vous a mentionné dans un message',
+            });
+            triggerMentionPush({
+              recipientId: uid,
+              actorName,
+              mentionType: 'message',
+              body: rawText,
+            });
+            return p;
+          }),
+        );
+      }
+    } catch (mErr) {
+      console.warn('[messages] mention handling failed', mErr);
     }
   };
 

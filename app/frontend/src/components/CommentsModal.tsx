@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
 import { createNotification } from '@/lib/notifications';
+import { triggerMentionPush } from '@/lib/push-trigger';
 import { formatPostTime } from '@/lib/format-time';
 import CommentMenu from './CommentMenu';
 import EmojiPickerMini from './EmojiPickerMini';
@@ -348,7 +349,7 @@ export default function CommentsModal({
           console.error('[comments] notification error (non-blocking):', nErr);
         }
       }
-      // Notify any @mentioned users in the comment body (non-blocking).
+      // Notify any @mentioned users in the comment body (non-blocking) + push.
       try {
         const mentionMap = await resolveMentionedUserIds(text);
         const skip = new Set<string>([authUid]);
@@ -357,16 +358,39 @@ export default function CommentsModal({
           const target = comments.find((c) => c.id === replyTo.targetCommentId);
           if (target) skip.add(target.user_id);
         }
+        // Resolve actor display name for push body.
+        let actorName = 'Quelqu’un';
+        try {
+          const { data: pr } = await supabase
+            .from('profiles')
+            .select('username, display_name')
+            .eq('user_id', authUid)
+            .maybeSingle();
+          if (pr?.display_name) actorName = pr.display_name;
+          else if (pr?.username) actorName = pr.username;
+        } catch {
+          /* ignore */
+        }
         await Promise.all(
           Object.entries(mentionMap).map(([, uid]) => {
             if (skip.has(uid)) return Promise.resolve();
-            return createNotification({
+            // In-app notification
+            const p = createNotification({
               recipientId: uid,
               fromUserId: authUid,
               type: 'comment',
               postId,
               message: 'vous a mentionné dans un commentaire',
             });
+            // Push notification (fire-and-forget)
+            triggerMentionPush({
+              recipientId: uid,
+              actorName,
+              mentionType: 'comment',
+              postId,
+              body: text,
+            });
+            return p;
           }),
         );
       } catch (nErr) {

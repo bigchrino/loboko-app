@@ -115,3 +115,82 @@ export function triggerPushNotification(args: TriggerArgs): void {
     }
   })();
 }
+
+/**
+ * Fire-and-forget push for an @mention inside a post or a comment.
+ *
+ * Contrary to `triggerPushNotification` (which is tied to a conversation),
+ * a mention push carries a `post_id` (and optionally `comment_id`) so the
+ * service worker / app can deep-link to the publication when tapped.
+ *
+ * Never throws. Skips self-mentions.
+ */
+export function triggerMentionPush(args: {
+  recipientId: string;
+  actorName: string;
+  mentionType: 'post' | 'comment' | 'message';
+  postId?: string | number | null;
+  commentId?: string | number | null;
+  messageId?: string | number | null;
+  body?: string;
+}): void {
+  const {
+    recipientId,
+    actorName,
+    mentionType,
+    postId,
+    commentId,
+    messageId,
+    body,
+  } = args;
+  if (!recipientId) return;
+
+  const title = 'Vous avez été mentionné';
+  const displayBody = (() => {
+    const who = actorName?.trim() || 'Quelqu’un';
+    const suffix =
+      mentionType === 'post'
+        ? 'vous a mentionné dans une publication'
+        : mentionType === 'comment'
+          ? 'vous a mentionné dans un commentaire'
+          : 'vous a mentionné dans un message';
+    if (body && body.trim()) {
+      return `${who} ${suffix}: ${notificationPreview(body, '')}`.trim();
+    }
+    return `${who} ${suffix}`;
+  })();
+
+  void (async () => {
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const me = userRes?.user?.id;
+      if (me && me === recipientId) return;
+
+      const data: Record<string, unknown> = { type: mentionType };
+      if (postId !== undefined && postId !== null && postId !== '') {
+        data.post_id = postId;
+      }
+      if (commentId !== undefined && commentId !== null && commentId !== '') {
+        data.comment_id = commentId;
+      }
+      if (messageId !== undefined && messageId !== null && messageId !== '') {
+        data.message_id = messageId;
+      }
+
+      const { error } = await supabase.functions.invoke('send-push', {
+        body: {
+          recipient_user_id: recipientId,
+          kind: 'mention',
+          title,
+          body: displayBody,
+          data,
+        },
+      });
+      if (error) {
+        console.warn('[push-trigger] mention push invoke failed', error.message ?? error);
+      }
+    } catch (e) {
+      console.warn('[push-trigger] mention push unexpected error', e);
+    }
+  })();
+}

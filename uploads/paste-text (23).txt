@@ -1,0 +1,54 @@
+Ajouter les notifications de mentions (@username).
+
+Objectif :
+Notifier un utilisateur lorsqu’il est mentionné dans :
+- un message
+- un commentaire
+- une publication
+
+---
+
+1. Détection des mentions
+
+- parser le texte avec regex : /@(\w+)/g
+- récupérer les usernames mentionnés
+- convertir en user_id via profiles
+
+---
+
+2. Backend / push
+
+Pour chaque user mentionné :
+
+envoyer via send-push :
+
+{
+  kind: "mention",
+  title: "Vous avez été mentionné",
+  body: "NomUtilisateur vous a mentionné",
+  data: {
+    type: "post" | "comment" | "message",
+    post_id / message_id
+  }
+}
+
+---
+
+3. In-app notifications
+
+Ajouter aussi une notification interne (si système déjà existant)
+
+---
+
+4. Contraintes
+
+- ne pas notifier soi-même
+- éviter doublons
+- respecter push_preferences (mentions_only)
+
+---
+
+Objectif final :
+
+Quand quelqu’un écrit @username :
+→ la personne reçoit une notification immédiate.
