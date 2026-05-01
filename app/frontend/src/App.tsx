@@ -32,6 +32,7 @@ import Menu from './pages/Menu';
 import UserProfilePage from './pages/UserProfile';
 import ContactInfo from './pages/ContactInfo';
 import FindProviders from './pages/FindProviders';
+import AdminReports from './pages/AdminReports';
 import ProvidersByCategory from './pages/ProvidersByCategory';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -97,6 +98,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/messages/contact/:userId', element: <ContactInfo /> },
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
+  { path: '/admin/reports', element: <AdminReports /> },
 ];
 
 const AppRoutes = () => (

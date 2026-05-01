@@ -7,6 +7,7 @@ import {
   StarOff,
   Trash2,
   UserX,
+  Flag,
 } from 'lucide-react';
 
 export type MessageAction =
@@ -16,7 +17,8 @@ export type MessageAction =
   | 'star'
   | 'unstar'
   | 'delete_for_me'
-  | 'delete_for_everyone';
+  | 'delete_for_everyone'
+  | 'report';
 
 interface Props {
   anchor: { x: number; y: number };
@@ -91,6 +93,16 @@ export default function MessageActionsMenu({
       icon: UserX,
       danger: true,
       hidden: !mine,
+    },
+    // Non-owners can report. The `reports` table has a unique
+    // `(reporter_id, target_type, target_id)` index, so the backend
+    // silently deduplicates repeat signals.
+    {
+      key: 'report',
+      label: 'Signaler',
+      icon: Flag,
+      danger: true,
+      hidden: mine,
     },
   ];
 

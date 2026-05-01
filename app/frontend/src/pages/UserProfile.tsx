@@ -4,10 +4,13 @@ import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { useAuth, Profile } from '@/contexts/AuthContext';
-import { Star, MessageCircle, ArrowLeft, MapPin, BadgeCheck, Briefcase } from 'lucide-react';
+import { Star, MessageCircle, ArrowLeft, MapPin, BadgeCheck, Briefcase, Flag } from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import RatingModal from '@/components/RatingModal';
 import PortfolioGallery from '@/components/PortfolioGallery';
+import ReportDialog from '@/components/ReportDialog';
+import PremiumBadge from '@/components/PremiumBadge';
+import { isPremium } from '@/lib/subscription';
 import {
   fetchRatingSummary,
   fetchRatingsList,
@@ -29,6 +32,7 @@ export default function UserProfilePage() {
   const [myExistingRating, setMyExistingRating] = useState<RatingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!userId) return;
@@ -139,6 +143,9 @@ export default function UserProfilePage() {
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
                 {targetProfile.role}
               </span>
+              {isPrestataire && isPremium(targetProfile) && (
+                <PremiumBadge variant="full" />
+              )}
             </div>
             <div className="text-sm text-[var(--loboko-text-muted)]">
               @{targetProfile.username}
@@ -242,8 +249,25 @@ export default function UserProfilePage() {
               {myExistingRating ? 'Modifier ma note' : 'Noter ce prestataire'}
             </button>
           )}
+          {!isSelf && user?.id && (
+            <button
+              onClick={() => setReportOpen(true)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl !bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)] text-sm font-semibold hover:border-[#ef4444] hover:text-[#ef4444] transition-colors"
+              aria-label="Signaler ce profil"
+            >
+              <Flag size={14} />
+              Signaler
+            </button>
+          )}
         </div>
       </div>
+
+      <ReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title="Signaler ce profil"
+        reportedUserId={targetProfile.user_id}
+      />
 
       {isPrestataire && targetProfile.user_id && (
         <PortfolioGallery userId={targetProfile.user_id} />

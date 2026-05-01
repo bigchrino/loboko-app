@@ -18,6 +18,8 @@ import {
 } from '@/lib/service-categories';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
 import { getMediaUrl } from '@/lib/storage-helpers';
+import { isPremium, premiumFirst } from '@/lib/subscription';
+import PremiumBadge from '@/components/PremiumBadge';
 
 type SortMode = 'recent' | 'rating' | 'jobs';
 
@@ -126,7 +128,11 @@ export default function ProvidersByCategory() {
         (a, b) => (b.completed_jobs_count || 0) - (a.completed_jobs_count || 0),
       );
     }
-    // 'recent' keeps the server order (created_at DESC)
+    // 'recent' keeps the server order (created_at DESC).
+    // Finally, premium providers are always surfaced first (within each
+    // sort mode). This is a stable sort in modern JS engines so ties
+    // preserve the ordering chosen above.
+    sorted.sort(premiumFirst);
     return sorted;
   }, [providers, query, minRating, city, availableOnly, verifiedOnly, sort]);
 
@@ -296,6 +302,7 @@ export default function ProvidersByCategory() {
                     >
                       {name}
                     </button>
+                    {isPremium(p) && <PremiumBadge />}
                     {p.is_verified && (
                       <BadgeCheck
                         size={14}

@@ -23,6 +23,8 @@ import {
   ServiceCategory,
 } from '@/lib/service-categories';
 import PortfolioEditor from '@/components/PortfolioEditor';
+import PremiumBadge from '@/components/PremiumBadge';
+import { isPremium, describePremiumExpiry } from '@/lib/subscription';
 
 export default function Profile() {
   const { profile, user, updateLobokoProfile } = useAuth();
@@ -162,6 +164,7 @@ export default function Profile() {
   }
 
   const initials = (profile.display_name || profile.username).slice(0, 2).toUpperCase();
+  const premiumExpiry = describePremiumExpiry(profile);
 
   return (
     <Layout title="Profil">
@@ -238,8 +241,16 @@ export default function Profile() {
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
                 {profile.role}
               </span>
+              {profile.role === 'prestataire' && isPremium(profile) && (
+                <PremiumBadge variant="full" />
+              )}
             </div>
             <div className="text-sm text-[var(--loboko-text-muted)]">@{profile.username}</div>
+            {profile.role === 'prestataire' && premiumExpiry && (
+              <div className="text-[10px] text-[#f59e0b] font-semibold mt-0.5">
+                {premiumExpiry}
+              </div>
+            )}
             {user?.email && (
               <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">{user.email}</div>
             )}

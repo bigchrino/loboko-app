@@ -39,6 +39,7 @@ import { formatLastSeen } from '@/lib/last-seen';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ForwardDialog from '@/components/ForwardDialog';
+import ReportDialog from '@/components/ReportDialog';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
 import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus } from 'lucide-react';
 import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
@@ -306,6 +307,7 @@ export default function Messages() {
   } | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [reportMessage, setReportMessage] = useState<Message | null>(null);
   const [pendingMessageDelete, setPendingMessageDelete] = useState<{
     message: Message;
     mode: 'me' | 'everyone';
@@ -1328,6 +1330,10 @@ export default function Messages() {
     }
     if (a === 'delete_for_everyone') {
       setPendingMessageDelete({ message: m, mode: 'everyone' });
+      return;
+    }
+    if (a === 'report') {
+      setReportMessage(m);
       return;
     }
   };
@@ -2382,6 +2388,13 @@ export default function Messages() {
           onPickEmoji={handleReactionPick}
         />
       )}
+
+      <ReportDialog
+        open={!!reportMessage}
+        onClose={() => setReportMessage(null)}
+        title="Signaler ce message"
+        reportedMessageId={reportMessage?.id}
+      />
 
       <ForwardDialog
         open={!!forwardMessage}

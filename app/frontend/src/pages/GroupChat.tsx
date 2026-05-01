@@ -28,6 +28,7 @@ import FilePicker, { FileSelection } from '@/components/FilePicker';
 import FileMessage from '@/components/FileMessage';
 import FilePreview from '@/components/FilePreview';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
+import ReportDialog from '@/components/ReportDialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import GroupMentionSuggestions from '@/components/GroupMentionSuggestions';
 import MentionText from '@/components/MentionText';
@@ -158,6 +159,7 @@ export default function GroupChat() {
   const [pendingFile, setPendingFile] = useState<FileSelection | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
+  const [reportMessage, setReportMessage] = useState<GroupMessage | null>(null);
   const [actionsMenu, setActionsMenu] = useState<{
     message: GroupMessage;
     x: number;
@@ -859,6 +861,10 @@ export default function GroupChat() {
       setPendingDelete({ message: m, mode: 'everyone' });
       return;
     }
+    if (a === 'report') {
+      setReportMessage(m);
+      return;
+    }
   };
 
   const runDelete = async () => {
@@ -1490,7 +1496,10 @@ export default function GroupChat() {
       {actionsMenu && (
         <MessageActionsMenu
           anchor={{ x: actionsMenu.x, y: actionsMenu.y }}
-          mine={actionsMenu.message.user_id === myId || isAdmin}
+          // For the "mine" visibility rule we use strict ownership
+          // (not admin) so admins still see "Signaler" on others'
+          // messages. Admin moderation is done from /admin/reports.
+          mine={actionsMenu.message.user_id === myId}
           isText={decodePayload(actionsMenu.message.content).kind === 'text'}
           starred={starred.has(actionsMenu.message.id)}
           onAction={handleMessageAction}
@@ -1498,6 +1507,13 @@ export default function GroupChat() {
           onPickEmoji={handleReactionPick}
         />
       )}
+
+      <ReportDialog
+        open={!!reportMessage}
+        onClose={() => setReportMessage(null)}
+        title="Signaler ce message"
+        reportedMessageId={reportMessage?.id}
+      />
 
       <ConfirmDialog
         open={!!pendingDelete}

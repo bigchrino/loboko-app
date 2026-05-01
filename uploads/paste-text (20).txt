@@ -1,0 +1,121 @@
+Nouvelle phase LOBOKO : modération + monétisation.
+
+Objectif :
+Sécuriser la plateforme (modération) et préparer les revenus (monétisation) sans casser l’existant.
+
+PRIORITÉ 4
+
+---
+
+1. 🛡️ Modération (OBLIGATOIRE)
+
+Mettre en place un système de signalement simple et efficace.
+
+Fonctionnalités :
+
+- Bouton “Signaler” sur :
+  - profils prestataires
+  - messages
+  - publications / statuts (si applicable)
+
+- Motifs de signalement :
+  - contenu inapproprié
+  - arnaque / fraude
+  - spam
+  - harcèlement
+  - autre
+
+- Formulaire :
+  - raison
+  - description (optionnel)
+
+Backend :
+
+- Créer table reports :
+  - id
+  - reporter_id
+  - reported_user_id (nullable)
+  - reported_message_id (nullable)
+  - reason
+  - description
+  - status (pending, reviewed, resolved)
+  - created_at
+
+- RLS :
+  - utilisateur peut créer un report
+  - utilisateur ne voit que ses propres reports
+  - admin peut voir tous les reports
+
+- Admin (simple pour maintenant) :
+  - page ou vue pour voir les signalements
+  - possibilité de marquer comme traité
+
+Objectif :
+Pouvoir réagir rapidement en cas d’abus.
+
+---
+
+2. 💰 Monétisation (STRUCTURE DE BASE)
+
+Ne pas activer le paiement complet maintenant, mais préparer la base.
+
+Fonctionnalités :
+
+- Statut prestataire :
+  - free
+  - premium
+
+- Avantages premium :
+  - meilleure visibilité dans les résultats
+  - badge “premium”
+  - priorité dans les recherches
+
+Backend :
+
+- Ajouter dans profiles :
+  - subscription_type (free/premium)
+  - subscription_expires_at (timestamp)
+
+- Par défaut :
+  - free
+
+- Logique :
+  - si premium actif → boost dans les résultats
+  - sinon → affichage normal
+
+Frontend :
+
+- Afficher badge premium sur :
+  - cartes prestataires
+  - profil public
+
+- Dans les résultats :
+  - afficher premium en premier
+
+---
+
+3. ⚠️ Contraintes importantes
+
+- Ne pas casser :
+  - messagerie
+  - documents
+  - appels
+  - push notifications
+  - profils existants
+
+- Compatibilité :
+  - anciens comptes = free par défaut
+
+- Code propre
+- SQL séparé dans :
+  - MODERATION_SETUP.md
+  - MONETIZATION_SETUP.md
+
+- Scripts idempotents
+
+---
+
+Objectif final :
+
+- protéger la plateforme contre abus
+- préparer une source de revenus sans complexité immédiat

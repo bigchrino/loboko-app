@@ -136,6 +136,8 @@ export interface ProviderProfile {
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
   is_verified?: boolean;
+  subscription_type?: 'free' | 'premium';
+  subscription_expires_at?: string | null;
 }
 
 export interface ProviderSearchFilters {

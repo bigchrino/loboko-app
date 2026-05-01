@@ -21,6 +21,11 @@ export interface Profile {
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
   is_verified?: boolean;
+  // Phase 17 — moderation + monetization. All with DB defaults so old
+  // accounts stay fully compatible (is_admin=false, subscription_type='free').
+  is_admin?: boolean;
+  subscription_type?: 'free' | 'premium';
+  subscription_expires_at?: string | null;
 }
 
 export interface LobokoAccount {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal, Copy, Flag, Trash2, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import ReportDialog from '@/components/ReportDialog';
 
 interface Props {
   postId: string;
@@ -10,8 +11,21 @@ interface Props {
   onDeleted?: () => void;
 }
 
+/**
+ * Contextual menu on each post card.
+ *
+ * Non-owners can:
+ *   - copy the post link
+ *   - hide the post locally (UI only for now)
+ *   - report the post — opens `ReportDialog`, which writes to the
+ *     `reports` table. The DB-level unique constraint prevents a single
+ *     user from reporting the same post twice.
+ *
+ * Owners can delete their own post (RLS enforces this on the server).
+ */
 export default function PostMenu({ postId, postAuthorId, currentUserId, onDeleted }: Props) {
   const [open, setOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const isOwner = !!currentUserId && currentUserId === postAuthorId;
@@ -38,9 +52,9 @@ export default function PostMenu({ postId, postAuthorId, currentUserId, onDelete
     setOpen(false);
   };
 
-  const report = () => {
-    toast.success('Publication signalée. Merci !');
+  const openReport = () => {
     setOpen(false);
+    setReportOpen(true);
   };
 
   const hide = () => {
@@ -88,7 +102,7 @@ export default function PostMenu({ postId, postAuthorId, currentUserId, onDelete
                 <EyeOff size={16} /> Masquer
               </button>
               <button
-                onClick={report}
+                onClick={openReport}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--loboko-surface-hover)] text-left text-[#f59e0b]"
               >
                 <Flag size={16} /> Signaler
@@ -105,6 +119,13 @@ export default function PostMenu({ postId, postAuthorId, currentUserId, onDelete
           )}
         </div>
       )}
+
+      <ReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        title="Signaler cette publication"
+        reportedPostId={postId}
+      />
     </div>
   );
 }

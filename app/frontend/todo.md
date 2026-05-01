@@ -15,6 +15,7 @@
 - [x] `UserProfile.tsx` : badges disponibilité / ville / missions / vérifié + `PortfolioGallery`
 - [x] `service-categories.ts` : `fetchProviders` (filtre catégorie/ville/available/verified)
 - [x] `ProvidersByCategory.tsx` : recherche avancée (ville, disponibilité, vérifié) + tri (récent / meilleure note / plus de missions)
+- [x] Report flow pour messages de groupe (`GroupChat.tsx` + `ReportDialog`)
 - [x] Lint + build final
 
 ### Sécurité
