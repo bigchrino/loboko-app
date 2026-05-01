@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -22,6 +23,7 @@ import {
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/');
   const { profile: myProfile, user } = useAuth();
 
   const [targetProfile, setTargetProfile] = useState<Profile | null>(null);
@@ -121,7 +123,7 @@ export default function UserProfilePage() {
   return (
     <Layout title="Profil">
       <button
-        onClick={() => navigate(-1)}
+        onClick={goBack}
         className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
       >
         <ArrowLeft size={16} />

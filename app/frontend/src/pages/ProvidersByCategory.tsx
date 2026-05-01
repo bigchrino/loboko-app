@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import {
   ArrowLeft,
@@ -48,6 +49,7 @@ const MIN_RATING_OPTIONS: Array<{ label: string; value: number }> = [
 export default function ProvidersByCategory() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/find');
 
   const [category, setCategory] = useState<ServiceCategory | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(true);
@@ -140,10 +142,10 @@ export default function ProvidersByCategory() {
     <Layout title={category?.name || 'Prestataires'}>
       <button
         type="button"
-        onClick={() => navigate('/find')}
+        onClick={goBack}
         className="inline-flex items-center gap-1.5 text-sm text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] mb-3"
       >
-        <ArrowLeft size={14} /> Toutes les catégories
+        <ArrowLeft size={14} /> Retour
       </button>
 
       <div className="mb-4">

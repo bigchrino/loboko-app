@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
@@ -127,6 +128,7 @@ function GroupAvatar({ group }: { group: Group }) {
 export default function GroupChat() {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/messages');
   const [searchParams, setSearchParams] = useSearchParams();
   const urlMessageId = searchParams.get('messageId');
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -994,7 +996,7 @@ export default function GroupChat() {
       <div className="flex flex-col h-[calc(100vh-180px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
         <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
           <button
-            onClick={() => navigate('/messages')}
+            onClick={goBack}
             className="p-2 rounded-full hover:bg-[var(--loboko-surface-hover)]"
           >
             <ArrowLeft size={18} />

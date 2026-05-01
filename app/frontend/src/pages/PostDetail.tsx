@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import PostCard, { PostItem } from '@/components/PostCard';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +10,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function PostDetail() {
   const { postId } = useParams<{ postId: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/');
   const { user } = useAuth();
   const [post, setPost] = useState<PostItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function PostDetail() {
       `}</style>
 
       <button
-        onClick={() => navigate(-1)}
+        onClick={goBack}
         className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
       >
         <ArrowLeft size={16} />

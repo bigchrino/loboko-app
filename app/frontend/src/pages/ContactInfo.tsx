@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { Profile, useAuth } from '@/contexts/AuthContext';
@@ -57,6 +58,7 @@ interface MediaItem {
 export default function ContactInfo() {
   const { userId: peerId } = useParams();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/messages');
   const { user } = useAuth();
   const { startCall } = useCall();
   const { isOnline } = usePresence();
@@ -251,7 +253,7 @@ export default function ContactInfo() {
       <div className="max-w-2xl mx-auto">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="flex items-center gap-2 text-sm text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] mb-4"
         >
           <ArrowLeft size={16} />

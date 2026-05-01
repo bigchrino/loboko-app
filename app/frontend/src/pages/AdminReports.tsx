@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -37,6 +38,7 @@ const STATUS_TABS: ReportStatus[] = ['pending', 'reviewed', 'resolved'];
 export default function AdminReportsPage() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/');
 
   const [tab, setTab] = useState<ReportStatus>('pending');
   const [rows, setRows] = useState<ReportRow[]>([]);
@@ -101,7 +103,7 @@ export default function AdminReportsPage() {
       <div className="p-4 max-w-3xl mx-auto">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={goBack}
           className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
         >
           <ArrowLeft size={16} />
