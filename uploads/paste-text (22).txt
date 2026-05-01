@@ -1,0 +1,57 @@
+Corriger la navigation du partage de publication.
+
+Problème actuel :
+Quand on clique sur un message de type "shared_post", l’application redirige vers l’accueil.
+
+Objectif :
+Rediriger vers la bonne publication.
+
+---
+
+1. Navigation
+
+Dans SharedPostMessage :
+
+Remplacer la navigation actuelle par :
+
+- ouvrir le profil du créateur du post
+- route : /user/:userId?post=:postId
+
+OU si page dédiée :
+- /post/:postId
+
+---
+
+2. Scroll automatique
+
+Sur la page cible :
+
+- récupérer postId depuis query ou params
+- attendre que les posts soient chargés
+- scroll vers le post correspondant
+- optionnel : highlight léger (animation)
+
+---
+
+3. Gestion fallback
+
+Si le post n’existe plus :
+- afficher "Contenu indisponible"
+- ne pas rediriger
+
+---
+
+4. Contraintes
+
+- Ne pas casser :
+  - messages
+  - groupes
+  - navigation existante
+- compatible mobile + desktop
+
+---
+
+Objectif final :
+
+Quand un utilisateur clique sur un partage :
+→ il arrive directement sur la bonne publication, au bon endroit, sans passer par l’accueil.

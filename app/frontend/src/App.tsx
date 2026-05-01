@@ -30,6 +30,7 @@ import UrgencesCasernes from './pages/UrgencesCasernes';
 import Recherches from './pages/Recherches';
 import Menu from './pages/Menu';
 import UserProfilePage from './pages/UserProfile';
+import PostDetail from './pages/PostDetail';
 import ContactInfo from './pages/ContactInfo';
 import FindProviders from './pages/FindProviders';
 import AdminReports from './pages/AdminReports';
@@ -95,6 +96,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/recherches', element: <Recherches /> },
   { path: '/menu', element: <Menu /> },
   { path: '/u/:userId', element: <UserProfilePage /> },
+  { path: '/post/:postId', element: <PostDetail /> },
   { path: '/messages/contact/:userId', element: <ContactInfo /> },
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
