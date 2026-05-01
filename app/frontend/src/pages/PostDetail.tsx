@@ -34,9 +34,32 @@ export default function PostDetail() {
     state?.returnContext && state.returnContext.postId === postId
       ? state.returnContext
       : null;
-  const highlightCommentId = returnCtx?.commentId || undefined;
+  const [consumedReturnCtx, setConsumedReturnCtx] = useState<
+    LocationState['returnContext'] | null
+  >(null);
+  const activeReturnCtx = returnCtx || consumedReturnCtx;
+  const highlightCommentId = activeReturnCtx?.commentId || undefined;
   const shouldFocusComments =
     !!highlightCommentId || location.hash === '#comments';
+
+  /**
+   * Once we've captured the `returnContext` on mount, strip it from
+   * `location.state` by replacing the current history entry. This way
+   * pressing "back" does NOT re-navigate forward into the state that
+   * would send the user back to the profile page (profile ↔ post loop).
+   * We keep `state.from` around so the back button can still return to
+   * the original origin if it is not a profile page.
+   */
+  useEffect(() => {
+    if (!returnCtx) return;
+    setConsumedReturnCtx(returnCtx);
+    const cleanedState: LocationState = state?.from ? { from: state.from } : {};
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: cleanedState,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnCtx]);
 
   const loadPost = useCallback(async () => {
     if (!postId) return;
@@ -85,12 +108,16 @@ export default function PostDetail() {
 
   /**
    * Back navigation: if we have an explicit `from` url (usually set by
-   * PostCard when opening detail), return there. Otherwise fall back to
-   * the standard back helper which tries `navigate(-1)` then `/`.
+   * PostCard when opening detail), return there — but NEVER if `from`
+   * points to a user profile (that would re-create the profile ↔ post
+   * loop when the profile sent the user back here via `state.from`).
+   * Otherwise fall back to the standard back helper which tries
+   * `navigate(-1)` then `/`.
    */
   const handleBack = () => {
-    if (state?.from) {
-      navigate(state.from);
+    const from = state?.from;
+    if (from && !/^\/u\//.test(from)) {
+      navigate(from);
       return;
     }
     fallbackBack();

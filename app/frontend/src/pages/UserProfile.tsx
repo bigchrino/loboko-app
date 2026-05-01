@@ -26,6 +26,11 @@ interface IncomingState {
     postId?: string;
     commentId?: string;
     openComments?: boolean;
+    // URL that was the "grand-parent" origin before the user clicked a
+    // mention — used by the target page so its in-app Back button can
+    // navigate back to the real origin (home, profile, conversation)
+    // after a history replace.
+    originalFrom?: string;
   } | null;
 }
 
@@ -117,9 +122,22 @@ export default function UserProfilePage() {
     const from = incoming?.from;
     const ctx = incoming?.returnContext || null;
     if (from) {
+      // Use `replace: true` so the profile entry is removed from history.
+      // Otherwise pressing "back" again on the target page would come
+      // right back to this profile, creating a profile ↔ post loop.
+      // We also forward `originalFrom` (the grand-parent origin captured
+      // at mention-click time) as the target page's new `from`, so its
+      // in-app Back button keeps working after the history replace.
+      const forwardedFrom = ctx?.originalFrom;
+      const forwardedState: {
+        from?: string;
+        returnContext?: typeof ctx;
+      } = {};
+      if (forwardedFrom) forwardedState.from = forwardedFrom;
+      if (ctx) forwardedState.returnContext = ctx;
       navigate(from, {
-        replace: false,
-        state: ctx ? { returnContext: ctx } : undefined,
+        replace: true,
+        state: Object.keys(forwardedState).length > 0 ? forwardedState : undefined,
       });
       return;
     }

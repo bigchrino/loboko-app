@@ -56,10 +56,22 @@ export default function MentionText({
         toast.error('Profil introuvable');
         return;
       }
+      // Preserve the "grand-parent" origin so UserProfile can forward it
+      // when sending the user back to the post page. This is what lets the
+      // post detail's in-app Back button return to the real origin (home,
+      // a profile, a conversation) instead of feeling inert after a
+      // history replace.
+      const currentState = (location.state as { from?: string } | null) || null;
+      const grandFrom = currentState?.from;
+      const enrichedReturnCtx = returnContext
+        ? { ...returnContext, originalFrom: grandFrom }
+        : grandFrom
+        ? { originalFrom: grandFrom }
+        : null;
       navigate(`/u/${userId}`, {
         state: {
           from: `${location.pathname}${location.search}${location.hash}`,
-          returnContext: returnContext || null,
+          returnContext: enrichedReturnCtx,
         },
       });
     } catch (err) {
