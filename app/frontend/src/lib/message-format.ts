@@ -70,6 +70,24 @@ export type SystemPayload = {
   actor_id: string;
 };
 
+/**
+ * Payload for sharing an existing post inside a conversation (1:1 or group).
+ * We do NOT duplicate the post content — only a small preview snapshot is
+ * embedded so the message still looks reasonable if the original post is
+ * later deleted. Consumers should re-fetch the live post when the user taps
+ * "Voir" and fall back to "contenu indisponible" on 404.
+ */
+export type SharedPostPayload = {
+  kind: 'shared_post';
+  post_id: string;
+  preview: {
+    author_id?: string;
+    author_name?: string;
+    text?: string;
+    image_url?: string;
+  };
+};
+
 export type MessagePayload =
   | TextPayload
   | AudioPayload
@@ -78,7 +96,8 @@ export type MessagePayload =
   | FilePayload
   | CallEventPayload
   | SignalPayload
-  | SystemPayload;
+  | SystemPayload
+  | SharedPostPayload;
 
 const PREFIX = '@@loboko:';
 

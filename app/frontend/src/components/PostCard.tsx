@@ -7,8 +7,10 @@ import LikesModal from './LikesModal';
 import CommentsModal from './CommentsModal';
 import PostMenu from './PostMenu';
 import MentionText from './MentionText';
+import SharePostDialog, { SharePostPreview } from './SharePostDialog';
 import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
+import { encodePayload, SharedPostPayload } from '@/lib/message-format';
 
 export interface PostItem {
   id: string;
@@ -48,6 +50,7 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
   const [sharesCount, setSharesCount] = useState(post.shares_count || 0);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -188,38 +191,113 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
     });
   };
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/post/${post.id}`;
-    const shareData = {
-      title: 'LOBOKO',
-      text: post.content.slice(0, 120),
-      url,
+  const handleShare = () => {
+    if (!currentUserId) {
+      toast.error('Connectez-vous pour partager');
+      return;
+    }
+    setShowShare(true);
+  };
+
+  const buildSharePreview = async (): Promise<SharePostPreview> => {
+    const img = post.image_key ? await getMediaUrl(post.image_key) : null;
+    return {
+      post_id: post.id,
+      author_id: post.user_id,
+      author_name: author?.display_name || author?.username || 'Utilisateur',
+      text: post.content,
+      image_url: img || undefined,
     };
-    let shared = false;
-    try {
-      if (navigator.share && typeof navigator.canShare !== 'function') {
-        await navigator.share(shareData);
-        shared = true;
-      } else if (navigator.share && navigator.canShare?.(shareData)) {
-        await navigator.share(shareData);
-        shared = true;
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success('Lien copié dans le presse-papier');
-        shared = true;
-      }
-    } catch {
-      // User cancelled or share failed
+  };
+
+  const buildPayload = (preview: SharePostPreview): SharedPostPayload => ({
+    kind: 'shared_post',
+    post_id: preview.post_id,
+    preview: {
+      author_id: preview.author_id,
+      author_name: preview.author_name,
+      text: preview.text?.slice(0, 500),
+      image_url: preview.image_url,
+    },
+  });
+
+  const sendSharedPostMessage = async (
+    receiverId: string,
+    preview: SharePostPreview,
+  ) => {
+    if (!currentUserId) return;
+    const content = encodePayload(buildPayload(preview));
+    const { error } = await supabase.from('messages').insert({
+      user_id: currentUserId,
+      receiver_id: receiverId,
+      content,
+      read: false,
+    });
+    if (error) throw error;
+  };
+
+  const sendSharedPostToGroup = async (
+    groupId: string,
+    preview: SharePostPreview,
+  ) => {
+    if (!currentUserId) return;
+    const content = encodePayload(buildPayload(preview));
+    const { error } = await supabase.from('group_messages').insert({
+      group_id: groupId,
+      user_id: currentUserId,
+      content,
+    });
+    if (error) throw error;
+  };
+
+  const handleShareToUsers = async (
+    userIds: string[],
+    preview: SharePostPreview,
+  ) => {
+    let ok = 0;
+    for (const uid of userIds) {
       try {
-        await navigator.clipboard.writeText(url);
+        await sendSharedPostMessage(uid, preview);
+        ok += 1;
+      } catch (err) {
+        console.error('share to user failed', err);
+      }
+    }
+    if (ok > 0) {
+      await recordShare();
+      toast.success(
+        ok === 1 ? 'Publication partagée' : `Partagée à ${ok} contacts`,
+      );
+    }
+    const fallbackUrl = `${window.location.origin}/post/${post.id}`;
+    if (ok === 0) {
+      try {
+        await navigator.clipboard.writeText(fallbackUrl);
         toast.success('Lien copié');
-        shared = true;
       } catch {
         toast.error('Partage impossible');
       }
     }
-    if (shared) {
+  };
+
+  const handleShareToGroups = async (
+    groupIds: string[],
+    preview: SharePostPreview,
+  ) => {
+    let ok = 0;
+    for (const gid of groupIds) {
+      try {
+        await sendSharedPostToGroup(gid, preview);
+        ok += 1;
+      } catch (err) {
+        console.error('share to group failed', err);
+      }
+    }
+    if (ok > 0) {
       await recordShare();
+      toast.success(
+        ok === 1 ? 'Partagée au groupe' : `Partagée à ${ok} groupes`,
+      );
     }
   };
 
@@ -333,6 +411,16 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
       </article>
 
       <LikesModal postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />
+      {showShare && currentUserId && (
+        <SharePostDialogLoader
+          open={showShare}
+          currentUserId={currentUserId}
+          buildPreview={buildSharePreview}
+          onClose={() => setShowShare(false)}
+          onShareToUsers={handleShareToUsers}
+          onShareToGroups={handleShareToGroups}
+        />
+      )}
       <CommentsModal
         postId={post.id}
         postAuthorId={post.user_id}
@@ -342,5 +430,45 @@ export default function PostCard({ post, currentUserId, onDeleted }: Props) {
         onCommentAdded={() => setCommentsCount((c) => c + 1)}
       />
     </>
+  );
+}
+
+interface SharePostDialogLoaderProps {
+  open: boolean;
+  currentUserId: string;
+  buildPreview: () => Promise<SharePostPreview>;
+  onClose: () => void;
+  onShareToUsers: (ids: string[], preview: SharePostPreview) => Promise<void> | void;
+  onShareToGroups: (ids: string[], preview: SharePostPreview) => Promise<void> | void;
+}
+
+function SharePostDialogLoader({
+  open,
+  currentUserId,
+  buildPreview,
+  onClose,
+  onShareToUsers,
+  onShareToGroups,
+}: SharePostDialogLoaderProps) {
+  const [preview, setPreview] = useState<SharePostPreview | null>(null);
+  useEffect(() => {
+    let active = true;
+    buildPreview().then((p) => {
+      if (active) setPreview(p);
+    });
+    return () => {
+      active = false;
+    };
+  }, [buildPreview]);
+  if (!preview) return null;
+  return (
+    <SharePostDialog
+      open={open}
+      preview={preview}
+      onClose={onClose}
+      currentUserId={currentUserId}
+      onShareToUsers={onShareToUsers}
+      onShareToGroups={onShareToGroups}
+    />
   );
 }

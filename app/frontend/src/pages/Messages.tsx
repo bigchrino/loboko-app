@@ -33,6 +33,7 @@ import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
 import FileMessage from '@/components/FileMessage';
+import SharedPostMessage from '@/components/SharedPostMessage';
 import FilePreview from '@/components/FilePreview';
 import ConversationMenu, { ConversationMenuAction } from '@/components/ConversationMenu';
 import { formatLastSeen } from '@/lib/last-seen';
@@ -2124,6 +2125,8 @@ export default function Messages() {
                           fileType={payload.file_type}
                           mine={mine}
                         />
+                      ) : payload.kind === 'shared_post' ? (
+                        <SharedPostMessage payload={payload} mine={mine} />
                       ) : (
                         <span className="whitespace-pre-wrap break-words">
                           {payload.kind === 'text'

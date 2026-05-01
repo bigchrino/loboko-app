@@ -1,0 +1,77 @@
+Ajouter la fonctionnalité de partage de publication dans LOBOKO.
+
+Objectif :
+Permettre de partager une publication dans :
+- une conversation privée
+- un groupe
+
+---
+
+1. Fonction partage
+
+Sur chaque publication :
+- ajouter bouton “Partager”
+
+Au clic :
+- ouvrir un sélecteur :
+  - liste des conversations
+  - liste des groupes
+
+---
+
+2. Envoi message partagé
+
+Ne pas dupliquer la publication.
+
+Envoyer un message avec :
+- type: "shared_post"
+- post_id
+- preview (texte, image, auteur)
+
+---
+
+3. Affichage dans chat
+
+Créer un composant SharedPostMessage :
+
+Afficher :
+- image miniature (si existe)
+- texte court
+- auteur
+- bouton “Voir”
+
+Au clic :
+- ouvrir la publication complète
+
+---
+
+4. Backend
+
+Pas de nouvelle table nécessaire.
+
+Utiliser :
+- table messages
+- ajouter type "shared_post"
+
+---
+
+5. Contraintes
+
+- Ne pas casser :
+  - messages existants
+  - images
+  - documents
+  - groupes
+
+- Gérer cas :
+  - publication supprimée → afficher “contenu indisponible”
+
+- Compatible :
+  - messages privés
+  - groupes
+
+---
+
+Objectif final :
+
+Permettre un partage simple, rapide et performant des publications dans toute l’application.

@@ -26,6 +26,7 @@ import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
 import FileMessage from '@/components/FileMessage';
+import SharedPostMessage from '@/components/SharedPostMessage';
 import FilePreview from '@/components/FilePreview';
 import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMenu';
 import ReportDialog from '@/components/ReportDialog';
@@ -1233,6 +1234,8 @@ export default function GroupChat() {
                           fileType={payload.file_type}
                           mine={mine}
                         />
+                      ) : payload.kind === 'shared_post' ? (
+                        <SharedPostMessage payload={payload} mine={mine} />
                       ) : (
                         <MentionText
                           text={payload.kind === 'text' ? payload.text : ''}
