@@ -1,0 +1,82 @@
+Nouvelle phase LOBOKO : profils prestataires + recherche avancée.
+
+Objectif :
+Rendre les profils prestataires plus professionnels et améliorer la recherche côté client.
+
+1. Profil prestataire solide
+
+Améliorer le profil prestataire avec :
+- description claire
+- catégorie officielle du service
+- localisation / ville
+- disponibilité
+- portfolio de travaux
+- photos/vidéos de réalisations
+- nombre de missions réalisées
+- badge “vérifié” si disponible
+
+Disponibilité :
+- Ajouter un champ availability_status :
+  - available
+  - unavailable
+- Dans l’édition du profil prestataire :
+  - ajouter un switch “Disponible pour travailler”
+- Affichage :
+  - Disponible = badge vert
+  - Indisponible = badge rouge
+- Par défaut :
+  - available pour les nouveaux prestataires
+
+2. Portfolio prestataire
+
+Ajouter une section portfolio sur le profil public :
+- photos de travaux
+- vidéos de réalisations
+- possibilité d’ajouter/supprimer ses médias depuis son profil
+- limite raisonnable : 12 médias maximum
+- utiliser Supabase Storage
+- si SQL nécessaire, créer PROVIDER_PROFILE_SETUP.md
+
+3. Recherche avancée
+
+Améliorer la recherche des prestataires :
+- filtre par catégorie
+- filtre par ville
+- filtre par note
+- filtre par disponibilité
+- recherche par nom
+- tri par meilleure note
+- tri par plus récent
+- tri par plus de missions
+
+Pages concernées :
+- /find
+- /services/:slug
+- cartes prestataires
+- profil public
+
+4. Base de données
+
+Si SQL nécessaire, créer PROVIDER_PROFILE_SETUP.md avec :
+- champs dans profiles si absents :
+  - city
+  - bio
+  - availability_status
+  - completed_jobs_count
+  - is_verified
+- table provider_portfolio si nécessaire :
+  - id
+  - user_id
+  - media_key
+  - media_type
+  - created_at
+- policies RLS propres
+- script idempotent
+
+5. Contraintes
+
+- Ne pas refaire le système d’avis
+- Réutiliser les avis déjà existants
+- Ne pas casser messages, groupes, appels, statuts, documents, notifications
+- Garder les comptes existants compatibles
+- Build + lint à la fin

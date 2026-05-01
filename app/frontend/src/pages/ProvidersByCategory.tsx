@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ArrowLeft, Search, Star, Briefcase, MessageCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Search,
+  Star,
+  Briefcase,
+  MessageCircle,
+  MapPin,
+  BadgeCheck,
+} from 'lucide-react';
 import {
   fetchCategoryBySlug,
   fetchProvidersByCategory,
@@ -10,6 +18,8 @@ import {
 } from '@/lib/service-categories';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
 import { getMediaUrl } from '@/lib/storage-helpers';
+
+type SortMode = 'recent' | 'rating' | 'jobs';
 
 /**
  * ProvidersByCategory
@@ -44,6 +54,10 @@ export default function ProvidersByCategory() {
 
   const [query, setQuery] = useState('');
   const [minRating, setMinRating] = useState<number>(0);
+  const [city, setCity] = useState('');
+  const [availableOnly, setAvailableOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sort, setSort] = useState<SortMode>('recent');
 
   const loadData = useCallback(async () => {
     if (!slug) return;
@@ -84,7 +98,8 @@ export default function ProvidersByCategory() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return providers.filter((p) => {
+    const cityQ = city.trim().toLowerCase();
+    const list = providers.filter((p) => {
       const name = (p.display_name || p.username || '').toLowerCase();
       if (q && !name.includes(q) && !p.username.toLowerCase().includes(q)) {
         return false;
@@ -93,9 +108,27 @@ export default function ProvidersByCategory() {
         const avg = p.rating?.average || 0;
         if (avg < minRating) return false;
       }
+      if (availableOnly && (p.availability_status || 'available') !== 'available') {
+        return false;
+      }
+      if (verifiedOnly && !p.is_verified) return false;
+      if (cityQ) {
+        if (!(p.city || '').toLowerCase().includes(cityQ)) return false;
+      }
       return true;
     });
-  }, [providers, query, minRating]);
+
+    const sorted = [...list];
+    if (sort === 'rating') {
+      sorted.sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0));
+    } else if (sort === 'jobs') {
+      sorted.sort(
+        (a, b) => (b.completed_jobs_count || 0) - (a.completed_jobs_count || 0),
+      );
+    }
+    // 'recent' keeps the server order (created_at DESC)
+    return sorted;
+  }, [providers, query, minRating, city, availableOnly, verifiedOnly, sort]);
 
   return (
     <Layout title={category?.name || 'Prestataires'}>
@@ -140,6 +173,15 @@ export default function ProvidersByCategory() {
               className="flex-1 bg-transparent text-sm focus:outline-none"
             />
           </div>
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]">
+            <MapPin size={16} className="text-[var(--loboko-text-muted)]" />
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="Filtrer par ville"
+              className="flex-1 bg-transparent text-sm focus:outline-none"
+            />
+          </div>
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {MIN_RATING_OPTIONS.map((opt) => (
               <button
@@ -153,6 +195,53 @@ export default function ProvidersByCategory() {
                 }`}
               >
                 {opt.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setAvailableOnly((v) => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                availableOnly
+                  ? 'bg-[#22c55e] text-white'
+                  : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+              }`}
+              aria-pressed={availableOnly}
+            >
+              ● Disponible
+            </button>
+            <button
+              type="button"
+              onClick={() => setVerifiedOnly((v) => !v)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors inline-flex items-center gap-1 ${
+                verifiedOnly
+                  ? 'bg-[#2563eb] text-white'
+                  : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+              }`}
+              aria-pressed={verifiedOnly}
+            >
+              <BadgeCheck size={12} /> Vérifié
+            </button>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-[11px] text-[var(--loboko-text-muted)] whitespace-nowrap">
+              Trier :
+            </span>
+            {([
+              { key: 'recent', label: 'Plus récent' },
+              { key: 'rating', label: 'Meilleure note' },
+              { key: 'jobs', label: 'Plus de missions' },
+            ] as Array<{ key: SortMode; label: string }>).map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSort(s.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                  sort === s.key
+                    ? 'bg-[#2563eb] text-white'
+                    : '!bg-transparent !hover:bg-transparent border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+                }`}
+              >
+                {s.label}
               </button>
             ))}
           </div>
@@ -199,17 +288,43 @@ export default function ProvidersByCategory() {
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/u/${p.user_id}`)}
-                    className="text-sm font-semibold truncate block text-left hover:underline"
-                  >
-                    {name}
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/u/${p.user_id}`)}
+                      className="text-sm font-semibold truncate text-left hover:underline"
+                    >
+                      {name}
+                    </button>
+                    {p.is_verified && (
+                      <BadgeCheck
+                        size={14}
+                        className="text-[#60a5fa] shrink-0"
+                        aria-label="Vérifié"
+                      />
+                    )}
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        (p.availability_status || 'available') === 'available'
+                          ? 'bg-[#22c55e]'
+                          : 'bg-[#ef4444]'
+                      }`}
+                      aria-label={
+                        (p.availability_status || 'available') === 'available'
+                          ? 'Disponible'
+                          : 'Indisponible'
+                      }
+                    />
+                  </div>
                   <div className="text-xs text-[var(--loboko-text-muted)] truncate">
                     @{p.username}
+                    {p.city && (
+                      <span className="ml-1.5 inline-flex items-center gap-0.5">
+                        · <MapPin size={10} /> {p.city}
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-1 flex items-center gap-3 text-[11px]">
+                  <div className="mt-1 flex items-center gap-3 text-[11px] flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[var(--loboko-text-secondary)]">
                       <Star size={12} fill="#f59e0b" color="#f59e0b" />
                       {rating.count > 0 ? (
@@ -224,6 +339,11 @@ export default function ProvidersByCategory() {
                           Aucun avis
                         </span>
                       )}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[var(--loboko-text-secondary)]">
+                      <Briefcase size={11} />
+                      {p.completed_jobs_count || 0} mission
+                      {(p.completed_jobs_count || 0) !== 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>

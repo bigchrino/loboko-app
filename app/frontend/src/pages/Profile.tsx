@@ -3,7 +3,17 @@ import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl, uploadMedia } from '@/lib/storage-helpers';
-import { Camera, Edit2, Save, X, Star, Image as ImageIcon } from 'lucide-react';
+import {
+  Camera,
+  Edit2,
+  Save,
+  X,
+  Star,
+  Image as ImageIcon,
+  MapPin,
+  BadgeCheck,
+  Briefcase,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import PostCard, { PostItem } from '@/components/PostCard';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
@@ -12,6 +22,7 @@ import {
   fetchCategoryById,
   ServiceCategory,
 } from '@/lib/service-categories';
+import PortfolioEditor from '@/components/PortfolioEditor';
 
 export default function Profile() {
   const { profile, user, updateLobokoProfile } = useAuth();
@@ -23,6 +34,9 @@ export default function Profile() {
   const [metier, setMetier] = useState('');
   const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
   const [serviceCategory, setServiceCategory] = useState<ServiceCategory | null>(null);
+  const [city, setCity] = useState('');
+  const [availability, setAvailability] =
+    useState<'available' | 'unavailable'>('available');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -37,6 +51,8 @@ export default function Profile() {
       setBio(profile.bio || '');
       setMetier(profile.metier || '');
       setServiceCategoryId(profile.service_category_id || null);
+      setCity(profile.city || '');
+      setAvailability(profile.availability_status || 'available');
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
       else setAvatarUrl(null);
     }
@@ -123,6 +139,8 @@ export default function Profile() {
         // Keep legacy metier in sync with the selected category name for
         // backward compatibility with existing UI that reads profile.metier.
         patch.metier = metier;
+        patch.city = city.trim() || null;
+        patch.availability_status = availability;
       }
       await updateLobokoProfile(patch as Partial<typeof profile>);
       toast.success('Profil mis à jour');
@@ -261,6 +279,50 @@ export default function Profile() {
                 />
               </div>
             )}
+            {profile.role === 'prestataire' && (
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Ville</label>
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Ex: Kinshasa, Lubumbashi…"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                />
+              </div>
+            )}
+            {profile.role === 'prestataire' && (
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Disponibilité</label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAvailability((v) =>
+                      v === 'available' ? 'unavailable' : 'available',
+                    )
+                  }
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border w-full text-left text-sm ${
+                    availability === 'available'
+                      ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
+                      : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
+                  }`}
+                  aria-pressed={availability === 'available'}
+                >
+                  <span
+                    className={`inline-block w-2.5 h-2.5 rounded-full ${
+                      availability === 'available'
+                        ? 'bg-[#22c55e]'
+                        : 'bg-[#ef4444]'
+                    }`}
+                  />
+                  {availability === 'available'
+                    ? 'Disponible pour travailler'
+                    : 'Indisponible'}
+                  <span className="ml-auto text-[10px] opacity-80">
+                    Cliquer pour basculer
+                  </span>
+                </button>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Bio</label>
               <textarea
@@ -306,21 +368,62 @@ export default function Profile() {
               </p>
             )}
             {profile.role === 'prestataire' && (
-              <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] w-fit">
-                <Star size={16} fill="#f59e0b" color="#f59e0b" />
-                {ratingSummary.count > 0 ? (
-                  <span className="text-sm">
-                    <span className="font-bold">{ratingSummary.average.toFixed(1)}</span>
-                    <span className="text-[var(--loboko-text-muted)]">/5 · {ratingSummary.count} avis</span>
-                  </span>
-                ) : (
-                  <span className="text-sm text-[var(--loboko-text-muted)]">Aucun avis</span>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)]">
+                  <Star size={16} fill="#f59e0b" color="#f59e0b" />
+                  {ratingSummary.count > 0 ? (
+                    <span className="text-sm">
+                      <span className="font-bold">{ratingSummary.average.toFixed(1)}</span>
+                      <span className="text-[var(--loboko-text-muted)]">/5 · {ratingSummary.count} avis</span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-[var(--loboko-text-muted)]">Aucun avis</span>
+                  )}
+                </div>
+                <div
+                  className={`flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-semibold ${
+                    (profile.availability_status || 'available') === 'available'
+                      ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
+                      : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
+                  }`}
+                >
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${
+                      (profile.availability_status || 'available') === 'available'
+                        ? 'bg-[#22c55e]'
+                        : 'bg-[#ef4444]'
+                    }`}
+                  />
+                  {(profile.availability_status || 'available') === 'available'
+                    ? 'Disponible'
+                    : 'Indisponible'}
+                </div>
+                {profile.city && (
+                  <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
+                    <MapPin size={13} className="text-[var(--loboko-text-muted)]" />
+                    {profile.city}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
+                  <Briefcase size={13} className="text-[var(--loboko-text-muted)]" />
+                  {profile.completed_jobs_count || 0} mission
+                  {(profile.completed_jobs_count || 0) !== 1 ? 's' : ''}
+                </div>
+                {profile.is_verified && (
+                  <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[rgba(37,99,235,0.15)] border border-[rgba(37,99,235,0.45)] text-[#60a5fa] text-xs font-semibold">
+                    <BadgeCheck size={14} />
+                    Vérifié
+                  </div>
                 )}
               </div>
             )}
           </>
         )}
       </div>
+
+      {profile.role === 'prestataire' && userId && (
+        <PortfolioEditor userId={userId} />
+      )}
 
       <h3 className="text-lg font-bold mb-3">Mes publications</h3>
       {myPosts.length === 0 ? (

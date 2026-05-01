@@ -14,6 +14,13 @@ export interface Profile {
   theme?: 'light' | 'dark';
   service_category_id?: string | null;
   last_seen_at?: string | null;
+  // New provider-profile fields (Phase 16). All fields have DB defaults so
+  // older accounts stay 100% compatible — the columns are simply read as
+  // `available` / `0` / `false` when missing server-side.
+  city?: string | null;
+  availability_status?: 'available' | 'unavailable';
+  completed_jobs_count?: number;
+  is_verified?: boolean;
 }
 
 export interface LobokoAccount {

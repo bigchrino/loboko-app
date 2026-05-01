@@ -132,6 +132,21 @@ export interface ProviderProfile {
   role: 'client' | 'prestataire';
   service_category_id?: string | null;
   created_at?: string;
+  city?: string | null;
+  availability_status?: 'available' | 'unavailable';
+  completed_jobs_count?: number;
+  is_verified?: boolean;
+}
+
+export interface ProviderSearchFilters {
+  /** Restrict to one category id. Undefined = all categories. */
+  categoryId?: string;
+  /** City filter (substring, case-insensitive). */
+  city?: string;
+  /** When true, only return providers with availability_status='available'. */
+  availableOnly?: boolean;
+  /** When true, only return providers with is_verified=true. */
+  verifiedOnly?: boolean;
 }
 
 /** Fetch all prestataires linked to a category id. */
@@ -152,6 +167,34 @@ export async function fetchProvidersByCategory(
     return (data as ProviderProfile[]) || [];
   } catch (e) {
     console.error('fetchProvidersByCategory exception', e);
+    return [];
+  }
+}
+
+/**
+ * Fetch all prestataires matching the given filters. Used by the global
+ * advanced search page. Rating-based filters are applied client-side (after
+ * enrichment) because rating lives in a separate table.
+ */
+export async function fetchProviders(
+  filters: ProviderSearchFilters = {},
+): Promise<ProviderProfile[]> {
+  try {
+    let q = supabase.from('profiles').select('*').eq('role', 'prestataire');
+    if (filters.categoryId) q = q.eq('service_category_id', filters.categoryId);
+    if (filters.availableOnly) q = q.eq('availability_status', 'available');
+    if (filters.verifiedOnly) q = q.eq('is_verified', true);
+    if (filters.city && filters.city.trim()) {
+      q = q.ilike('city', `%${filters.city.trim()}%`);
+    }
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) {
+      console.error('fetchProviders error', error);
+      return [];
+    }
+    return (data as ProviderProfile[]) || [];
+  } catch (e) {
+    console.error('fetchProviders exception', e);
     return [];
   }
 }

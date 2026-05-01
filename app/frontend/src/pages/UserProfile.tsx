@@ -4,9 +4,10 @@ import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { useAuth, Profile } from '@/contexts/AuthContext';
-import { Star, MessageCircle, ArrowLeft } from 'lucide-react';
+import { Star, MessageCircle, ArrowLeft, MapPin, BadgeCheck, Briefcase } from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import RatingModal from '@/components/RatingModal';
+import PortfolioGallery from '@/components/PortfolioGallery';
 import {
   fetchRatingSummary,
   fetchRatingsList,
@@ -150,6 +151,46 @@ export default function UserProfilePage() {
           </div>
         </div>
 
+        {isPrestataire && (
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div
+              className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl border text-xs font-semibold ${
+                (targetProfile.availability_status || 'available') === 'available'
+                  ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
+                  : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
+              }`}
+            >
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${
+                  (targetProfile.availability_status || 'available') === 'available'
+                    ? 'bg-[#22c55e]'
+                    : 'bg-[#ef4444]'
+                }`}
+              />
+              {(targetProfile.availability_status || 'available') === 'available'
+                ? 'Disponible'
+                : 'Indisponible'}
+            </div>
+            {targetProfile.city && (
+              <div className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
+                <MapPin size={12} className="text-[var(--loboko-text-muted)]" />
+                {targetProfile.city}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
+              <Briefcase size={12} className="text-[var(--loboko-text-muted)]" />
+              {targetProfile.completed_jobs_count || 0} mission
+              {(targetProfile.completed_jobs_count || 0) !== 1 ? 's' : ''}
+            </div>
+            {targetProfile.is_verified && (
+              <div className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[rgba(37,99,235,0.15)] border border-[rgba(37,99,235,0.45)] text-[#60a5fa] text-xs font-semibold">
+                <BadgeCheck size={13} />
+                Vérifié
+              </div>
+            )}
+          </div>
+        )}
+
         {targetProfile.bio && (
           <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap mb-4">
             {targetProfile.bio}
@@ -203,6 +244,10 @@ export default function UserProfilePage() {
           )}
         </div>
       </div>
+
+      {isPrestataire && targetProfile.user_id && (
+        <PortfolioGallery userId={targetProfile.user_id} />
+      )}
 
       {isPrestataire && (
         <>
