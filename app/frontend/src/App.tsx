@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
@@ -35,10 +36,12 @@ import ContactInfo from './pages/ContactInfo';
 import FindProviders from './pages/FindProviders';
 import AdminReports from './pages/AdminReports';
 import ProvidersByCategory from './pages/ProvidersByCategory';
+
 import Works from './pages/Works';
 import ServiceRequests from './pages/ServiceRequests';
 import ServiceRequestDetail from './pages/ServiceRequestDetail';
 import Favorites from './pages/Favorites';
+
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -50,6 +53,7 @@ const queryClient = new QueryClient();
 
 function ProtectedWithProfile({ children }: { children: JSX.Element }) {
   const { user, profile, loading } = useAuth();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
@@ -57,13 +61,16 @@ function ProtectedWithProfile({ children }: { children: JSX.Element }) {
       </div>
     );
   }
+
   if (!user) return <Navigate to="/" replace />;
   if (!profile) return <Navigate to="/onboarding" replace />;
+
   return children;
 }
 
 function OnboardingGate() {
   const { user, profile, loading } = useAuth();
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
@@ -71,8 +78,10 @@ function OnboardingGate() {
       </div>
     );
   }
+
   if (!user) return <Navigate to="/" replace />;
   if (profile) return <Navigate to="/home" replace />;
+
   return <OnboardingProfile />;
 }
 
@@ -82,41 +91,61 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/messages', element: <Messages /> },
   { path: '/calls', element: <Calls /> },
   { path: '/statuses', element: <Statuses /> },
+
   { path: '/messages/group/:groupId', element: <GroupChat /> },
   { path: '/messages/group/:groupId/info', element: <GroupInfo /> },
+
   { path: '/messages/starred', element: <StarredMessages /> },
+
   { path: '/profile', element: <Profile /> },
   { path: '/notifications', element: <Notifications /> },
   { path: '/settings', element: <Settings /> },
+
   { path: '/suggestion', element: <Suggestion /> },
+
   { path: '/entreprise', element: <Entreprise /> },
   { path: '/entreprise/offres', element: <EntrepriseOffres /> },
   { path: '/entreprise/musala', element: <EntrepriseMusala /> },
+
   { path: '/panier', element: <Panier /> },
+
   { path: '/urgences', element: <Urgences /> },
   { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
   { path: '/urgences/polices', element: <UrgencesPolices /> },
   { path: '/urgences/casernes', element: <UrgencesCasernes /> },
+
   { path: '/recherches', element: <Recherches /> },
   { path: '/menu', element: <Menu /> },
+
   { path: '/u/:userId', element: <UserProfilePage /> },
+
   { path: '/post/:postId', element: <PostDetail /> },
+
   { path: '/messages/contact/:userId', element: <ContactInfo /> },
+
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
+
   { path: '/admin/reports', element: <AdminReports /> },
+
+  /* Marketplace */
   { path: '/works', element: <Works /> },
+
   { path: '/requests', element: <ServiceRequests /> },
   { path: '/requests/:requestId', element: <ServiceRequestDetail /> },
+
   { path: '/favorites', element: <Favorites /> },
 ];
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Index />} />
+
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
+
     <Route path="/onboarding" element={<OnboardingGate />} />
+
     {protectedRoutes.map(({ path, element }) => (
       <Route
         key={path}
@@ -124,6 +153,7 @@ const AppRoutes = () => (
         element={<ProtectedWithProfile>{element}</ProtectedWithProfile>}
       />
     ))}
+
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );
@@ -139,6 +169,7 @@ const App = () => (
                 <MissedCallsProvider>
                   <TooltipProvider>
                     <Toaster />
+
                     <BrowserRouter>
                       <AppRoutes />
                     </BrowserRouter>
