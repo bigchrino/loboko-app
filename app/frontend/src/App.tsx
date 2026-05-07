@@ -136,6 +136,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/requests/:requestId', element: <ServiceRequestDetail /> },
 
   { path: '/favorites', element: <Favorites /> },
+  { path: '/verification', element: <Verification /> },
 ];
 
 const AppRoutes = () => (
