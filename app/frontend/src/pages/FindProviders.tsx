@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { Search, Briefcase, ArrowRight, BadgeCheck } from 'lucide-react';
+import { Search, Briefcase, ArrowRight } from 'lucide-react';
 import {
   fetchCategoriesWithCounts,
   ServiceCategoryWithCount,
