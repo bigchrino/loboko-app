@@ -98,7 +98,7 @@ const items: MenuItem[] = [
 ];
 
 export default function Menu() {
-  const { logout } = useAuth();
+  const { logout, profile } = useAuth();
   const { unseenMissed } = useMissedCalls();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -152,6 +152,25 @@ export default function Menu() {
                     >
                       {badgeLabel}
                     </span>
+                  )}
+                  {profile?.is_admin && (
+                    <Link
+                      to="/admin/verifications"
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
+                    >
+                      <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
+                        <ShieldCheck size={22} className="text-[#2563eb]" />
+                      </div>
+                  
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold">Vérifications KYC</div>
+                        <div className="text-sm text-[var(--loboko-text-secondary)]">
+                          Gérer les vérifications prestataires
+                        </div>
+                      </div>
+                  
+                      <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
+                    </Link>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
