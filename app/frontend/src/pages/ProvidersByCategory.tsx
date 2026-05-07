@@ -115,7 +115,12 @@ export default function ProvidersByCategory() {
       if (availableOnly && (p.availability_status || 'available') !== 'available') {
         return false;
       }
-      if (verifiedOnly && !p.is_verified) return false;
+      if (
+        verifiedOnly &&
+        !(p.is_verified && p.verification_status === 'approved')
+      ) {
+        return false;
+      }
       if (cityQ) {
         if (!(p.city || '').toLowerCase().includes(cityQ)) return false;
       }
@@ -305,7 +310,7 @@ export default function ProvidersByCategory() {
                       {name}
                     </button>
                     {isPremium(p) && <PremiumBadge />}
-                    {p.is_verified && (
+                    {p.is_verified && p.verification_status === 'approved' && (
                       <BadgeCheck
                         size={14}
                         className="text-[#60a5fa] shrink-0"
