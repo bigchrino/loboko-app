@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Verification from './pages/Verification';
+import AdminVerifications from './pages/AdminVerifications';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -137,6 +138,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 
   { path: '/favorites', element: <Favorites /> },
   { path: '/verification', element: <Verification /> },
+  { path: '/admin/verifications', element: <AdminVerifications /> },
 ];
 
 const AppRoutes = () => (
