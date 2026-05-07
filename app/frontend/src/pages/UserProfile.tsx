@@ -242,7 +242,7 @@ export default function UserProfilePage() {
               {targetProfile.completed_jobs_count || 0} mission
               {(targetProfile.completed_jobs_count || 0) !== 1 ? 's' : ''}
             </div>
-            {targetProfile.is_verified && (
+            {targetProfile.is_verified && targetProfile.verification_status === 'approved' && (
               <div className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-[rgba(37,99,235,0.15)] border border-[rgba(37,99,235,0.45)] text-[#60a5fa] text-xs font-semibold">
                 <BadgeCheck size={13} />
                 Vérifié
