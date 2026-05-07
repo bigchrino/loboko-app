@@ -15,6 +15,9 @@ import {
   Phone,
   Circle,
   Star,
+  Briefcase,
+  Heart,
+  Image,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
@@ -26,7 +29,6 @@ interface MenuItem {
   desc: string;
   icon: typeof User;
   color: string;
-  /** Optional key to attach a dynamic badge (e.g. missed calls). */
   badgeKey?: 'missedCalls';
 }
 
@@ -50,10 +52,33 @@ const items: MenuItem[] = [
   {
     to: '/messages/starred',
     label: 'Messages importants',
-    desc: 'Retrouvez vos messages marqués d\'une étoile',
+    desc: "Retrouvez vos messages marqués d'une étoile",
     icon: Star,
     color: '#eab308',
   },
+
+  {
+    to: '/works',
+    label: 'Réalisations',
+    desc: 'Voir les travaux publiés par les prestataires',
+    icon: Image,
+    color: '#06b6d4',
+  },
+  {
+    to: '/requests',
+    label: 'Demandes de service',
+    desc: 'Publier ou consulter les demandes des clients',
+    icon: Briefcase,
+    color: '#10b981',
+  },
+  {
+    to: '/favorites',
+    label: 'Favoris',
+    desc: 'Retrouver vos prestataires, services et réalisations enregistrés',
+    icon: Heart,
+    color: '#ef4444',
+  },
+
   { to: '/recherches', label: 'Recherches', desc: 'Rechercher des personnes et contenus', icon: Search, color: '#2563eb' },
   { to: '/suggestion', label: 'Suggestion', desc: 'Suggestions personnalisées', icon: Lightbulb, color: '#eab308' },
   { to: '/entreprise', label: 'Entreprise', desc: 'Offres et services entreprise', icon: Building2, color: '#2563eb' },
