@@ -80,13 +80,7 @@ const items: MenuItem[] = [
     icon: Briefcase,
     color: '#10b981',
   },
-  {
-    to: '/verification',
-    label: 'Vérification',
-    desc: 'Vérifier votre identité prestataire',
-    icon: BadgeCheck,
-    color: '#2563eb',
-  },
+  
   {
     to: '/favorites',
     label: 'Favoris',
