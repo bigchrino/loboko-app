@@ -12,6 +12,7 @@ import {
   Trash2,
   MessageCircle,
   Loader2,
+  BadgeCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBackNavigation } from '@/lib/use-back-navigation';
@@ -391,9 +392,15 @@ export default function ServiceRequestDetail() {
                         </div>
                       )}
 
-                      <span className="text-sm font-medium">
-                        {p?.display_name || p?.username || 'Prestataire'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-medium">
+                          {p?.display_name || p?.username || 'Prestataire'}
+                        </span>
+
+                        {p?.is_verified && p?.verification_status === 'approved' && (
+                          <BadgeCheck size={14} className="text-[#60a5fa]" />
+                        )}
+                      </div>
                     </button>
 
                     <span className="ml-auto text-xs text-[var(--loboko-text-muted)]">
