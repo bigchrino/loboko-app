@@ -5,6 +5,7 @@ import type { Session, User } from '@supabase/supabase-js';
 export interface Profile {
   id: string;
   user_id: string;
+  email?: string | null;
   username: string;
   display_name?: string;
   bio?: string;
@@ -14,15 +15,12 @@ export interface Profile {
   theme?: 'light' | 'dark';
   service_category_id?: string | null;
   last_seen_at?: string | null;
-  // New provider-profile fields (Phase 16). All fields have DB defaults so
-  // older accounts stay 100% compatible — the columns are simply read as
-  // `available` / `0` / `false` when missing server-side.
+
   city?: string | null;
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
   is_verified?: boolean;
-  // Phase 17 — moderation + monetization. All with DB defaults so old
-  // accounts stay fully compatible (is_admin=false, subscription_type='free').
+
   is_admin?: boolean;
   subscription_type?: 'free' | 'premium';
   subscription_expires_at?: string | null;
@@ -67,7 +65,9 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function accountFromUser(u: User | null): LobokoAccount | null {
   if (!u) return null;
+
   const meta = (u.user_metadata || {}) as Record<string, unknown>;
+
   return {
     id: u.id,
     email: u.email || '',
@@ -88,17 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', u.id)
         .maybeSingle();
+
       if (error) {
         console.error('loadProfile error', error);
         setProfile(null);
         return;
       }
+
       setProfile((data as Profile) || null);
     } catch (e) {
       console.error('loadProfile exception', e);
@@ -113,16 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       setLoading(true);
+
       const { data } = await supabase.auth.getSession();
+
       if (!mounted) return;
+
       setSession(data.session);
       setUser(accountFromUser(data.session?.user || null));
       await loadProfileFor(data.session?.user || null);
       setLoading(false);
-      // Fire-and-forget: keep an existing push subscription bound to the
-      // current user. Never blocks auth flow.
+
       const uid = data.session?.user?.id;
       if (uid) {
         void import('@/lib/push-notifications').then((m) =>
@@ -135,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       setUser(accountFromUser(newSession?.user || null));
       loadProfileFor(newSession?.user || null);
+
       const uid = newSession?.user?.id;
       if (uid) {
         void import('@/lib/push-notifications').then((m) =>
@@ -161,35 +168,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
+
     if (error) throw new Error(error.message);
+
     const u = data.user;
     if (!u) throw new Error("Échec de l'inscription");
+
     const account = accountFromUser(u)!;
     setUser(account);
+
     return account;
   }, []);
 
-  const loginLoboko: AuthContextValue['loginLoboko'] = useCallback(async (params) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: params.email,
-      password: params.password,
-    });
-    if (error) throw new Error(error.message);
-    const u = data.user;
-    if (!u) throw new Error('Identifiants invalides');
-    const account = accountFromUser(u)!;
-    setUser(account);
-    await loadProfileFor(u);
-    return account;
-  }, [loadProfileFor]);
+  const loginLoboko: AuthContextValue['loginLoboko'] = useCallback(
+    async (params) => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: params.email,
+        password: params.password,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const u = data.user;
+      if (!u) throw new Error('Identifiants invalides');
+
+      const account = accountFromUser(u)!;
+      setUser(account);
+      await loadProfileFor(u);
+
+      return account;
+    },
+    [loadProfileFor],
+  );
 
   const createLobokoProfile: AuthContextValue['createLobokoProfile'] = useCallback(
     async (params) => {
       const { data: userData } = await supabase.auth.getUser();
       const u = userData.user;
+
       if (!u) throw new Error('Aucun compte LOBOKO connecté');
+
       const payload = {
         user_id: u.id,
+        email: u.email || null,
         username: params.username,
         display_name: params.display_name || null,
         bio: params.bio || null,
@@ -198,14 +219,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         theme: 'dark',
         service_category_id: params.service_category_id || null,
       };
+
       const { data, error } = await supabase
         .from('profiles')
         .insert(payload)
         .select()
         .single();
+
       if (error) throw new Error(error.message);
+
       const created = data as Profile;
       setProfile(created);
+
       return created;
     },
     [],
@@ -215,16 +240,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (params) => {
       const { data: userData } = await supabase.auth.getUser();
       const u = userData.user;
+
       if (!u) throw new Error('Aucun compte LOBOKO connecté');
+
       const { data, error } = await supabase
         .from('profiles')
         .update(params)
         .eq('user_id', u.id)
         .select()
         .single();
+
       if (error) throw new Error(error.message);
+
       const updated = data as Profile;
       setProfile(updated);
+
       return updated;
     },
     [],
@@ -236,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error(e);
     }
+
     setUser(null);
     setProfile(null);
     setSession(null);
@@ -264,6 +295,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
+
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+
   return ctx;
 }
