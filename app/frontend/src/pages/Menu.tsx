@@ -15,6 +15,7 @@ import {
   Phone,
   Circle,
   Star,
+  ShieldCheck,
   Briefcase,
   Heart,
   Image,
@@ -34,6 +35,13 @@ interface MenuItem {
 
 const items: MenuItem[] = [
   { to: '/profile', label: 'Mon Profil', desc: 'Voir et modifier votre profil', icon: User, color: '#2563eb' },
+  {
+    to: '/verification',
+    label: 'Vérification',
+    desc: 'Obtenir le badge prestataire vérifié',
+    icon: ShieldCheck,
+    color: '#2563eb',
+  },
   {
     to: '/statuses',
     label: 'Statuts',
