@@ -18,13 +18,16 @@ export default function Home() {
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
+
     try {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
+
       if (error) throw error;
+
       setPosts((data as PostItem[]) || []);
     } catch (e) {
       console.error(e);
@@ -40,11 +43,53 @@ export default function Home() {
   return (
     <Layout title="Accueil">
       <HeroBanner onFindProvider={() => navigate('/find')} />
+
       <AdsCarousel />
-      <h1 className="text-2xl font-bold mb-4 hidden lg:block">Fil d'actualité</h1>
+
+      {/* Marketplace shortcuts */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <button
+          onClick={() => navigate('/works')}
+          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
+        >
+          <div className="text-2xl mb-2">🎨</div>
+          <div className="font-semibold">Réalisations</div>
+          <div className="text-sm text-[var(--loboko-text-secondary)]">
+            Voir les travaux des prestataires
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/requests')}
+          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
+        >
+          <div className="text-2xl mb-2">🛠️</div>
+          <div className="font-semibold">Demandes</div>
+          <div className="text-sm text-[var(--loboko-text-secondary)]">
+            Publier ou consulter des demandes
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/favorites')}
+          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
+        >
+          <div className="text-2xl mb-2">⭐</div>
+          <div className="font-semibold">Favoris</div>
+          <div className="text-sm text-[var(--loboko-text-secondary)]">
+            Retrouver vos prestataires favoris
+          </div>
+        </button>
+      </div>
+
+      <h1 className="text-2xl font-bold mb-4 hidden lg:block">
+        Fil d'actualité
+      </h1>
+
       <div id="loboko-compose">
         <ComposePost onPosted={loadPosts} />
       </div>
+
       <div id="loboko-feed">
         {loading ? (
           <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
@@ -55,14 +100,23 @@ export default function Home() {
             <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
               <span className="text-2xl">✨</span>
             </div>
-            <h3 className="font-semibold mb-1">Aucune publication pour l'instant</h3>
+
+            <h3 className="font-semibold mb-1">
+              Aucune publication pour l'instant
+            </h3>
+
             <p className="text-sm text-[var(--loboko-text-muted)]">
               Soyez le premier à publier sur LOBOKO !
             </p>
           </div>
         ) : (
           posts.map((p) => (
-            <PostCard key={p.id} post={p} currentUserId={userId} onDeleted={loadPosts} />
+            <PostCard
+              key={p.id}
+              post={p}
+              currentUserId={userId}
+              onDeleted={loadPosts}
+            />
           ))
         )}
       </div>
