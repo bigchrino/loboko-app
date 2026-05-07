@@ -19,6 +19,7 @@ import {
   Briefcase,
   Heart,
   Image,
+  BadgeCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
@@ -78,6 +79,13 @@ const items: MenuItem[] = [
     desc: 'Publier ou consulter les demandes des clients',
     icon: Briefcase,
     color: '#10b981',
+  },
+  {
+    to: '/verification',
+    label: 'Vérification',
+    desc: 'Vérifier votre identité prestataire',
+    icon: BadgeCheck,
+    color: '#2563eb',
   },
   {
     to: '/favorites',
