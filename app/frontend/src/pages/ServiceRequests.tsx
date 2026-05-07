@@ -399,7 +399,7 @@ function CreateRequestDialog({
           <input
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            placeholder="Budget (optionnel, ex: 50 000 FCFA)"
+            placeholder="Budget (optionnel, ex: 50 000 CDF)"
             maxLength={60}
             className="w-full px-3 py-2 rounded-xl bg-[var(--loboko-bg)] border border-[var(--loboko-border)] text-sm"
           />
