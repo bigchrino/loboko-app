@@ -19,7 +19,10 @@ export interface Profile {
   city?: string | null;
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
+
   is_verified?: boolean;
+  verification_status?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  verified_at?: string | null;
 
   is_admin?: boolean;
   subscription_type?: 'free' | 'premium';
