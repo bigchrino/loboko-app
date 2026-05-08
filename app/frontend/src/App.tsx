@@ -129,6 +129,14 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/services/:slug', element: <ProvidersByCategory /> },
 
   { path: '/admin/reports', element: <AdminReports /> },
+  {
+    path: '/admin/reports',
+    element: (
+       <AdminRoute>
+        <AdminReports />
+      </AdminRoute>
+     ),
+  },
 
   /* Marketplace */
   { path: '/works', element: <Works /> },
