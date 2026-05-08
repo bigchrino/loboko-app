@@ -61,6 +61,7 @@ interface AuthContextValue {
     service_category_id?: string | null;
   }) => Promise<Profile>;
   updateLobokoProfile: (params: Partial<Omit<Profile, 'id' | 'user_id'>>) => Promise<Profile>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -213,6 +214,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadProfileFor],
   );
 
+  const signInWithGoogle: AuthContextValue['signInWithGoogle'] = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  
+    if (error) throw new Error(error.message);
+  }, []);
+
   const createLobokoProfile: AuthContextValue['createLobokoProfile'] = useCallback(
     async (params) => {
       const { data: userData } = await supabase.auth.getUser();
@@ -295,6 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile,
         registerLoboko,
         loginLoboko,
+        signInWithGoogle,
         createLobokoProfile,
         updateLobokoProfile,
         logout,
