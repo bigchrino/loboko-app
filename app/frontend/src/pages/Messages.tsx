@@ -1787,6 +1787,11 @@ export default function Messages() {
                           <span className="truncate">
                             {highlightText(displayName, listQuery)}
                           </span>
+                          {c.profile?.is_admin && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold shrink-0">
+                              💎 Admin
+                            </span>
+                          )}
                           {isBlocked && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-semibold shrink-0">
                               BLOQUÉ
@@ -1837,8 +1842,16 @@ export default function Messages() {
             >
               <Avatar profile={activeProfile} online={activeOnline} />
               <div className="flex-1 min-w-0 text-left">
-                <div className="font-semibold text-sm truncate">
-                  {activeProfile?.display_name || activeProfile?.username || 'Utilisateur'}
+                <div className="font-semibold text-sm truncate flex items-center gap-1">
+                  <span className="truncate">
+                    {activeProfile?.display_name || activeProfile?.username || 'Utilisateur'}
+                  </span>
+                
+                  {activeProfile?.is_admin && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold shrink-0">
+                      💎 Admin
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs truncate">
                   {peerTyping === 'typing' ? (
