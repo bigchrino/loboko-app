@@ -10,7 +10,14 @@ import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 type Mode = 'login' | 'register';
 
 export default function Index() {
-  const { user, profile, loading, loginLoboko, registerLoboko } = useAuth();
+  const {
+    user,
+    profile,
+    loading,
+    loginLoboko,
+    registerLoboko,
+    signInWithGoogle,
+  } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
