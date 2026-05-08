@@ -116,6 +116,7 @@ export async function fetchPendingVerifications() {
   const { data, error } = await supabase
     .from('provider_verifications')
     .select('*')
+    .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
   if (error) {
