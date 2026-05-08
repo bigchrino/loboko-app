@@ -218,7 +218,7 @@ export default function Menu() {
 
           {profile?.is_admin && (
             <Link
-              to="/admin/verifications"
+              to="/admin"
               className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
             >
               <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
@@ -226,9 +226,9 @@ export default function Menu() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="font-semibold">Vérifications KYC</div>
+                <div className="font-semibold">Administration</div>
                 <div className="text-sm text-[var(--loboko-text-secondary)]">
-                  Gérer les vérifications prestataires
+                  Centre de contrôle LOBOKO
                 </div>
               </div>
 
