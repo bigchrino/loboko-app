@@ -218,7 +218,8 @@ function KycPreview({
 
   return (
     <a
-      href= "_blank"
+      href={url}
+      target="_blank"
       rel="noreferrer"
       className="group block rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-[var(--loboko-bg)]"
     >
