@@ -19,7 +19,6 @@ import {
   Briefcase,
   Heart,
   Image,
-  BadgeCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
@@ -35,11 +34,17 @@ interface MenuItem {
 }
 
 const items: MenuItem[] = [
-  { to: '/profile', label: 'Mon Profil', desc: 'Voir et modifier votre profil', icon: User, color: '#2563eb' },
+  {
+    to: '/profile',
+    label: 'Mon Profil',
+    desc: 'Voir et modifier votre profil',
+    icon: User,
+    color: '#2563eb',
+  },
   {
     to: '/verification',
     label: 'Vérification',
-    desc: 'Obtenir le badge prestataire vérifié',
+    desc: 'Vérifier votre identité prestataire',
     icon: ShieldCheck,
     color: '#2563eb',
   },
@@ -65,7 +70,6 @@ const items: MenuItem[] = [
     icon: Star,
     color: '#eab308',
   },
-
   {
     to: '/works',
     label: 'Réalisations',
@@ -80,7 +84,6 @@ const items: MenuItem[] = [
     icon: Briefcase,
     color: '#10b981',
   },
-  
   {
     to: '/favorites',
     label: 'Favoris',
@@ -88,13 +91,48 @@ const items: MenuItem[] = [
     icon: Heart,
     color: '#ef4444',
   },
-
-  { to: '/recherches', label: 'Recherches', desc: 'Rechercher des personnes et contenus', icon: Search, color: '#2563eb' },
-  { to: '/suggestion', label: 'Suggestion', desc: 'Suggestions personnalisées', icon: Lightbulb, color: '#eab308' },
-  { to: '/entreprise', label: 'Entreprise', desc: 'Offres et services entreprise', icon: Building2, color: '#2563eb' },
-  { to: '/panier', label: 'Panier', desc: 'Vos articles à acheter', icon: ShoppingCart, color: '#10b981' },
-  { to: '/urgences', label: 'Urgences', desc: "Services d'urgence", icon: Siren, color: '#ef4444' },
-  { to: '/settings', label: 'Paramètres', desc: 'Gérer vos préférences', icon: Settings, color: '#2563eb' },
+  {
+    to: '/recherches',
+    label: 'Recherches',
+    desc: 'Rechercher des personnes et contenus',
+    icon: Search,
+    color: '#2563eb',
+  },
+  {
+    to: '/suggestion',
+    label: 'Suggestion',
+    desc: 'Suggestions personnalisées',
+    icon: Lightbulb,
+    color: '#eab308',
+  },
+  {
+    to: '/entreprise',
+    label: 'Entreprise',
+    desc: 'Offres et services entreprise',
+    icon: Building2,
+    color: '#2563eb',
+  },
+  {
+    to: '/panier',
+    label: 'Panier',
+    desc: 'Vos articles à acheter',
+    icon: ShoppingCart,
+    color: '#10b981',
+  },
+  {
+    to: '/urgences',
+    label: 'Urgences',
+    desc: "Services d'urgence",
+    icon: Siren,
+    color: '#ef4444',
+  },
+  {
+    to: '/settings',
+    label: 'Paramètres',
+    desc: 'Gérer vos préférences',
+    icon: Settings,
+    color: '#2563eb',
+  },
 ];
 
 export default function Menu() {
@@ -134,6 +172,7 @@ export default function Menu() {
           {items.map(({ to, label, desc, icon: Icon, color, badgeKey }) => {
             const badgeCount = badgeCountFor(badgeKey);
             const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
+
             return (
               <Link
                 key={to}
@@ -145,6 +184,7 @@ export default function Menu() {
                   style={{ backgroundColor: `${color}26` }}
                 >
                   <Icon size={22} style={{ color }} />
+
                   {badgeCount > 0 && (
                     <span
                       className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[var(--loboko-elevated)]"
@@ -153,41 +193,48 @@ export default function Menu() {
                       {badgeLabel}
                     </span>
                   )}
-                  {profile?.is_admin && (
-                    <Link
-                      to="/admin/verifications"
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
-                    >
-                      <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
-                        <ShieldCheck size={22} className="text-[#2563eb]" />
-                      </div>
-                  
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold">Vérifications KYC</div>
-                        <div className="text-sm text-[var(--loboko-text-secondary)]">
-                          Gérer les vérifications prestataires
-                        </div>
-                      </div>
-                  
-                      <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
-                    </Link>
-                  )}
                 </div>
+
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold flex items-center gap-2">
                     {label}
+
                     {badgeCount > 0 && (
                       <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
                         {badgeLabel}
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-[var(--loboko-text-secondary)]">{desc}</div>
+
+                  <div className="text-sm text-[var(--loboko-text-secondary)]">
+                    {desc}
+                  </div>
                 </div>
+
                 <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
               </Link>
             );
           })}
+
+          {profile?.is_admin && (
+            <Link
+              to="/admin/verifications"
+              className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
+            >
+              <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
+                <ShieldCheck size={22} className="text-[#2563eb]" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold">Vérifications KYC</div>
+                <div className="text-sm text-[var(--loboko-text-secondary)]">
+                  Gérer les vérifications prestataires
+                </div>
+              </div>
+
+              <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
+            </Link>
+          )}
 
           <button
             onClick={() => setShowLogoutConfirm(true)}
@@ -196,12 +243,14 @@ export default function Menu() {
             <div className="w-11 h-11 rounded-xl bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0">
               <LogOut size={22} className="text-[#ef4444]" />
             </div>
+
             <div className="flex-1 min-w-0">
               <div className="font-semibold">Déconnexion</div>
               <div className="text-sm text-[var(--loboko-text-secondary)]">
                 Se déconnecter de LOBOKO
               </div>
             </div>
+
             <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
           </button>
         </div>
