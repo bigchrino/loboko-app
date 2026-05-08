@@ -166,7 +166,8 @@ export default function UserProfilePage() {
 
   const name = targetProfile.display_name || targetProfile.username;
   const initials = name.slice(0, 2).toUpperCase();
-  const isPrestataire = targetProfile.role === 'prestataire';
+  const isAdmin = targetProfile.is_admin === true;
+  const isPrestataire = targetProfile.role === 'prestataire' && !isAdmin;
   const isSelf = user?.id === targetProfile.user_id;
   const canRate =
     isPrestataire && !isSelf && myProfile?.role === 'client' && !!user?.id;
@@ -209,7 +210,7 @@ export default function UserProfilePage() {
             <div className="text-sm text-[var(--loboko-text-muted)]">
               @{targetProfile.username}
             </div>
-            {targetProfile.metier && (
+            {isPrestataire && targetProfile.metier && (
               <div className="text-sm text-[#2563eb] font-medium mt-1">
                 {targetProfile.metier}
               </div>
