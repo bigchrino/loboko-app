@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Verification from './pages/Verification';
 import AdminVerifications from './pages/AdminVerifications';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -93,6 +94,14 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/messages', element: <Messages /> },
   { path: '/calls', element: <Calls /> },
   { path: '/statuses', element: <Statuses /> },
+  {
+    path: '/admin',
+    element: (
+      <AdminRoute>
+        <AdminDashboard />
+      </AdminRoute>
+    ),
+  },
 
   { path: '/messages/group/:groupId', element: <GroupChat /> },
   { path: '/messages/group/:groupId/info', element: <GroupInfo /> },
