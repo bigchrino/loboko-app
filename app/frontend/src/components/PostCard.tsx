@@ -31,6 +31,7 @@ interface Author {
   metier?: string;
   avatar_key?: string;
   role?: string;
+  is_admin?: boolean;
 }
 
 interface Props {
@@ -440,15 +441,21 @@ export default function PostCard({
               >
                 {authorName}
               </button>
-              {author?.role === 'prestataire' && (
+              {author?.is_admin ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">
+                  💎 Admin
+                </span>
+              ) : author?.role === 'prestataire' ? (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
                   PRO
                 </span>
-              )}
+              ) : null}
             </div>
             <div className="text-xs text-[var(--loboko-text-muted)] truncate flex items-center gap-1.5">
               <span className="truncate">
-                {author?.metier || `@${author?.username || 'user'}`}
+                {author?.is_admin
+                  ? `@${author?.username || 'user'}`
+                  : author?.metier || `@${author?.username || 'user'}`}
               </span>
               {post.created_at && (
                 <>
