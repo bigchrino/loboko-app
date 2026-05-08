@@ -178,8 +178,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!u) throw new Error("Échec de l'inscription");
 
     const account = accountFromUser(u)!;
-    setUser(account);
 
+    if (data.session) {
+      setSession(data.session);
+      setUser(account);
+      await loadProfileFor(u);
+    } else {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+    }
+    
     return account;
   }, []);
 
