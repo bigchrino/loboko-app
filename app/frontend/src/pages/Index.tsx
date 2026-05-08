@@ -63,7 +63,9 @@ export default function Index() {
           display_name: displayName.trim(),
           metier: role === 'prestataire' ? serviceCategoryName : undefined,
         });
-        toast.success('Compte créé ! Complétez votre profil.');
+        toast.success('Compte créé. Vérifiez votre email avant de vous connecter.');
+        setMode('login');
+        setPassword('');
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur inattendue';
@@ -270,8 +272,7 @@ export default function Index() {
             </form>
 
             <p className="text-[11px] text-[var(--loboko-text-muted)] text-center mt-4">
-              Chaque compte LOBOKO est indépendant, vous pouvez créer plusieurs comptes
-              avec des emails différents pour les tester.
+              Un seul compte LOBOKO par email. Vous pourrez lier Google, Apple ou téléphone plus tard depuis les paramètres.
             </p>
           </div>
         </div>
