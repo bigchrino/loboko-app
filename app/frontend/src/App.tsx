@@ -9,6 +9,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminRoute from './components/AdminRoute';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminPosts from './pages/admin/AdminPosts';
+import AdminStats from './pages/admin/AdminStats';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -118,6 +119,14 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
     element: (
       <AdminRoute>
         <AdminPosts />
+      </AdminRoute>
+    ),
+  },
+  {
+    path: '/admin/stats',
+    element: (
+      <AdminRoute>
+        <AdminStats />
       </AdminRoute>
     ),
   },
