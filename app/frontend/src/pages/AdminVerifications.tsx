@@ -74,7 +74,8 @@ export default function AdminVerifications() {
       await load();
     } catch (e) {
       console.error(e);
-      toast.error('Action impossible');
+      const msg = e instanceof Error ? e.message : 'Action impossible';
+      toast.error(msg);
     } finally {
       setProcessingId(null);
     }
@@ -94,7 +95,8 @@ export default function AdminVerifications() {
       await load();
     } catch (e) {
       console.error(e);
-      toast.error('Action impossible');
+      const msg = e instanceof Error ? e.message : 'Action impossible';
+      toast.error(msg);
     } finally {
       setProcessingId(null);
     }
