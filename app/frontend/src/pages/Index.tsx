@@ -278,6 +278,23 @@ export default function Index() {
               </button>
             </form>
 
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                  } catch (e) {
+                    const err = e as Error;
+                    toast.error(err.message);
+                  }
+                }}
+                className="w-full py-3 rounded-xl border border-[var(--loboko-border)] bg-white text-black font-semibold hover:opacity-90 transition"
+              >
+                Continuer avec Google
+              </button>
+            </div>
+
             <p className="text-[11px] text-[var(--loboko-text-muted)] text-center mt-4">
               Un seul compte LOBOKO par email. Vous pourrez lier Google, Apple ou téléphone plus tard depuis les paramètres.
             </p>
