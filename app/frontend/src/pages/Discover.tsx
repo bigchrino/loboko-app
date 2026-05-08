@@ -20,7 +20,8 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
   }, [profile.avatar_key]);
   const name = profile.display_name || profile.username;
   const initials = name.slice(0, 2).toUpperCase();
-  const isPrestataire = profile.role === 'prestataire';
+  const isAdmin = profile.is_admin === true;
+  const isPrestataire = profile.role === 'prestataire' && !isAdmin;
   return (
     <div
       className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 flex gap-3 items-center cursor-pointer hover:border-[#2563eb] transition"
@@ -36,11 +37,17 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-semibold truncate">{name}</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize shrink-0">
-            {profile.role}
-          </span>
+          {isAdmin ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold shrink-0">
+              💎 Admin
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize shrink-0">
+              {profile.role}
+            </span>
+          )}
         </div>
-        {profile.metier && (
+        {isPrestataire && profile.metier && (
           <div className="text-xs text-[#2563eb] font-medium truncate">{profile.metier}</div>
         )}
         {isPrestataire && summary && summary.count > 0 && (
