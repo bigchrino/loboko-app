@@ -193,9 +193,15 @@ export default function UserProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold truncate">{name}</h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
-                {targetProfile.role}
-              </span>
+              {targetProfile.is_admin ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">
+                  💎 Admin
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
+                  {targetProfile.role}
+                </span>
+              )}
               {isPrestataire && isPremium(targetProfile) && (
                 <PremiumBadge variant="full" />
               )}
