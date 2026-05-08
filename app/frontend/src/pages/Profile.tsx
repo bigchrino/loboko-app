@@ -238,9 +238,15 @@ export default function Profile() {
               <h2 className="text-xl font-bold truncate">
                 {profile.display_name || profile.username}
               </h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
-                {profile.role}
-              </span>
+              {profile.is_admin ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">
+                  💎 Admin
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
+                  {profile.role}
+                </span>
+              )}
               {profile.role === 'prestataire' && isPremium(profile) && (
                 <PremiumBadge variant="full" />
               )}
@@ -420,7 +426,7 @@ export default function Profile() {
                   {profile.completed_jobs_count || 0} mission
                   {(profile.completed_jobs_count || 0) !== 1 ? 's' : ''}
                 </div>
-                {profile.is_verified && (
+                {profile.is_verified && profile.verification_status === 'approved' && (
                   <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[rgba(37,99,235,0.15)] border border-[rgba(37,99,235,0.45)] text-[#60a5fa] text-xs font-semibold">
                     <BadgeCheck size={14} />
                     Vérifié
