@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Verification from './pages/Verification';
 import AdminVerifications from './pages/AdminVerifications';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
