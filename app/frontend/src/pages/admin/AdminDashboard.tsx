@@ -8,6 +8,7 @@ import {
   BarChart3,
   Megaphone,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 
 const cards = [
@@ -52,6 +53,13 @@ const cards = [
     desc: 'Voir les chiffres de la plateforme',
     icon: BarChart3,
     color: '#06b6d4',
+  },
+  {
+    to: '/admin/posts',
+    title: 'Publications',
+    desc: 'Modération des contenus',
+    icon: FileText,
+    color: '#ef4444',
   },
 ];
 
