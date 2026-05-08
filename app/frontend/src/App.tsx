@@ -7,7 +7,6 @@ import Verification from './pages/Verification';
 import AdminVerifications from './pages/AdminVerifications';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminRoute from './components/AdminRoute';
-import AdminDashboard from './pages/admin/AdminDashboard';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -139,7 +138,30 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
 
-  { path: '/admin/reports', element: <AdminReports /> },
+  {
+    path: '/admin',
+    element: (
+      <AdminRoute>
+        <AdminDashboard />
+      </AdminRoute>
+    ),
+  },
+  {
+    path: '/admin/reports',
+    element: (
+      <AdminRoute>
+        <AdminReports />
+      </AdminRoute>
+    ),
+  },
+  {
+    path: '/admin/verifications',
+    element: (
+      <AdminRoute>
+        <AdminVerifications />
+      </AdminRoute>
+    ),
+  },
   {
     path: '/admin/reports',
     element: (
