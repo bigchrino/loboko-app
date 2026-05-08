@@ -8,6 +8,7 @@ import AdminVerifications from './pages/AdminVerifications';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminRoute from './components/AdminRoute';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminPosts from './pages/admin/AdminPosts';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -109,6 +110,14 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
     element: (
       <AdminRoute>
         <AdminUsers />
+      </AdminRoute>
+    ),
+  },
+  {
+    path: '/admin/posts',
+    element: (
+      <AdminRoute>
+        <AdminPosts />
       </AdminRoute>
     ),
   },
