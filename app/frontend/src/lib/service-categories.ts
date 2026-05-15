@@ -21,12 +21,25 @@ export interface ServiceCategory {
 export interface ServiceCategoryWithCount extends ServiceCategory {
   provider_count: number;
 }
+export interface Service {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  requires_verification?: boolean;
+  created_at?: string;
+}
+
+export interface ServiceWithCategory extends Service {
+  category?: ServiceCategory | null;
+}
 
 /** Fetch all active categories, sorted by name. */
 export async function fetchActiveCategories(): Promise<ServiceCategory[]> {
   try {
     const { data, error } = await supabase
-      .from('services_categories')
+      .from('service_categories')
       .select('*')
       .eq('is_active', true)
       .order('name', { ascending: true });
@@ -41,13 +54,76 @@ export async function fetchActiveCategories(): Promise<ServiceCategory[]> {
   }
 }
 
+export async function fetchActiveServices(): Promise<Service[]> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('fetchActiveServices error', error);
+      return [];
+    }
+
+    return (data as Service[]) || [];
+  } catch (e) {
+    console.error('fetchActiveServices exception', e);
+    return [];
+  }
+}
+
+export async function fetchServicesByCategory(
+  categoryId: string,
+): Promise<Service[]> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('category_id', categoryId)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('fetchServicesByCategory error', error);
+      return [];
+    }
+
+    return (data as Service[]) || [];
+  } catch (e) {
+    console.error('fetchServicesByCategory exception', e);
+    return [];
+  }
+}
+
+export async function fetchServiceById(id: string): Promise<Service | null> {
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('fetchServiceById error', error);
+      return null;
+    }
+
+    return (data as Service) || null;
+  } catch (e) {
+    console.error('fetchServiceById exception', e);
+    return null;
+  }
+}
+
 /** Fetch one category by slug. */
 export async function fetchCategoryBySlug(
   slug: string,
 ): Promise<ServiceCategory | null> {
   try {
     const { data, error } = await supabase
-      .from('services_categories')
+      .from('service_categories')
       .select('*')
       .eq('slug', slug)
       .eq('is_active', true)
@@ -69,7 +145,7 @@ export async function fetchCategoryById(
 ): Promise<ServiceCategory | null> {
   try {
     const { data, error } = await supabase
-      .from('services_categories')
+      .from('service_categories')
       .select('*')
       .eq('id', id)
       .maybeSingle();
