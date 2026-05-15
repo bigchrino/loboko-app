@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Check, AlertCircle } from 'lucide-react';
 import {
-  fetchActiveCategories,
+  fetchActiveServices,
+  Service,
   ServiceCategory,
 } from '@/lib/service-categories';
 
@@ -31,7 +32,7 @@ export default function ServiceCategorySelect({
   placeholder = 'Choisissez votre service…',
   legacyMetier,
 }: Props) {
-  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -41,9 +42,9 @@ export default function ServiceCategorySelect({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const list = await fetchActiveCategories();
+      const list = await fetchActiveServices();
       if (cancelled) return;
-      setCategories(list);
+      setServices(list);
       setLoading(false);
     })();
     return () => {
@@ -61,20 +62,21 @@ export default function ServiceCategorySelect({
   }, []);
 
   const selected = useMemo(
-    () => categories.find((c) => c.id === value) || null,
-    [categories, value],
+    () => services.find((s) => s.id === value) || null,
+    [services, value],
   );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        (c.description || '').toLowerCase().includes(q),
+  
+    if (!q) return services;
+  
+    return services.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.slug.toLowerCase().includes(q),
     );
-  }, [categories, query]);
+  }, [services, query]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -143,16 +145,16 @@ export default function ServiceCategorySelect({
               </div>
             ) : (
               <ul role="listbox" className="py-1">
-                {filtered.map((c) => {
-                  const isSel = c.id === value;
+                {filtered.map((s) => {
+                  const isSel = s.id === value;
                   return (
-                    <li key={c.id}>
+                    <li key={s.id}>
                       <button
                         type="button"
                         role="option"
                         aria-selected={isSel}
                         onClick={() => {
-                          onChange(c.id, c);
+                          onChange(s.id, s as unknown as ServiceCategory);
                           setQuery('');
                           setOpen(false);
                         }}
@@ -160,7 +162,7 @@ export default function ServiceCategorySelect({
                           isSel ? 'bg-[rgba(37,99,235,0.12)] text-[#60a5fa]' : ''
                         }`}
                       >
-                        <span className="truncate">{c.name}</span>
+                        <span className="truncate">{s.name}</span>
                         {isSel && <Check size={14} className="text-[#60a5fa]" />}
                       </button>
                     </li>
