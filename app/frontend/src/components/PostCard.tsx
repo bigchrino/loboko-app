@@ -528,9 +528,39 @@ export default function PostCard({
           )}
         </div>
 
-        {imageUrl && (
-          <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)]">
-            <img src={imageUrl} alt="" loading="lazy" decoding="async" className="w-full h-auto object-cover max-h-[480px]" />
+        {mediaUrls.length > 0 && (
+          <div
+            className={`mb-3 grid gap-2 ${
+              mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+            }`}
+            data-stop-card-click="1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {mediaUrls.slice(0, 4).map((url, index) => (
+              <a
+                key={url}
+                href= "_blank"
+                rel="noopener noreferrer"
+                download
+                className="relative rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-black"
+              >
+                <img
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className={`w-full object-cover ${
+                    mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
+                  }`}
+                />
+        
+                {index === 3 && mediaUrls.length > 4 && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold">
+                    +{mediaUrls.length - 4}
+                  </div>
+                )}
+              </a >
+            ))}
           </div>
         )}
 
