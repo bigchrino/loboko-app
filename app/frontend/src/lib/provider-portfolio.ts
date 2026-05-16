@@ -30,23 +30,29 @@ export interface PortfolioItem {
  */
 export async function getPortfolioSignedUrl(
   mediaKey: string,
-  expiresInSeconds = 60,
+  _expiresInSeconds = 60,
 ): Promise<string | null> {
   try {
-    const { data, error } = await supabase.storage
-      .from(PORTFOLIO_BUCKET)
-      .createSignedUrl(mediaKey, expiresInSeconds);
-    if (error) {
-      console.error('getPortfolioSignedUrl error', error);
-      return null;
+    if (!mediaKey) return null;
+
+    if (mediaKey.startsWith('http://') || mediaKey.startsWith('https://')) {
+      return mediaKey;
     }
-    return data?.signedUrl || null;
+
+    const cleanKey = mediaKey.includes('::')
+      ? mediaKey.split('::').slice(1).join('::')
+      : mediaKey;
+
+    const { data } = supabase.storage
+      .from(PORTFOLIO_BUCKET)
+      .getPublicUrl(cleanKey);
+
+    return data?.publicUrl || null;
   } catch (e) {
     console.error('getPortfolioSignedUrl exception', e);
     return null;
   }
 }
-
 /** Fetch every portfolio item for a given provider, newest first.
  *
  * Only the index rows are returned — URLs are generated lazily via
