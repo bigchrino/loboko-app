@@ -74,6 +74,7 @@ export default function PostCard({
   const [sharesCount, setSharesCount] = useState(post.shares_count || 0);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
 
@@ -395,6 +396,15 @@ export default function PostCard({
   const initials = authorName.slice(0, 2).toUpperCase();
   const isFeed = variant === 'feed';
 
+  const MAX_CONTENT_LENGTH = 220;
+
+  const isLongPost = post.content.length > MAX_CONTENT_LENGTH;
+  
+  const displayedContent =
+    expanded || !isLongPost
+      ? post.content
+      : `${post.content.slice(0, MAX_CONTENT_LENGTH)}...`;
+
   return (
     <>
       <article
@@ -481,16 +491,28 @@ export default function PostCard({
           </div>
         </header>
 
-        <p
-          className="text-sm leading-relaxed mb-3"
+        <div
+          className="mb-3"
           data-stop-card-click="1"
           onClick={(e) => e.stopPropagation()}
         >
-          <MentionText
-            text={post.content}
-            returnContext={{ postId: post.id }}
-          />
-        </p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <MentionText
+              text={displayedContent}
+              returnContext={{ postId: post.id }}
+            />
+          </p >
+        
+          {isLongPost && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 text-sm font-semibold text-[#2563eb] hover:underline !bg-transparent !hover:bg-transparent p-0"
+            >
+              {expanded ? 'Voir moins' : 'Voir plus'}
+            </button>
+          )}
+        </div>
 
         {imageUrl && (
           <div className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)]">
