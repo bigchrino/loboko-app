@@ -13,7 +13,7 @@ export interface Profile {
   avatar_key?: string;
   role: 'client' | 'prestataire';
   theme?: 'light' | 'dark';
-  service_id?: string | null;
+  service_category_id?: string | null;
   service_id?: string | null;
   last_seen_at?: string | null;
 
@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metier: params.metier || null,
         role: params.role,
         theme: 'dark',
-        service_category_id: params.service_category_id || null,
+        service_category_id: null,
         service_id: params.service_id || null,
       };
 
