@@ -154,7 +154,8 @@ export default function Profile() {
       setEditing(false);
     } catch (e) {
       console.error(e);
-      toast.error('Erreur');
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue';
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
