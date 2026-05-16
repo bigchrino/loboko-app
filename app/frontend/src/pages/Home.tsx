@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ComposePost from '@/components/ComposePost';
@@ -13,6 +13,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const restoredRef = useRef(false);
 
   const userId = user?.id || '';
 
@@ -39,6 +40,32 @@ export default function Home() {
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
+
+  useEffect(() => {
+    if (restoredRef.current) return;
+  
+    const savedY = sessionStorage.getItem('home-scroll');
+  
+    if (savedY) {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, Number(savedY));
+      });
+    }
+  
+    restoredRef.current = true;
+  }, []);
+  
+  useEffect(() => {
+    const saveScroll = () => {
+      sessionStorage.setItem('home-scroll', String(window.scrollY));
+    };
+  
+    window.addEventListener('scroll', saveScroll);
+  
+    return () => {
+      window.removeEventListener('scroll', saveScroll);
+    };
+  }, []);
 
   return (
     <Layout title="Accueil">
