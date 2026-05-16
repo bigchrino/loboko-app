@@ -207,6 +207,7 @@ export interface ProviderProfile {
   avatar_key?: string | null;
   role: 'client' | 'prestataire';
   service_category_id?: string | null;
+  service_id?: string | null;
   created_at?: string;
   city?: string | null;
   availability_status?: 'available' | 'unavailable';
@@ -219,6 +220,7 @@ export interface ProviderProfile {
 export interface ProviderSearchFilters {
   /** Restrict to one category id. Undefined = all categories. */
   categoryId?: string;
+  serviceId?: string;
   /** City filter (substring, case-insensitive). */
   city?: string;
   /** When true, only return providers with availability_status='available'. */
@@ -260,6 +262,7 @@ export async function fetchProviders(
   try {
     let q = supabase.from('profiles').select('*').eq('role', 'prestataire');
     if (filters.categoryId) q = q.eq('service_category_id', filters.categoryId);
+    if (filters.serviceId) q = q.eq('service_id', filters.serviceId);
     if (filters.availableOnly) q = q.eq('availability_status', 'available');
     if (filters.verifiedOnly) q = q.eq('is_verified', true);
     if (filters.city && filters.city.trim()) {
