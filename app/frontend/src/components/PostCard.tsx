@@ -362,6 +362,8 @@ export default function PostCard({
    * interactive element via `data-stop-card-click`.
    */
   const openDetail = () => {
+    sessionStorage.setItem('home-scroll-y', String(window.scrollY));
+  
     navigate(`/post/${post.id}`, {
       state: {
         from: `${location.pathname}${location.search}${location.hash}`,
@@ -439,6 +441,7 @@ export default function PostCard({
             data-stop-card-click="1"
             onClick={(e) => {
               e.stopPropagation();
+              sessionStorage.setItem('home-scroll-y', String(window.scrollY));
               navigate(`/u/${post.user_id}`);
             }}
             className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm !bg-transparent-off"
@@ -459,6 +462,7 @@ export default function PostCard({
                 data-stop-card-click="1"
                 onClick={(e) => {
                   e.stopPropagation();
+                  sessionStorage.setItem('home-scroll-y', String(window.scrollY));
                   navigate(`/u/${post.user_id}`);
                 }}
                 className="font-semibold text-sm truncate !bg-transparent !hover:bg-transparent hover:underline text-left"
