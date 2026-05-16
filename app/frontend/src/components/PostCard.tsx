@@ -539,9 +539,9 @@ export default function PostCard({
             {mediaUrls.slice(0, 4).map((url, index) => (
               <a
                 key={url}
-                href= "_blank"
+                href={url}
+                target="_blank"
                 rel="noopener noreferrer"
-                download
                 className="relative rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-black"
               >
                 <img
