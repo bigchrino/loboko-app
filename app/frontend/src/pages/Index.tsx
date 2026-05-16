@@ -296,7 +296,7 @@ export default function Index() {
                 Continuer avec Google
               </button>
 
-              <button
+              {/*  <button
                 type="button"
                 onClick={async () => {
                   try {
@@ -309,7 +309,7 @@ export default function Index() {
                 className="w-full mt-3 py-3 rounded-xl border border-[var(--loboko-border)] bg-[#1877F2] text-white font-semibold hover:opacity-90 transition"
               >
                 Continuer avec Facebook
-              </button>
+              </button> */}
             </div>
 
             <p className="text-[11px] text-[var(--loboko-text-muted)] text-center mt-4">
