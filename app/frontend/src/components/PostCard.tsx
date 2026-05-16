@@ -19,6 +19,7 @@ export interface PostItem {
   content: string;
   image_key?: string;
   video_key?: string;
+  media_keys?: string[];
   likes_count?: number;
   comments_count?: number;
   shares_count?: number;
@@ -67,6 +68,7 @@ export default function PostCard({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [liked, setLiked] = useState(false);
   const [likeId, setLikeId] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -96,9 +98,22 @@ export default function PostCard({
       } catch (e) {
         console.error(e);
       }
-      if (post.image_key) {
+      if (post.media_keys?.length) {
+        const urls = await Promise.all(
+          post.media_keys.map((k) => getMediaUrl(k))
+        );
+      
+        setMediaUrls(
+          urls.filter((u): u is string => !!u)
+        );
+      }
+      else if (post.image_key) {
         const url = await getMediaUrl(post.image_key);
-        setImageUrl(url);
+      
+        if (url) {
+          setMediaUrls([url]);
+        }
+      }
       }
       if (post.video_key) {
         const url = await getMediaUrl(post.video_key);
