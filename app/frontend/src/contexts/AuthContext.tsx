@@ -13,7 +13,8 @@ export interface Profile {
   avatar_key?: string;
   role: 'client' | 'prestataire';
   theme?: 'light' | 'dark';
-  service_category_id?: string | null;
+  service_id?: string | null;
+  service_id?: string | null;
   last_seen_at?: string | null;
 
   city?: string | null;
@@ -50,6 +51,7 @@ interface AuthContextValue {
     role: 'client' | 'prestataire';
     display_name: string;
     metier?: string;
+    service_id?: string | null;
   }) => Promise<LobokoAccount>;
   loginLoboko: (params: { email: string; password: string }) => Promise<LobokoAccount>;
   createLobokoProfile: (params: {
@@ -59,6 +61,7 @@ interface AuthContextValue {
     metier?: string;
     role: 'client' | 'prestataire';
     service_category_id?: string | null;
+    service_id?: string | null;
   }) => Promise<Profile>;
   updateLobokoProfile: (params: Partial<Omit<Profile, 'id' | 'user_id'>>) => Promise<Profile>;
   signInWithGoogle: () => Promise<void>;
@@ -168,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           role: params.role,
           display_name: params.display_name,
+          service_id: params.service_id || null,
           metier: params.metier || null,
         },
       },
@@ -242,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: params.role,
         theme: 'dark',
         service_category_id: params.service_category_id || null,
+        service_id: params.service_id || null,
       };
 
       const { data, error } = await supabase
