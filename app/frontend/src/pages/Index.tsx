@@ -17,6 +17,7 @@ export default function Index() {
     loginLoboko,
     registerLoboko,
     signInWithGoogle,
+    signInWithFacebook,
   } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -293,6 +294,21 @@ export default function Index() {
                 className="w-full py-3 rounded-xl border border-[var(--loboko-border)] bg-white text-black font-semibold hover:opacity-90 transition"
               >
                 Continuer avec Google
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await signInWithFacebook();
+                  } catch (e) {
+                    const err = e as Error;
+                    toast.error(err.message);
+                  }
+                }}
+                className="w-full mt-3 py-3 rounded-xl border border-[var(--loboko-border)] bg-[#1877F2] text-white font-semibold hover:opacity-90 transition"
+              >
+                Continuer avec Facebook
               </button>
             </div>
 
