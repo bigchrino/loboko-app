@@ -10,7 +10,7 @@ export default function OnboardingProfile() {
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState(user?.display_name || '');
-  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState<string | null>(null);
   const [serviceCategoryName, setServiceCategoryName] = useState<string>(
     user?.metier || '',
   );
@@ -31,7 +31,7 @@ export default function OnboardingProfile() {
       toast.error("Nom d'utilisateur requis");
       return;
     }
-    if (role === 'prestataire' && !serviceCategoryId) {
+    if (role === 'prestataire' && !serviceId) {
       toast.error('Veuillez choisir un service officiel dans la liste');
       return;
     }
@@ -43,7 +43,7 @@ export default function OnboardingProfile() {
         metier: role === 'prestataire' ? serviceCategoryName : '',
         bio: bio.trim(),
         role,
-        service_category_id: role === 'prestataire' ? serviceCategoryId : null,
+        service_id: role === 'prestataire' ? serviceId : null,
       });
       toast.success('Profil créé avec succès !');
       navigate('/home', { replace: true });
@@ -122,10 +122,10 @@ export default function OnboardingProfile() {
                 Service que vous livrez *
               </label>
               <ServiceCategorySelect
-                value={serviceCategoryId}
-                onChange={(id, cat) => {
-                  setServiceCategoryId(id);
-                  setServiceCategoryName(cat?.name || '');
+                value={serviceId}
+                onChange={(id, service) => {
+                  setServiceId(id);
+                  setServiceCategoryName(service?.name || '');
                 }}
                 required
                 placeholder="Choisissez un service officiel…"
