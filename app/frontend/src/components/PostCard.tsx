@@ -103,18 +103,17 @@ export default function PostCard({
           post.media_keys.map((k) => getMediaUrl(k))
         );
       
-        setMediaUrls(
-          urls.filter((u): u is string => !!u)
-        );
-      }
-      else if (post.image_key) {
+        setMediaUrls(urls.filter((u): u is string => !!u));
+      } else if (post.image_key) {
         const url = await getMediaUrl(post.image_key);
       
         if (url) {
           setMediaUrls([url]);
         }
+      } else {
+        setMediaUrls([]);
       }
-      }
+      
       if (post.video_key) {
         const url = await getMediaUrl(post.video_key);
         setVideoUrl(url);
