@@ -26,7 +26,7 @@ export default function Index() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'client' | 'prestataire'>('client');
-  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
+  const [serviceId, setServiceId] = useState<string | null>(null);
   const [serviceCategoryName, setServiceCategoryName] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,7 +52,7 @@ export default function Index() {
         toast.error('Nom complet requis');
         return;
       }
-      if (role === 'prestataire' && !serviceCategoryId) {
+      if (role === 'prestataire' && !serviceId) {
         toast.error('Veuillez choisir un service officiel dans la liste');
         return;
       }
@@ -68,6 +68,7 @@ export default function Index() {
           password,
           role,
           display_name: displayName.trim(),
+          service_id: role === 'prestataire' ? serviceId : null,
           metier: role === 'prestataire' ? serviceCategoryName : undefined,
         });
         toast.success('Compte créé. Vérifiez votre email avant de vous connecter.');
@@ -249,9 +250,9 @@ export default function Index() {
                         Service que vous livrez *
                       </label>
                       <ServiceCategorySelect
-                        value={serviceCategoryId}
+                        value={serviceId}
                         onChange={(id, cat) => {
-                          setServiceCategoryId(id);
+                          setServiceId(id);
                           setServiceCategoryName(cat?.name || '');
                         }}
                         required
