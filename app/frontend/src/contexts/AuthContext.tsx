@@ -64,7 +64,8 @@ interface AuthContextValue {
     service_id?: string | null;
   }) => Promise<Profile>;
   updateLobokoProfile: (params: Partial<Omit<Profile, 'id' | 'user_id'>>) => Promise<Profile>;
-  signInWithGoogle: () => Promise<void>;
+ signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -229,6 +230,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new Error(error.message);
   }, []);
 
+  const signInWithFacebook: AuthContextValue['signInWithFacebook'] = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  
+    if (error) throw new Error(error.message);
+  }, []);
+
   const createLobokoProfile: AuthContextValue['createLobokoProfile'] = useCallback(
     async (params) => {
       const { data: userData } = await supabase.auth.getUser();
@@ -313,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerLoboko,
         loginLoboko,
         signInWithGoogle,
+        signInWithFacebook,
         createLobokoProfile,
         updateLobokoProfile,
         logout,
