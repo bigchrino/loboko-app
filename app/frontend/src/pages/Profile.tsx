@@ -19,8 +19,8 @@ import PostCard, { PostItem } from '@/components/PostCard';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
 import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 import {
-  fetchCategoryById,
-  ServiceCategory,
+  fetchServiceById,
+  Service,
 } from '@/lib/service-categories';
 import PortfolioEditor from '@/components/PortfolioEditor';
 import PremiumBadge from '@/components/PremiumBadge';
@@ -34,8 +34,8 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [metier, setMetier] = useState('');
-  const [serviceCategoryId, setServiceCategoryId] = useState<string | null>(null);
-  const [serviceCategory, setServiceCategory] = useState<ServiceCategory | null>(null);
+  const [serviceId, setServiceId] = useState<string | null>(null);
+  const [service, setService] = useState<Service | null>(null);
   const [city, setCity] = useState('');
   const [availability, setAvailability] =
     useState<'available' | 'unavailable'>('available');
@@ -52,7 +52,7 @@ export default function Profile() {
       setDisplayName(profile.display_name || '');
       setBio(profile.bio || '');
       setMetier(profile.metier || '');
-      setServiceCategoryId(profile.service_category_id || null);
+      setServiceId(profile.service_id || null);
       setCity(profile.city || '');
       setAvailability(profile.availability_status || 'available');
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
@@ -62,18 +62,22 @@ export default function Profile() {
 
   useEffect(() => {
     let cancelled = false;
+  
     (async () => {
-      if (!profile?.service_category_id) {
-        setServiceCategory(null);
+      if (!profile?.service_id) {
+        setService(null);
         return;
       }
-      const cat = await fetchCategoryById(profile.service_category_id);
-      if (!cancelled) setServiceCategory(cat);
+  
+      const foundService = await fetchServiceById(profile.service_id);
+  
+      if (!cancelled) setService(foundService);
     })();
+  
     return () => {
       cancelled = true;
     };
-  }, [profile?.service_category_id]);
+  }, [profile?.service_id]);
 
   useEffect(() => {
     (async () => {
@@ -126,7 +130,7 @@ export default function Profile() {
 
   const save = async () => {
     if (!profile) return;
-    if (profile.role === 'prestataire' && !serviceCategoryId) {
+    if (profile.role === 'prestataire' && !serviceId) {
       toast.error('Veuillez choisir un service officiel dans la liste');
       return;
     }
@@ -137,7 +141,8 @@ export default function Profile() {
         bio,
       };
       if (profile.role === 'prestataire') {
-        patch.service_category_id = serviceCategoryId;
+        patch.service_id = serviceId;
+        patch.service_category_id = null;
         // Keep legacy metier in sync with the selected category name for
         // backward compatibility with existing UI that reads profile.metier.
         patch.metier = metier;
@@ -285,10 +290,10 @@ export default function Profile() {
               <div>
                 <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Service *</label>
                 <ServiceCategorySelect
-                  value={serviceCategoryId}
-                  onChange={(id, cat) => {
-                    setServiceCategoryId(id);
-                    setMetier(cat?.name || '');
+                  value={serviceId}
+                  onChange={(id, selectedService) => {
+                    setServiceId(id);
+                    setMetier(selectedService?.name || '');
                   }}
                   required
                   placeholder="Choisissez un service officiel…"
@@ -369,10 +374,10 @@ export default function Profile() {
           </div>
         ) : (
           <>
-            {profile.role === 'prestataire' && (serviceCategory?.name || profile.metier) && (
+            {profile.role === 'prestataire' && (service?.name || profile.metier) && (
               <div className="text-sm text-[#2563eb] font-medium mb-2">
-                {serviceCategory?.name || profile.metier}
-                {!serviceCategory && profile.metier && (
+                {service?.name || profile.metier}
+                {!service && profile.metier && (
                   <span className="ml-2 text-[10px] text-[var(--loboko-text-muted)] font-normal">
                     (ancien service — à mettre à jour)
                   </span>
