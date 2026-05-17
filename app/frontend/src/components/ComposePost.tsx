@@ -26,7 +26,7 @@ export default function ComposePost({ onPosted }: Props) {
   const { user } = useAuth();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
-  const [media, setMedia] = useState<MediaSelection | null>(null);
+  const [media, setMedia] = useState<MediaSelection[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [mentionState, setMentionState] = useState<{
     open: boolean;
@@ -37,14 +37,14 @@ export default function ComposePost({ onPosted }: Props) {
 
   const resetMedia = () => {
     setMedia((current) => {
-      if (current) URL.revokeObjectURL(current.previewUrl);
-      return null;
+      current.forEach((m) => URL.revokeObjectURL(m.previewUrl));
+      return [];
     });
   };
 
   useEffect(() => {
     return () => {
-      if (media) URL.revokeObjectURL(media.previewUrl);
+      media.forEach((m) => URL.revokeObjectURL(m.previewUrl));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,23 +82,23 @@ export default function ComposePost({ onPosted }: Props) {
       toast.error('Vous devez être connecté');
       return;
     }
-    if (!content.trim() && !media) {
+    if (!content.trim() && media.length === 0) {
       toast.error('Ajoutez du texte, une photo ou une vidéo');
       return;
     }
     setLoading(true);
     try {
-      let image_key: string | null = null;
-      let video_key: string | null = null;
-      if (media) {
-        const { key, error } = await uploadMediaEx(media.file, 'posts');
+      const media_keys: string[] = [];
+      for (const item of media) {
+        const { key, error } = await uploadMediaEx(item.file, 'posts');
+      
         if (error || !key) {
           toast.error(error || "Échec de l'upload");
           setLoading(false);
           return;
         }
-        if (media.kind === 'image') image_key = key;
-        else video_key = key;
+      
+        media_keys.push(key);
       }
 
       // Try insert with both image_key + video_key; fall back to image_key only
@@ -107,14 +107,17 @@ export default function ComposePost({ onPosted }: Props) {
       const basePayload: Record<string, unknown> = {
         user_id: user.id,
         content: finalText,
-        image_key,
+        media_keys,
         likes_count: 0,
         comments_count: 0,
         shares_count: 0,
       };
-      const fullPayload = { ...basePayload, video_key };
 
-      let res = await supabase.from('posts').insert(fullPayload).select('id').single();
+      let res = await supabase
+        .from('posts')
+        .insert(basePayload)
+        .select('id')
+        .single();
       if (res.error && /video_key/i.test(res.error.message)) {
         if (video_key) {
           toast.error(
@@ -210,18 +213,34 @@ export default function ComposePost({ onPosted }: Props) {
           onClose={() => setMentionState((p) => ({ ...p, open: false }))}
         />
       </div>
-      {media && (
-        <div className="mt-2">
-          <MediaPreview media={media} onRemove={resetMedia} />
+      {media.length > 0 && (
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {media.map((m, index) => (
+            <MediaPreview
+              key={index}
+              media={m}
+              onRemove={() => {
+                setMedia((current) => {
+                  const copy = [...current];
+                  URL.revokeObjectURL(copy[index].previewUrl);
+                  copy.splice(index, 1);
+                  return copy;
+                });
+              }}
+            />
+          ))}
         </div>
       )}
       <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[var(--loboko-border)]">
         <MediaPicker
           maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
           onSelect={(m) => {
-            // replace any existing media
-            if (media) URL.revokeObjectURL(media.previewUrl);
-            setMedia(m);
+            if (media.length >= 6) {
+              toast.error('Maximum 6 médias');
+              return;
+            }
+          
+            setMedia((current) => [...current, m]);
           }}
           disabled={loading}
         />
