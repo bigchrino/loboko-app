@@ -88,7 +88,10 @@ export default function ComposePost({ onPosted }: Props) {
     }
     setLoading(true);
     try {
-      const media_keys: string[] = [];
+      const media_keys: {
+        key: string;
+        type: 'image' | 'video';
+      }[] = [];
       for (const item of media) {
         const { key, error } = await uploadMediaEx(item.file, 'posts');
       
@@ -98,7 +101,10 @@ export default function ComposePost({ onPosted }: Props) {
           return;
         }
       
-        media_keys.push(key);
+        media_keys.push({
+          key,
+          type: item.kind,
+        });
       }
 
       // Try insert with both image_key + video_key; fall back to image_key only
