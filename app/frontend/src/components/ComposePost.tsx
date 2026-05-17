@@ -118,16 +118,6 @@ export default function ComposePost({ onPosted }: Props) {
         .insert(basePayload)
         .select('id')
         .single();
-      if (res.error && /video_key/i.test(res.error.message)) {
-        if (video_key) {
-          toast.error(
-            "La colonne 'video_key' n'existe pas encore. Exécutez MEDIA_SETUP.md avant de publier une vidéo.",
-          );
-          setLoading(false);
-          return;
-        }
-        res = await supabase.from('posts').insert(basePayload).select('id').single();
-      }
       if (res.error) throw res.error;
 
       // Notify mentioned users (non-blocking) + fire push.
