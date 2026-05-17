@@ -66,8 +66,6 @@ export default function PostCard({
   const navigate = useNavigate();
   const [author, setAuthor] = useState<Author | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [liked, setLiked] = useState(false);
   const [likeId, setLikeId] = useState<string | null>(null);
@@ -104,20 +102,11 @@ export default function PostCard({
         );
       
         setMediaUrls(urls.filter((u): u is string => !!u));
-      } else if (post.image_key) {
-        const url = await getMediaUrl(post.image_key);
       
-        if (url) {
-          setMediaUrls([url]);
-        }
       } else {
         setMediaUrls([]);
       }
       
-      if (post.video_key) {
-        const url = await getMediaUrl(post.video_key);
-        setVideoUrl(url);
-      }
       try {
         const { count: lc } = await supabase
           .from('likes')
@@ -572,21 +561,7 @@ export default function PostCard({
           </div>
         )}
 
-        {videoUrl && (
-          <div
-            className="rounded-xl overflow-hidden mb-3 border border-[var(--loboko-border)] bg-black"
-            data-stop-card-click="1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <video
-              src={videoUrl}
-              className="w-full max-h-[480px] block"
-              controls
-              playsInline
-              preload="metadata"
-            />
-          </div>
-        )}
+        
 
         <footer
           className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)]"
