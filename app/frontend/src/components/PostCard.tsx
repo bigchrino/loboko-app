@@ -19,10 +19,7 @@ export interface PostItem {
   content: string;
   image_key?: string;
   video_key?: string;
-  media_keys?: {
-    key: string;
-    type: 'image' | 'video';
-  }[];
+  media_keys?: Array<string | { key: string; type: 'image' | 'video' }>;
   likes_count?: number;
   comments_count?: number;
   shares_count?: number;
@@ -104,30 +101,49 @@ export default function PostCard({
       if (post.media_keys?.length) {
         const medias = await Promise.all(
           post.media_keys.map(async (m) => {
-            const url = await getMediaUrl(m.key);
-        
+            const key = typeof m === 'string' ? m : m.key;
+            const url = await getMediaUrl(key);
+      
             if (!url) return null;
-        
+      
+            const lower = key.toLowerCase();
+            const fallbackType =
+              lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')
+                ? 'video'
+                : 'image';
+      
             return {
               url,
-              type: m.type,
+              type: typeof m === 'string' ? fallbackType : m.type,
             };
           })
         );
       
         setMediaUrls(
           medias.filter(
-            (
-              m,
-            ): m is {
-              url: string;
-              type: 'image' | 'video';
-            } => !!m
+            (m): m is { url: string; type: 'image' | 'video' } => !!m
           )
         );
+      } else if (post.image_key) {
+        const url = await getMediaUrl(post.image_key);
+      
+        if (url) {
+          setMediaUrls([{ url, type: 'image' }]);
+        } else {
+          setMediaUrls([]);
+        }
+      } else if (post.video_key) {
+        const url = await getMediaUrl(post.video_key);
+      
+        if (url) {
+          setMediaUrls([{ url, type: 'video' }]);
+        } else {
+          setMediaUrls([]);
+        }
       } else {
         setMediaUrls([]);
       }
+      
       
       try {
         const { count: lc } = await supabase
@@ -171,7 +187,7 @@ export default function PostCard({
         }
       }
     })();
-  }, [post.id, post.user_id, post.image_key, post.video_key, currentUserId]);
+  }, [post.id, post.user_id, post.image_key, post.video_key, post.media_keys, currentUserId]);
 
   /**
    * Auto-open the comments modal with a highlighted comment when returning
