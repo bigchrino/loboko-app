@@ -13,10 +13,30 @@ export default function Home() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [restoringScroll, setRestoringScroll] = useState(true);
-  const restoredRef = useRef(false);
+  
 
   const userId = user?.id || '';
+  useEffect(() => {
+    window.history.scrollRestoration = 'manual';
+  
+    const saved = sessionStorage.getItem('home-scroll');
+  
+    if (saved) {
+      setTimeout(() => {
+        window.scrollTo(0, Number(saved));
+      }, 0);
+    }
+  
+    const saveScroll = () => {
+      sessionStorage.setItem('home-scroll', String(window.scrollY));
+    };
+  
+    window.addEventListener('scroll', saveScroll);
+  
+    return () => {
+      window.removeEventListener('scroll', saveScroll);
+    };
+  }, []);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -41,43 +61,6 @@ export default function Home() {
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
-
-  useEffect(() => {
-    if (restoredRef.current) return;
-    if (loading) return;
-  
-    const savedY = sessionStorage.getItem('home-scroll');
-  
-    const timer = setTimeout(() => {
-      if (savedY) {
-        window.scrollTo({
-          top: Number(savedY),
-          behavior: 'auto',
-        });
-      }
-  
-      restoredRef.current = true;
-      setRestoringScroll(false);
-    }, 300);
-  
-    return () => clearTimeout(timer);
-  }, [loading, posts]);
-  
-  useEffect(() => {
-    const saveScroll = () => {
-      sessionStorage.setItem('home-scroll', String(window.scrollY));
-    };
-  
-    window.addEventListener('scroll', saveScroll);
-  
-    return () => {
-      window.removeEventListener('scroll', saveScroll);
-    };
-  }, []);
-
-  if (restoringScroll) {
-    return null;
-  }
 
   return (
     <Layout title="Accueil">
