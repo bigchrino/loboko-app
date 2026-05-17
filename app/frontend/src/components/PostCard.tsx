@@ -66,7 +66,9 @@ export default function PostCard({
   const navigate = useNavigate();
   const [author, setAuthor] = useState<Author | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaUrls, setMediaUrls] = useState<
+    { url: string; type: 'image' | 'video' }[]
+  >([]);
   const [liked, setLiked] = useState(false);
   const [likeId, setLikeId] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -97,12 +99,36 @@ export default function PostCard({
         console.error(e);
       }
       if (post.media_keys?.length) {
-        const urls = await Promise.all(
-          post.media_keys.map((k) => getMediaUrl(k))
+        const medias = await Promise.all(
+          post.media_keys.map(async (k) => {
+            const url = await getMediaUrl(k);
+      
+            if (!url) return null;
+      
+            const lower = k.toLowerCase();
+      
+            const isVideo =
+              lower.endsWith('.mp4') ||
+              lower.endsWith('.webm') ||
+              lower.endsWith('.mov');
+      
+            return {
+              url,
+              type: isVideo ? 'video' : 'image',
+            };
+          })
         );
       
-        setMediaUrls(urls.filter((u): u is string => !!u));
-      
+        setMediaUrls(
+          medias.filter(
+            (
+              m,
+            ): m is {
+              url: string;
+              type: 'image' | 'video';
+            } => !!m
+          )
+        );
       } else {
         setMediaUrls([]);
       }
@@ -533,23 +559,35 @@ export default function PostCard({
             data-stop-card-click="1"
             onClick={(e) => e.stopPropagation()}
           >
-            {mediaUrls.slice(0, 4).map((url, index) => (
+            {mediaUrls.slice(0, 4).map((media, index) => (
               <a
-                key={url}
-                href={url}
+                key={media.url}
+                href={media.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-black"
               >
-                <img
-                  src={url}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className={`w-full object-cover ${
-                    mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
-                  }`}
-                />
+                {media.type === 'image' ? (
+                  <img
+                    src={media.url}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className={`w-full object-cover ${
+                      mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
+                    }`}
+                  />
+                ) : (
+                  <video
+                    src={media.url}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className={`w-full object-cover bg-black ${
+                      mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
+                    }`}
+                  />
+                )}
         
                 {index === 3 && mediaUrls.length > 4 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold">
