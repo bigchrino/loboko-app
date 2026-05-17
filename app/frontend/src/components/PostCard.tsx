@@ -363,6 +363,7 @@ export default function PostCard({
    */
   const openDetail = () => {
     sessionStorage.setItem('home-scroll', String(window.scrollY));
+    sessionStorage.setItem('home-post-id', post.id);
   
     navigate(`/post/${post.id}`, {
       state: {
@@ -388,7 +389,7 @@ export default function PostCard({
     if (variant !== 'feed') return;
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const target = e.target as HTMLElement;
-    // Only trigger when the article itself is the focused target.
+    // Only trigger when the  itself is the focused target.
     if (target !== e.currentTarget) return;
     e.preventDefault();
     openDetail();
@@ -424,6 +425,7 @@ export default function PostCard({
   return (
     <>
       <article
+        id={`post-card-${post.id}`}
         className={`bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4 ${
           isFeed
             ? 'cursor-pointer hover:border-[rgba(37,99,235,0.45)] transition-colors'
@@ -442,6 +444,7 @@ export default function PostCard({
             onClick={(e) => {
               e.stopPropagation();
               sessionStorage.setItem('home-scroll', String(window.scrollY));
+              sessionStorage.setItem('home-post-id', post.id);
               navigate(`/u/${post.user_id}`);
             }}
             className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-sm !bg-transparent-off"
@@ -463,6 +466,7 @@ export default function PostCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   sessionStorage.setItem('home-scroll', String(window.scrollY));
+                  sessionStorage.setItem('home-post-id', post.id);
                   navigate(`/u/${post.user_id}`);
                 }}
                 className="font-semibold text-sm truncate !bg-transparent !hover:bg-transparent hover:underline text-left"
