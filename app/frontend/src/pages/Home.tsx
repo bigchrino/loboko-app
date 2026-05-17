@@ -13,6 +13,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restoringScroll, setRestoringScroll] = useState(true);
   const restoredRef = useRef(false);
 
   const userId = user?.id || '';
@@ -44,20 +45,25 @@ export default function Home() {
   useEffect(() => {
     if (restoredRef.current) return;
     if (loading) return;
-    if (posts.length === 0) return;
+    if (posts.length === 0) {
+      setRestoringScroll(false);
+      return;
+    }
   
     const savedY = sessionStorage.getItem('home-scroll');
   
     if (savedY) {
-      setTimeout(() => {
-        window.scrollTo({
-          top: Number(savedY),
-          behavior: 'auto',
-        });
-      }, 100);
+      window.scrollTo({
+        top: Number(savedY),
+        behavior: 'auto',
+      });
     }
   
     restoredRef.current = true;
+  
+    requestAnimationFrame(() => {
+      setRestoringScroll(false);
+    });
   }, [loading, posts.length]);
   
   useEffect(() => {
@@ -71,6 +77,10 @@ export default function Home() {
       window.removeEventListener('scroll', saveScroll);
     };
   }, []);
+
+  if (restoringScroll) {
+    return null;
+  }
 
   return (
     <Layout title="Accueil">
