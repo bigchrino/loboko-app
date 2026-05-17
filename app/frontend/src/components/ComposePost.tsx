@@ -231,10 +231,26 @@ export default function ComposePost({ onPosted }: Props) {
         <MediaPicker
           maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
           onSelect={(m) => {
-            if (media.length >= 6) {
-              toast.error('Maximum 6 médias');
+            const hasVideo = media.some((x) => x.kind === 'video');
+            const hasImage = media.some((x) => x.kind === 'image');
+          
+            if (m.kind === 'video' && media.length > 0) {
+              toast.error('Publiez la vidéo seule pour éviter les bugs.');
               return;
             }
+          
+            if (m.kind === 'image' && hasVideo) {
+              toast.error('Impossible d’ajouter une photo avec une vidéo.');
+              return;
+            }
+          
+            if (hasImage && m.kind === 'image' && media.length >= 6) {
+              toast.error('Maximum 6 photos');
+              return;
+            }
+          
+            setMedia((current) => [...current, m]);
+          }}
           
             setMedia((current) => [...current, m]);
           }}
