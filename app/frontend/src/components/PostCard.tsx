@@ -19,7 +19,10 @@ export interface PostItem {
   content: string;
   image_key?: string;
   video_key?: string;
-  media_keys?: string[];
+  media_keys?: {
+    key: string;
+    type: 'image' | 'video';
+  }[];
   likes_count?: number;
   comments_count?: number;
   shares_count?: number;
@@ -100,21 +103,14 @@ export default function PostCard({
       }
       if (post.media_keys?.length) {
         const medias = await Promise.all(
-          post.media_keys.map(async (k) => {
-            const url = await getMediaUrl(k);
-      
+          post.media_keys.map(async (m) => {
+            const url = await getMediaUrl(m.key);
+        
             if (!url) return null;
-      
-            const lower = k.toLowerCase();
-      
-            const isVideo =
-              lower.endsWith('.mp4') ||
-              lower.endsWith('.webm') ||
-              lower.endsWith('.mov');
-      
+        
             return {
               url,
-              type: isVideo ? 'video' : 'image',
+              type: m.type,
             };
           })
         );
