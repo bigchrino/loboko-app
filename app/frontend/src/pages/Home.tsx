@@ -43,17 +43,22 @@ export default function Home() {
 
   useEffect(() => {
     if (restoredRef.current) return;
+    if (loading) return;
+    if (posts.length === 0) return;
   
     const savedY = sessionStorage.getItem('home-scroll');
   
     if (savedY) {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, Number(savedY));
-      });
+      setTimeout(() => {
+        window.scrollTo({
+          top: Number(savedY),
+          behavior: 'auto',
+        });
+      }, 100);
     }
   
     restoredRef.current = true;
-  }, []);
+  }, [loading, posts.length]);
   
   useEffect(() => {
     const saveScroll = () => {
