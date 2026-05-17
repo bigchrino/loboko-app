@@ -78,7 +78,7 @@ export default function Home() {
         });
         
       }
-    }, 300);
+    }, 800);
   }, [loading, posts.length]);
 
   return (
