@@ -572,23 +572,22 @@ export default function PostCard({
             onClick={(e) => e.stopPropagation()}
           >
             {mediaUrls.slice(0, 4).map((media, index) => (
-              <a
+              <div
                 key={media.url}
-                href={media.url}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="relative rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-black"
               >
                 {media.type === 'image' ? (
-                  <img
-                    src={media.url}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className={`w-full object-cover ${
-                      mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
-                    }`}
-                  />
+                  <a href= "_blank" rel="noopener noreferrer">
+                    <img
+                      src={media.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className={`w-full object-cover ${
+                        mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
+                      }`}
+                    />
+                  </a >
                 ) : (
                   <video
                     src={media.url}
@@ -600,13 +599,13 @@ export default function PostCard({
                     }`}
                   />
                 )}
-        
+            
                 {index === 3 && mediaUrls.length > 4 && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold">
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold pointer-events-none">
                     +{mediaUrls.length - 4}
                   </div>
                 )}
-              </a >
+              </div>
             ))}
           </div>
         )}
