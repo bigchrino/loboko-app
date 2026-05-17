@@ -252,8 +252,6 @@ export default function ComposePost({ onPosted }: Props) {
             setMedia((current) => [...current, m]);
           }}
           
-            setMedia((current) => [...current, m]);
-          }}
           disabled={loading}
         />
         <button
