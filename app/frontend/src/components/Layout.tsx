@@ -240,7 +240,10 @@ export default function Layout({ children, title }: LayoutProps) {
       </header>
 
       {/* Main content */}
-      <main className="lg:ml-60 min-h-screen pb-24 lg:pb-8">
+      <main
+        className="lg:ml-60 min-h-screen pb-24 lg:pb-8"
+        style={{ overflowAnchor: 'none' }}
+      >
         <div className="max-w-2xl mx-auto px-4 lg:px-8 py-4 lg:py-8">{children}</div>
       </main>
 
