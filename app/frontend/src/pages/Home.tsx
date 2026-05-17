@@ -77,7 +77,7 @@ export default function Home() {
           behavior: 'auto',
         });
         
-        window.scrollBy(0, -80);
+        window.scrollBy(0, -20);
       }
     }, 300);
   }, [loading, posts.length]);
