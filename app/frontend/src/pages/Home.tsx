@@ -62,6 +62,24 @@ export default function Home() {
     loadPosts();
   }, [loadPosts]);
 
+  useEffect(() => {
+    if (loading) return;
+    if (posts.length === 0) return;
+  
+    const postId = sessionStorage.getItem('home-post-id');
+    if (!postId) return;
+  
+    setTimeout(() => {
+      const el = document.getElementById(`post-card-${postId}`);
+      if (el) {
+        el.scrollIntoView({
+          block: 'center',
+          behavior: 'auto',
+        });
+      }
+    }, 300);
+  }, [loading, posts.length]);
+
   return (
     <Layout title="Accueil">
       <HeroBanner onFindProvider={() => navigate('/find')} />
