@@ -73,9 +73,11 @@ export default function Home() {
       const el = document.getElementById(`post-card-${postId}`);
       if (el) {
         el.scrollIntoView({
-          block: 'center',
+          block: 'start',
           behavior: 'auto',
         });
+        
+        window.scrollBy(0, -80);
       }
     }, 300);
   }, [loading, posts.length]);
