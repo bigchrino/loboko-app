@@ -13,6 +13,9 @@ export default function Home() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const PAGE_SIZE = 10;
   
 
   const userId = user?.id || '';
@@ -40,23 +43,55 @@ export default function Home() {
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
-
+  
     try {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
-
+        .limit(PAGE_SIZE);
+  
       if (error) throw error;
-
-      setPosts((data as PostItem[]) || []);
+  
+      const list = (data as PostItem[]) || [];
+      setPosts(list);
+      setHasMore(list.length === PAGE_SIZE);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const loadMorePosts = useCallback(async () => {
+    if (loadingMore || !hasMore || posts.length === 0) return;
+  
+    setLoadingMore(true);
+  
+    try {
+      const lastPost = posts[posts.length - 1];
+  
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .lt('created_at', lastPost.created_at)
+        .limit(PAGE_SIZE);
+  
+      if (error) throw error;
+  
+      const list = (data as PostItem[]) || [];
+  
+      setPosts((current) => [...current, ...list]);
+      setHasMore(list.length === PAGE_SIZE);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, posts]);
+
+    
 
   useEffect(() => {
     loadPosts();
@@ -159,6 +194,16 @@ export default function Home() {
               onDeleted={loadPosts}
             />
           ))
+        )}
+
+        {hasMore && (
+          <button
+            onClick={loadMorePosts}
+            disabled={loadingMore}
+            className="w-full py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm font-semibold text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)] disabled:opacity-50"
+          >
+            {loadingMore ? 'Chargement...' : 'Voir plus'}
+          </button>
         )}
       </div>
     </Layout>
