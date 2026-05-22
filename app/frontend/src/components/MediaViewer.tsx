@@ -33,6 +33,27 @@ export default function MediaViewer({
     if (canNext) onIndexChange(index + 1);
   };
 
+  const downloadMedia = async () => {
+    try {
+      const response = await fetch(item.url);
+      const blob = await response.blob();
+  
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+  
+      a.href = blobUrl;
+      a.download = item.type === 'image' ? 'loboko-image.jpg' : 'loboko-video.mp4';
+      document.body.appendChild(a);
+      a.click();
+  
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error(e);
+      window.open(item.url, '_blank');
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[100] bg-black flex items-center justify-center"
@@ -48,15 +69,17 @@ export default function MediaViewer({
       </button>
 
       {item.type === 'image' && (
-        <a
-          href= "_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            downloadMedia();
+          }}
           className="absolute top-4 left-4 z-10 px-3 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()}
         >
           <Download size={16} />
           Enregistrer
-        </a >
+        </button>
       )}
 
       {canPrev && (
