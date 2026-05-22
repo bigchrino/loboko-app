@@ -95,7 +95,7 @@ export default function Discover() {
           .from('profiles')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(1000);
         if (error) throw error;
         const list = (data as Profile[]) || [];
         setProfiles(list);
