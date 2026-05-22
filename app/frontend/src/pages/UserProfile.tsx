@@ -52,7 +52,7 @@ export default function UserProfilePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [showAvatar, setShowAvatar] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
+
 
   const loadAll = useCallback(async () => {
     if (!userId) return;
