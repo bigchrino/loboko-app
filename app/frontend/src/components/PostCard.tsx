@@ -9,6 +9,7 @@ import CommentsModal from './CommentsModal';
 import PostMenu from './PostMenu';
 import MentionText from './MentionText';
 import SharePostDialog, { SharePostPreview } from './SharePostDialog';
+import MediaViewer from './MediaViewer';
 import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
 import { encodePayload, SharedPostPayload } from '@/lib/message-format';
@@ -79,6 +80,7 @@ export default function PostCard({
   const [expanded, setExpanded] = useState(false);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -577,7 +579,11 @@ export default function PostCard({
                 className="relative rounded-xl overflow-hidden border border-[var(--loboko-border)] bg-black"
               >
                 {media.type === 'image' ? (
-                  <a href= "_blank" rel="noopener noreferrer">
+                  <button
+                    type="button"
+                    onClick={() => setViewerIndex(index)}
+                    className="block w-full !bg-transparent !p-0"
+                  >
                     <img
                       src={media.url}
                       alt=""
@@ -587,13 +593,14 @@ export default function PostCard({
                         mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
                       }`}
                     />
-                  </a >
+                  </button>
                 ) : (
                   <video
                     src={media.url}
                     controls
                     playsInline
                     preload="metadata"
+                    onClick={(e) => e.stopPropagation()}
                     className={`w-full object-cover bg-black ${
                       mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
                     }`}
@@ -665,6 +672,15 @@ export default function PostCard({
           </button>
         </footer>
       </article>
+
+      {viewerIndex !== null && (
+        <MediaViewer
+          items={mediaUrls}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
 
       <LikesModal postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />
       {showShare && currentUserId && (
