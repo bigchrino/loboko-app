@@ -51,6 +51,8 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const loadAll = useCallback(async () => {
     if (!userId) return;
@@ -184,13 +186,25 @@ export default function UserProfilePage() {
 
       <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-6 mb-4">
         <div className="flex items-start gap-4 mb-4">
-          <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (avatarUrl) setShowAvatar(true);
+            }}
+            className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl shrink-0 !p-0"
+          >
             {avatarUrl ? (
-              <img src={avatarUrl} alt={name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              <img
+                src={avatarUrl}
+                alt={name}
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover"
+              />
             ) : (
               initials
             )}
-          </div>
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold truncate">{name}</h2>
@@ -321,6 +335,29 @@ export default function UserProfilePage() {
           )}
         </div>
       </div>
+
+      {showAvatar && avatarUrl && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setShowAvatar(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowAvatar(false)}
+            className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center text-xl"
+            aria-label="Fermer"
+          >
+            ×
+          </button>
+      
+          <img
+            src={avatarUrl}
+            alt={name}
+            className="max-w-full max-h-full object-contain rounded-xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <ReportDialog
         open={reportOpen}
