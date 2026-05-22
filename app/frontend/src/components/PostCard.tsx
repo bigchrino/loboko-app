@@ -581,7 +581,10 @@ export default function PostCard({
                 {media.type === 'image' ? (
                   <button
                     type="button"
-                    onClick={() => setViewerIndex(index)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewerIndex(index);
+                    }}
                     className="block w-full !bg-transparent !p-0"
                   >
                     <img
@@ -598,6 +601,7 @@ export default function PostCard({
                   <video
                     src={media.url}
                     controls
+                    controlsList="nodownload"
                     playsInline
                     preload="metadata"
                     onClick={(e) => e.stopPropagation()}
