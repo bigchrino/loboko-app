@@ -18,6 +18,9 @@ import {
   ReportRow,
   ReportStatus,
   updateReportStatus,
+  suspendUser,
+  unsuspendUser,
+  banUser,
 } from '@/lib/reports';
 
 /**
