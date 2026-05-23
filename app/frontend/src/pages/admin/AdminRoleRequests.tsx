@@ -28,13 +28,7 @@ export default function AdminRoleRequests() {
 
     const { data, error } = await supabase
       .from('role_change_requests')
-      .select(`
-        *,
-        profiles:user_id (
-          username,
-          display_name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -125,7 +119,7 @@ export default function AdminRoleRequests() {
               className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4"
             >
               <div className="font-semibold">
-                {r.profiles?.display_name || r.profiles?.username}
+                Utilisateur : {r.user_id}
               </div>
 
               <div className="text-sm mt-1">
