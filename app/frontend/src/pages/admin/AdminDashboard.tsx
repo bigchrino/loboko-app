@@ -34,6 +34,13 @@ const cards = [
     color: '#7c3aed',
   },
   {
+    to: '/admin/role-requests',
+    title: 'Demandes rôles',
+    desc: 'Changer client/prestataire',
+    icon: ShieldCheck,
+    color: '#06b6d4',
+  },
+  {
     to: '/admin/payments',
     title: 'Paiements',
     desc: 'Transactions et remboursements',
