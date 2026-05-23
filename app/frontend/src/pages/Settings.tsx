@@ -54,6 +54,21 @@ export default function Settings() {
           <span className="flex-1 text-left text-sm font-medium">Modifier le profil</span>
           <span className="text-[var(--loboko-text-muted)]">›</span>
         </button>
+        
+        <button
+          onClick={() => navigate('/settings/role-change')}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
+        >
+          <Shield size={18} className="text-[#2563eb]" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium">Changement de compte</div>
+            <div className="text-xs text-[var(--loboko-text-muted)]">
+              Demander client ou prestataire
+            </div>
+          </div>
+          <span className="text-[var(--loboko-text-muted)]">›</span>
+        </button>
+        
         <button
           onClick={toggleTheme}
           className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
