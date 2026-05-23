@@ -21,6 +21,7 @@ import {
   suspendUser,
   unsuspendUser,
   banUser,
+  unbanUser,
 } from '@/lib/reports';
 
 /**
