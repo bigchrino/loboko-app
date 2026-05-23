@@ -22,6 +22,8 @@ import {
   unsuspendUser,
   banUser,
   unbanUser,
+  deleteReportedPost,
+  deleteReportedComment,
 } from '@/lib/reports';
 
 /**
@@ -351,6 +353,49 @@ function ReportCard({
               Réactiver compte
             </button>
           </>
+        )}
+        {report.reported_post_id && (
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = window.confirm('Supprimer cette publication ?');
+              if (!ok) return;
+        
+              const res = await deleteReportedPost(
+                report.reported_post_id!,
+                adminId,
+                report.description || 'Publication supprimée après signalement',
+              );
+        
+              if (!res.ok) toast.error(res.error || 'Suppression impossible');
+              else toast.success('Publication supprimée');
+            }}
+            className="px-3 py-1.5 rounded-xl bg-[rgba(239,68,68,0.15)] text-[#ef4444] text-xs font-semibold"
+          >
+            Supprimer publication
+          </button>
+        )}
+        
+        {report.reported_comment_id && (
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = window.confirm('Supprimer ce commentaire ?');
+              if (!ok) return;
+        
+              const res = await deleteReportedComment(
+                report.reported_comment_id!,
+                adminId,
+                report.description || 'Commentaire supprimé après signalement',
+              );
+        
+              if (!res.ok) toast.error(res.error || 'Suppression impossible');
+              else toast.success('Commentaire supprimé');
+            }}
+            className="px-3 py-1.5 rounded-xl bg-[rgba(239,68,68,0.15)] text-[#ef4444] text-xs font-semibold"
+          >
+            Supprimer commentaire
+          </button>
         )}
       </div>
     </div>
