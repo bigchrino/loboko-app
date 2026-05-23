@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 interface RoleRequest {
   id: string;
   user_id: string;
-  current_role: 'client' | 'prestataire';
-  requested_role: 'client' | 'prestataire';
-  requested_service: string | null;
+  old_role: 'client' | 'prestataire';
+  new_role: 'client' | 'prestataire';
+  requested_metier: string | null;
+  requested_service_id: string | null;
+  reason: string | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   profiles?: {
@@ -52,11 +54,14 @@ export default function AdminRoleRequests() {
   const approveRequest = async (req: RoleRequest) => {
     try {
       const updates: any = {
-        role: req.requested_role,
+        role: req.new_role,
       };
-
-      if (req.requested_role === 'prestataire') {
-        updates.metier = req.requested_service || null;
+      
+      if (req.new_role === 'prestataire') {
+        updates.metier = req.requested_metier || null;
+      } else {
+        updates.metier = null;
+        updates.service_id = null;
       }
 
       const { error: profileError } = await supabase
@@ -124,12 +129,12 @@ export default function AdminRoleRequests() {
               </div>
 
               <div className="text-sm mt-1">
-                {r.current_role} → {r.requested_role}
+                {r.old_role} → {r.new_role}
               </div>
 
-              {r.requested_service && (
+              {r.requested_metier && (
                 <div className="text-sm text-[#2563eb] mt-1">
-                  Service : {r.requested_service}
+                  Métier : {r.requested_metier}
                 </div>
               )}
 
