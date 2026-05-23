@@ -28,6 +28,11 @@ export interface Profile {
   is_admin?: boolean;
   subscription_type?: 'free' | 'premium';
   subscription_expires_at?: string | null;
+  suspended?: boolean;
+  suspended_reason?: string | null;
+  suspended_until?: string | null;
+  banned?: boolean;
+  banned_reason?: string | null;
 }
 
 export interface LobokoAccount {
@@ -84,6 +89,13 @@ function accountFromUser(u: User | null): LobokoAccount | null {
     metier: (meta.metier as string) || undefined,
   };
 }
+function isSuspensionActive(profile: Profile) {
+  if (!profile.suspended) return false;
+
+  if (!profile.suspended_until) return true;
+
+  return new Date(profile.suspended_until).getTime() > Date.now();
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -110,7 +122,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setProfile((data as Profile) || null);
+      const loadedProfile = (data as Profile) || null;
+
+      if (loadedProfile?.banned) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        throw new Error(
+          loadedProfile.banned_reason || 'Votre compte a été banni.',
+        );
+      }
+      
+      if (loadedProfile && isSuspensionActive(loadedProfile)) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        throw new Error(
+          loadedProfile.suspended_reason || 'Votre compte est suspendu.',
+        );
+      }
+      
+      setProfile(loadedProfile);
     } catch (e) {
       console.error('loadProfile exception', e);
       setProfile(null);
@@ -211,10 +245,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!u) throw new Error('Identifiants invalides');
 
       const account = accountFromUser(u)!;
-      setUser(account);
-      await loadProfileFor(u);
-
-      return account;
+      try {
+        setUser(account);
+        await loadProfileFor(u);
+        return account;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Compte bloqué';
+        throw new Error(message);
+      }
     },
     [loadProfileFor],
   );
