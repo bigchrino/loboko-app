@@ -48,6 +48,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
+        .eq('hidden_by_moderation', false)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE);
   
@@ -74,6 +75,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
+        .eq('hidden_by_moderation', false)
         .order('created_at', { ascending: false })
         .lt('created_at', lastPost.created_at)
         .limit(PAGE_SIZE);
