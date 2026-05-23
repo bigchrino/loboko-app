@@ -56,6 +56,7 @@ import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
 import { PresenceProvider } from './contexts/PresenceContext';
 import RoleChangeRequestPage from './pages/settings/RoleChangeRequestPage';
+import AdminRoleRequests from './pages/admin/AdminRoleRequests';
 
 const queryClient = new QueryClient();
 
@@ -120,6 +121,14 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
     element: (
       <AdminRoute>
         <AdminPosts />
+      </AdminRoute>
+    ),
+  },
+  {
+    path: '/admin/role-requests',
+    element: (
+      <AdminRoute>
+        <AdminRoleRequests />
       </AdminRoute>
     ),
   },
