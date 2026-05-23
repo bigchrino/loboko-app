@@ -115,7 +115,7 @@ export default function SharePostDialog({
     (async () => {
       try {
         const [{ data: profilesData }, { data: membersData }] = await Promise.all([
-          supabase.from('profiles').select('*').limit(300),
+          supabase.from('profiles').select('*').limit(300).eq('banned', false).eq('suspended', false),
           supabase.from('group_members').select('group_id').eq('user_id', currentUserId),
         ]);
 
