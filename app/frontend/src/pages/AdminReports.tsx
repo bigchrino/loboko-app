@@ -339,6 +339,17 @@ function ReportCard({
             >
               Annuler suspension
             </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await unbanUser(report.reported_user_id!, adminId);
+                if (!res.ok) toast.error(res.error || 'Réactivation impossible');
+                else toast.success('Compte réactivé');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[rgba(34,197,94,0.15)] text-[#22c55e] text-xs font-semibold"
+            >
+              Réactiver compte
+            </button>
           </>
         )}
       </div>
