@@ -253,3 +253,32 @@ export async function banUser(
     return { ok: false, error: 'Erreur réseau' };
   }
 }
+
+export async function unbanUser(
+  targetUserId: string,
+  adminId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        banned: false,
+        banned_reason: null,
+      })
+      .eq('user_id', targetUserId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      target_user_id: targetUserId,
+      action_type: 'unban',
+      reason: 'Compte réactivé',
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('unbanUser error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
