@@ -157,3 +157,99 @@ export async function updateReportStatus(
     return { ok: false, error: 'Erreur réseau' };
   }
 }
+
+export async function suspendUser(
+  targetUserId: string,
+  adminId: string,
+  days: number,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const until = new Date(
+      Date.now() + days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        suspended: true,
+        suspended_until: until,
+        suspended_reason: reason,
+      })
+      .eq('user_id', targetUserId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      target_user_id: targetUserId,
+      action_type: `suspend_${days}_days`,
+      reason,
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('suspendUser error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
+
+export async function unsuspendUser(
+  targetUserId: string,
+  adminId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        suspended: false,
+        suspended_until: null,
+        suspended_reason: null,
+      })
+      .eq('user_id', targetUserId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      target_user_id: targetUserId,
+      action_type: 'unsuspend',
+      reason: 'Suspension annulée',
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('unsuspendUser error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
+
+export async function banUser(
+  targetUserId: string,
+  adminId: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        banned: true,
+        banned_reason: reason,
+      })
+      .eq('user_id', targetUserId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      target_user_id: targetUserId,
+      action_type: 'ban',
+      reason,
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('banUser error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
