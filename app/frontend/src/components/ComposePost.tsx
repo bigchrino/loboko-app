@@ -15,6 +15,7 @@ import {
 } from '@/lib/mentions';
 import { createNotification } from '@/lib/notifications';
 import { triggerMentionPush } from '@/lib/push-trigger';
+import { containsDangerousContent } from '@/lib/moderation';
 
 interface Props {
   onPosted: () => void;
@@ -110,6 +111,8 @@ export default function ComposePost({ onPosted }: Props) {
       // Try insert with both image_key + video_key; fall back to image_key only
       // if the DB schema does not have video_key yet.
       const finalText = content.trim();
+      const shouldHide = containsDangerousContent(finalText);
+      
       const basePayload: Record<string, unknown> = {
         user_id: user.id,
         content: finalText,
@@ -117,6 +120,10 @@ export default function ComposePost({ onPosted }: Props) {
         likes_count: 0,
         comments_count: 0,
         shares_count: 0,
+        hidden_by_moderation: shouldHide,
+        moderation_reason: shouldHide
+          ? 'Contenu détecté automatiquement'
+          : null,
       };
 
       let res = await supabase
