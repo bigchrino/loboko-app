@@ -171,7 +171,12 @@ export default function AdminReportsPage() {
         ) : (
           <div className="space-y-2">
             {rows.map((r) => (
-              <ReportCard key={r.id} report={r} onUpdate={setStatus} />
+              <ReportCard
+                key={r.id}
+                report={r}
+                onUpdate={setStatus}
+                adminId={profile.user_id}
+              />
             ))}
           </div>
         )}
@@ -183,9 +188,11 @@ export default function AdminReportsPage() {
 function ReportCard({
   report,
   onUpdate,
+  adminId,
 }: {
   report: ReportRow;
   onUpdate: (id: string, status: ReportStatus) => void;
+  adminId: string;
 }) {
   const target =
     report.reported_user_id
@@ -263,6 +270,75 @@ function ReportCard({
           >
             Rouvrir
           </button>
+        )}
+
+        {report.reported_user_id && (
+          <>
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await suspendUser(
+                  report.reported_user_id!,
+                  adminId,
+                  1,
+                  report.description || 'Signalement utilisateur',
+                );
+                if (!res.ok) toast.error(res.error || 'Suspension impossible');
+                else toast.success('Utilisateur suspendu 24h');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[rgba(245,158,11,0.15)] text-[#f59e0b] text-xs font-semibold"
+            >
+              Suspendre 24h
+            </button>
+        
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await suspendUser(
+                  report.reported_user_id!,
+                  adminId,
+                  7,
+                  report.description || 'Signalement utilisateur',
+                );
+                if (!res.ok) toast.error(res.error || 'Suspension impossible');
+                else toast.success('Utilisateur suspendu 7 jours');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[rgba(245,158,11,0.15)] text-[#f59e0b] text-xs font-semibold"
+            >
+              Suspendre 7j
+            </button>
+        
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = window.confirm('Bannir définitivement ce compte ?');
+                if (!ok) return;
+        
+                const res = await banUser(
+                  report.reported_user_id!,
+                  adminId,
+                  report.description || 'Bannissement admin',
+                );
+                if (!res.ok) toast.error(res.error || 'Bannissement impossible');
+                else toast.success('Utilisateur banni');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[rgba(239,68,68,0.15)] text-[#ef4444] text-xs font-semibold"
+            >
+              Bannir
+            </button>
+        
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await unsuspendUser(report.reported_user_id!, adminId);
+                if (!res.ok) toast.error(res.error || 'Annulation impossible');
+                else toast.success('Suspension annulée');
+              }}
+              className="px-3 py-1.5 rounded-xl border border-[var(--loboko-border)] text-xs font-semibold"
+            >
+              Annuler suspension
+            </button>
+          </>
         )}
       </div>
     </div>
