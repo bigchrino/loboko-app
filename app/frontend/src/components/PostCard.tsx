@@ -85,15 +85,25 @@ export default function PostCard({
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase
+        const {  } = await supabase
           .from('profiles')
           .select('username,display_name,metier,avatar_key,role,is_admin')
           .eq('user_id', post.user_id)
           .maybeSingle();
         if (data) {
-          setAuthor(data as Author);
-          if ((data as Author).avatar_key) {
-            const url = await getMediaUrl((data as Author).avatar_key!);
+          const authorData = data as Author & {
+            banned?: boolean;
+            suspended?: boolean;
+          };
+        
+          if (authorData.banned || authorData.suspended) {
+            return;
+          }
+        
+          setAuthor(authorData);
+        
+          if (authorData.avatar_key) {
+            const url = await getMediaUrl(authorData.avatar_key);
             setAvatarUrl(url);
           }
         }
@@ -743,6 +753,7 @@ function SharePostDialogLoader({
     };
   }, [buildPreview]);
   if (!preview) return null;
+  if (!author) return null;
   return (
     <SharePostDialog
       open={open}
