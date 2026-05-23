@@ -55,6 +55,7 @@ import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
 import { PresenceProvider } from './contexts/PresenceContext';
+import RoleChangeRequestPage from './pages/settings/RoleChangeRequestPage';
 
 const queryClient = new QueryClient();
 
@@ -139,6 +140,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/profile', element: <Profile /> },
   { path: '/notifications', element: <Notifications /> },
   { path: '/settings', element: <Settings /> },
+  { path: '/settings/role-change', element: <RoleChangeRequestPage /> },
 
   { path: '/suggestion', element: <Suggestion /> },
 
