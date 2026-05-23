@@ -94,6 +94,8 @@ export default function Discover() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
+          .eq('banned', false)
+          .eq('suspended', false)
           .order('created_at', { ascending: false })
           .limit(1000);
         if (error) throw error;
