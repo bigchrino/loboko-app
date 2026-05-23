@@ -16,6 +16,7 @@ import {
   resolveMentionedUserIds,
   type MentionSuggestion,
 } from '@/lib/mentions';
+import { containsDangerousContent } from '@/lib/moderation';
 
 interface CommentRow {
   id: string;
@@ -131,6 +132,7 @@ export default function CommentsModal({
         .from('comments')
         .select('*')
         .eq('post_id', postId)
+        .eq('hidden_by_moderation', false)
         .order('created_at', { ascending: true });
       if (error) throw error;
       const rows = (data as CommentRow[]) || [];
@@ -296,6 +298,7 @@ export default function CommentsModal({
 
   const handleSend = async () => {
     const text = content.trim();
+    const shouldHide = containsDangerousContent(text);
     if (!text) return;
     if (!currentUserId) {
       toast.error('Vous devez être connecté pour commenter');
@@ -315,6 +318,10 @@ export default function CommentsModal({
         post_id: postId,
         user_id: authUid,
         content: text,
+        hidden_by_moderation: shouldHide,
+        moderation_reason: shouldHide
+          ? 'Commentaire masqué automatiquement'
+          : null,
       };
       if (replyTo) {
         payload.parent_comment_id = replyTo.rootCommentId;
@@ -334,7 +341,15 @@ export default function CommentsModal({
       ) {
         const retry = await supabase
           .from('comments')
-          .insert({ post_id: postId, user_id: authUid, content: text })
+          .insert({
+            post_id: postId,
+            user_id: authUid,
+            content: text,
+            hidden_by_moderation: shouldHide,
+            moderation_reason: shouldHide
+              ? 'Commentaire masqué automatiquement'
+              : null,
+          })
           .select()
           .single();
         inserted = retry.data;
