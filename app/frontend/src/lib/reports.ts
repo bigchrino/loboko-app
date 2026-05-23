@@ -282,3 +282,55 @@ export async function unbanUser(
     return { ok: false, error: 'Erreur réseau' };
   }
 }
+
+export async function deleteReportedPost(
+  postId: string,
+  adminId: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      action_type: 'delete_post',
+      reason,
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('deleteReportedPost error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
+
+export async function deleteReportedComment(
+  commentId: string,
+  adminId: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', commentId);
+
+    if (error) return { ok: false, error: error.message };
+
+    await supabase.from('admin_actions').insert({
+      admin_id: adminId,
+      action_type: 'delete_comment',
+      reason,
+    });
+
+    return { ok: true };
+  } catch (e) {
+    console.error('deleteReportedComment error', e);
+    return { ok: false, error: 'Erreur réseau' };
+  }
+}
