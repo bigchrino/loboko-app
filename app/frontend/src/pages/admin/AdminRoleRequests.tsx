@@ -25,19 +25,49 @@ export default function AdminRoleRequests() {
 
   const loadRequests = async () => {
     setLoading(true);
-
+  
     const { data, error } = await supabase
       .from('role_change_requests')
       .select('*')
+      .eq('status', 'pending')
       .order('created_at', { ascending: false });
-
+  
     if (error) {
       console.error(error);
       toast.error('Erreur chargement');
-    } else {
-      setRequests((data as RoleRequest[]) || []);
+      setLoading(false);
+      return;
     }
-
+  
+    const list = (data as RoleRequest[]) || [];
+    const ids = [...new Set(list.map((r) => r.user_id))];
+  
+    let profileMap: Record<string, { username: string; display_name: string | null }> = {};
+  
+    if (ids.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, username, display_name')
+        .in('user_id', ids);
+  
+      profileMap = Object.fromEntries(
+        ((profiles || []) as any[]).map((p) => [
+          p.user_id,
+          {
+            username: p.username,
+            display_name: p.display_name,
+          },
+        ]),
+      );
+    }
+  
+    setRequests(
+      list.map((r) => ({
+        ...r,
+        profiles: profileMap[r.user_id],
+      })),
+    );
+  
     setLoading(false);
   };
 
@@ -76,7 +106,7 @@ export default function AdminRoleRequests() {
       if (requestError) throw requestError;
 
       toast.success('Demande approuvée');
-      loadRequests();
+      setRequests((current) => current.filter((x) => x.id !== req.id));
     } catch (e) {
       console.error(e);
       toast.error('Erreur');
@@ -98,7 +128,7 @@ export default function AdminRoleRequests() {
     }
 
     toast.success('Demande refusée');
-    loadRequests();
+    setRequests((current) => current.filter((x) => x.id !== id));
   };
 
   return (
@@ -119,7 +149,9 @@ export default function AdminRoleRequests() {
               className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4"
             >
               <div className="font-semibold">
-                Utilisateur : {r.user_id}
+                {r.profiles?.display_name ||
+                  r.profiles?.username ||
+                  `Utilisateur : ${r.user_id}`}
               </div>
 
               <div className="text-sm mt-1">
