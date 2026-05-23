@@ -62,6 +62,8 @@ export default function UserProfilePage() {
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
+        .eq('banned', false)
+        .eq('suspended', false)
         .maybeSingle();
       if (error) throw error;
       const prof = (p as Profile) || null;
