@@ -128,7 +128,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
   };
 
   return (
-    <div className="min-h-screen bg-[var(--loboko-bg)] text-[var(--loboko-text)]">
+    <div className="h-[100dvh] overflow-hidden bg-[var(--loboko-bg)] text-[var(--loboko-text)]">
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
         <div className="px-6 py-6 border-b border-[var(--loboko-border)]">
@@ -242,8 +242,11 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
 
       {/* Main content */}
       <main
-        className={`lg:ml-60 min-h-[100dvh] lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-24'}`}
-        style={{ overflowAnchor: 'none' }}
+        className={`lg:ml-60 h-[100dvh] overflow-y-auto lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-24'}`}
+        style={{
+          overflowAnchor: 'none',
+          WebkitOverflowScrolling: 'touch',
+        }}
       >
         <div className={`max-w-2xl mx-auto lg:px-8 lg:py-8 ${hideMobileNav ? 'px-0 py-0' : 'px-4 py-4'}`}>
           {children}
