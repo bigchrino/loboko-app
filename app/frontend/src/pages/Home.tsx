@@ -19,27 +19,7 @@ export default function Home() {
   
 
   const userId = user?.id || '';
-  useEffect(() => {
-    window.history.scrollRestoration = 'manual';
   
-    const saved = sessionStorage.getItem('home-scroll');
-  
-    if (saved) {
-      setTimeout(() => {
-        window.scrollTo(0, Number(saved));
-      }, 0);
-    }
-  
-    const saveScroll = () => {
-      sessionStorage.setItem('home-scroll', String(window.scrollY));
-    };
-  
-    window.addEventListener('scroll', saveScroll);
-  
-    return () => {
-      window.removeEventListener('scroll', saveScroll);
-    };
-  }, []);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -165,7 +145,16 @@ export default function Home() {
       </h1>
 
       <div id="loboko-compose">
-        <ComposePost onPosted={loadPosts} />
+        <ComposePost
+          onPosted={async () => {
+            await loadPosts();
+        
+            requestAnimationFrame(() => {
+              const compose = document.getElementById('loboko-compose');
+              compose?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }}
+        />
       </div>
 
       <div id="loboko-feed">
