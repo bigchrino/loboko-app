@@ -205,8 +205,8 @@ export default function ComposePost({ onPosted }: Props) {
             handleContentChange(el.value, el.selectionStart ?? el.value.length);
           }}
           placeholder="Quoi de neuf, LOBOKO ? Utilisez @ pour mentionner quelqu'un"
-          rows={3}
-          className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
+          rows={5}
+          className="w-full min-h-[140px] max-h-[260px] bg-transparent text-sm resize-y focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
         />
         <MentionSuggestions
           open={mentionState.open}
@@ -234,7 +234,7 @@ export default function ComposePost({ onPosted }: Props) {
           ))}
         </div>
       )}
-      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-[var(--loboko-border)]">
+      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 mt-3 pt-3 pb-1 border-t border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
         <MediaPicker
           maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
           onSelect={(m) => {
