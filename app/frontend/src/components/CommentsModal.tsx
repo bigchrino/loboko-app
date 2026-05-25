@@ -378,8 +378,9 @@ export default function CommentsModal({
         return;
       }
       setContent('');
-      const wasReply = !!replyTo;
-      const rootForExpand = replyTo?.rootCommentId;
+      const replySnapshot = replyTo;
+      const wasReply = !!replySnapshot;
+      const rootForExpand = replySnapshot?.rootCommentId;
       setReplyTo(null);
       await loadComments();
       if (wasReply && rootForExpand) {
@@ -390,8 +391,8 @@ export default function CommentsModal({
         });
       }
       onCommentAdded?.();
-      if (wasReply && replyTo) {
-        const target = comments.find((c) => c.id === replyTo.targetCommentId);
+      if (wasReply && replySnapshot) {
+        const target = comments.find((c) => c.id === replySnapshot.targetCommentId);
         if (target && target.user_id !== authUid) {
           try {
             await createNotification({
@@ -422,8 +423,8 @@ export default function CommentsModal({
         const mentionMap = await resolveMentionedUserIds(text);
         const skip = new Set<string>([authUid]);
         if (!wasReply && postAuthorId) skip.add(postAuthorId);
-        if (wasReply && replyTo) {
-          const target = comments.find((c) => c.id === replyTo.targetCommentId);
+        if (wasReply && replySnapshot) {
+          const target = comments.find((c) => c.id === replySnapshot.targetCommentId);
           if (target) skip.add(target.user_id);
         }
         let actorName = 'Quelqu’un';
