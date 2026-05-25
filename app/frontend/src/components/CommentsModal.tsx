@@ -17,6 +17,7 @@ import {
   type MentionSuggestion,
 } from '@/lib/mentions';
 import { containsDangerousContent } from '@/lib/moderation';
+import { logger } from '@/lib/logger';
 
 interface CommentRow {
   id: string;
@@ -197,7 +198,10 @@ export default function CommentsModal({
         setMyLikes(new Set());
       }
     } catch (e) {
-      console.error(e);
+      logger.error('comments load failed', {
+        context: 'CommentsModal.loadComments',
+        error: e,
+      });
     } finally {
       setLoading(false);
     }
@@ -362,7 +366,10 @@ export default function CommentsModal({
       }
 
       if (error) {
-        console.error('[comments] insert error:', error);
+        logger.error('comment insert failed', {
+          context: 'CommentsModal.handleSend',
+          error,
+        });
         const code = (error as { code?: string }).code;
         let userMsg = "Impossible d'envoyer le commentaire";
         if (error.message?.toLowerCase().includes('row-level security') || code === '42501') {
@@ -416,7 +423,10 @@ export default function CommentsModal({
             message: 'a commenté votre publication',
           });
         } catch (nErr) {
-          console.error('[comments] notification error (non-blocking):', nErr);
+          logger.warn('comment notification failed', {
+            context: 'CommentsModal.commentNotification',
+            error: nErr,
+          });
         }
       }
       try {
@@ -460,7 +470,10 @@ export default function CommentsModal({
           }),
         );
       } catch (nErr) {
-        console.error('[comments] mention notifications failed', nErr);
+        logger.warn('comment mention notifications failed', {
+          context: 'CommentsModal.mentions',
+          error: nErr,
+        });
       }
       setTimeout(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
