@@ -98,6 +98,7 @@ import {
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 import EphemeralBadge from '@/components/EphemeralBadge';
+import { logger } from '@/lib/logger';
 import { Timer } from 'lucide-react';
 
 interface Message {
@@ -254,6 +255,37 @@ function GroupAvatar({ group }: { group: Group }) {
 }
 
 export default function Messages() {
+    useEffect(() => {
+      const handleError = (event: ErrorEvent) => {
+        logger.error('[Messages Global Error]', {
+          message: event.message,
+          source: event.filename,
+          line: event.lineno,
+          column: event.colno,
+          error: event.error,
+        });
+      };
+  
+      const handlePromiseRejection = (
+        event: PromiseRejectionEvent,
+      ) => {
+        logger.error('[Messages Promise Rejection]', event.reason);
+      };
+  
+      window.addEventListener('error', handleError);
+      window.addEventListener(
+        'unhandledrejection',
+        handlePromiseRejection,
+      );
+  
+      return () => {
+        window.removeEventListener('error', handleError);
+        window.removeEventListener(
+          'unhandledrejection',
+          handlePromiseRejection,
+        );
+      };
+    }, []);
   const { user } = useAuth();
   const { changeTick, refresh: refreshMessagesBadge } = useMessages();
   const { startCall } = useCall();
@@ -371,7 +403,7 @@ export default function Messages() {
       if (error) throw error;
       setAllMessages((data as Message[]) || []);
     } catch (e) {
-      console.error(e);
+      logger.error('[Messages Error]', e);
     }
   }, [myId]);
 
@@ -490,7 +522,7 @@ export default function Messages() {
       setGroupLastMessages(lm);
       setGroupUnreadCounts(unread);
     } catch (e) {
-      console.error('[messages] loadGroups', e);
+      logger.error(('[messages] loadGroups', e);
     }
   }, [myId]);
 
@@ -506,7 +538,7 @@ export default function Messages() {
         list.forEach((p) => (map[p.user_id] = p));
         setProfilesMap(map);
       } catch (e) {
-        console.error(e);
+       logger.error(e);
       }
       await loadStates();
       await loadPhase2();
@@ -916,7 +948,7 @@ export default function Messages() {
           await refreshMessagesBadge();
         }
       } catch (e) {
-        console.error('[messages] mark delivered/read failed', e);
+        logger.error('[messages] mark delivered/read failed', e);
       }
     })();
   }, [activeUserId, activeMessages, myId, refreshMessagesBadge]);
@@ -1090,7 +1122,7 @@ export default function Messages() {
       });
       await loadMessages();
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       toast.error("Échec de l'envoi du message");
     }
   };
@@ -1109,7 +1141,7 @@ export default function Messages() {
       });
       await loadMessages();
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -1145,7 +1177,7 @@ export default function Messages() {
       clearPendingMedia();
       await loadMessages();
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       toast.error("Échec de l'envoi du média");
     } finally {
       setSendingMedia(false);
@@ -1180,7 +1212,7 @@ export default function Messages() {
       setPendingFile(null);
       await loadMessages();
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       toast.error("Échec de l'envoi du fichier");
     } finally {
       setSendingFile(false);
@@ -1424,7 +1456,7 @@ export default function Messages() {
       toast.success(`Transféré à ${userIds.length} contact${userIds.length > 1 ? 's' : ''}`);
       await loadMessages();
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       toast.error('Transfert impossible');
     }
   };
