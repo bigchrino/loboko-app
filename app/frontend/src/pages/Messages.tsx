@@ -1583,26 +1583,7 @@ export default function Messages() {
     return <>{out}</>;
   };
 
-  useEffect(() => {
-    if (!activeUserId) return;
-  
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalHtmlOverflow = document.documentElement.style.overflow;
-    const originalBodyPosition = document.body.style.position;
-    const originalBodyWidth = document.body.style.width;
-  
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-  
-    return () => {
-      document.body.style.overflow = originalBodyOverflow;
-      document.documentElement.style.overflow = originalHtmlOverflow;
-      document.body.style.position = originalBodyPosition;
-      document.body.style.width = originalBodyWidth;
-    };
-  }, [activeUserId]);
+
 
   return (
     <Layout title="Messages" hideMobileNav={!!activeUserId}>
@@ -1845,7 +1826,7 @@ export default function Messages() {
           )}
         </>
       ) : (
-        <div className="fixed inset-x-4 top-[72px] bottom-0 z-30 flex flex-col bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)]">
+        <div className="fixed inset-x-0 top-[64px] bottom-0 z-30 flex flex-col bg-[var(--loboko-surface)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl">
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
               onClick={closeConversation}
