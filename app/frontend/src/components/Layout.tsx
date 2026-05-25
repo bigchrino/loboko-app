@@ -31,6 +31,7 @@ import Logo from '@/components/Logo';
 interface LayoutProps {
   children: ReactNode;
   title?: string;
+  hideMobileNav?: boolean;
 }
 
 const mobileNavItems = [
@@ -56,7 +57,7 @@ const desktopNavItems = [
   { to: '/profile', label: 'Profil', icon: User },
 ];
 
-export default function Layout({ children, title }: LayoutProps) {
+export default function Layout({ children, title, hideMobileNav = false }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
@@ -241,19 +242,20 @@ export default function Layout({ children, title }: LayoutProps) {
 
       {/* Main content */}
       <main
-        className="lg:ml-60 min-h-screen pb-24 lg:pb-8"
+        className={`lg:ml-60 min-h-[100dvh] lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-24'}`}
         style={{ overflowAnchor: 'none' }}
       >
         <div className="max-w-2xl mx-auto px-4 lg:px-8 py-4 lg:py-8">{children}</div>
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
-        <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
-          {mobileNavItems.map(({ to, label, icon: Icon }) => {
-            const badge = badgeFor(to);
-            return (
-              <NavLink
+      {!hideMobileNav && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
+          <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
+            {mobileNavItems.map(({ to, label, icon: Icon }) => {
+              const badge = badgeFor(to);
+              return (
+                <NavLink
                 key={to}
                 to={to}
                 className={({ isActive }) =>
@@ -276,6 +278,7 @@ export default function Layout({ children, title }: LayoutProps) {
           })}
         </div>
       </nav>
+    )}
 
       <LogoutConfirm
         open={showLogoutConfirm}
