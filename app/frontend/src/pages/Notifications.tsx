@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
+import { logger } from '@/lib/logger';
 import { Bell, Heart, MessageCircle, UserPlus, MessageSquare, Share2, Reply } from 'lucide-react';
 
 interface Notif {
@@ -141,7 +142,10 @@ export default function Notifications() {
         );
         await refresh();
       } catch (e) {
-        console.error(e);
+        logger.error('notifications load failed', {
+          context: 'Notifications.load',
+          error: e,
+        });
       } finally {
         setLoading(false);
       }
