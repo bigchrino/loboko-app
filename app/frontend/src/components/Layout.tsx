@@ -245,7 +245,9 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
         className={`lg:ml-60 min-h-[100dvh] lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-24'}`}
         style={{ overflowAnchor: 'none' }}
       >
-        <div className="max-w-2xl mx-auto px-4 lg:px-8 py-4 lg:py-8">{children}</div>
+        <div className={`max-w-2xl mx-auto lg:px-8 lg:py-8 ${hideMobileNav ? 'px-0 py-0' : 'px-4 py-4'}`}>
+          {children}
+        </div>
       </main>
 
       {/* Mobile bottom nav */}
