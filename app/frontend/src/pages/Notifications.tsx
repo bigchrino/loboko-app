@@ -133,6 +133,12 @@ export default function Notifications() {
 
         // Mark all as read once the page is viewed
         await markAllRead();
+        setItems((current) =>
+          current.map((item) => ({
+            ...item,
+            read: true,
+          }))
+        );
         await refresh();
       } catch (e) {
         console.error(e);
@@ -144,9 +150,16 @@ export default function Notifications() {
   }, [user]);
 
   const handleClick = (n: Notif) => {
-    const postTypes = ['like', 'comment', 'comment_liked', 'comment_replied', 'post_shared'];
+    const postTypes = [
+      'like',
+      'comment',
+      'comment_liked',
+      'comment_replied',
+      'post_shared',
+    ];
+  
     if (postTypes.includes(n.type) && n.post_id) {
-      navigate('/home');
+      navigate(`/post/${n.post_id}`);
     }
   };
 
