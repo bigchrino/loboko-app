@@ -85,7 +85,7 @@ export default function PostCard({
   useEffect(() => {
     (async () => {
       try {
-        const {  } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('username,display_name,metier,avatar_key,role,is_admin')
           .eq('user_id', post.user_id)
@@ -401,7 +401,15 @@ export default function PostCard({
    * interactive element via `data-stop-card-click`.
    */
   const openDetail = () => {
-    sessionStorage.setItem('home-scroll', String(window.scrollY));
+    setShowComments(false);
+    setShowLikes(false);
+    setShowShare(false);
+    setViewerIndex(null);
+    const feed = document.querySelector('main');
+    sessionStorage.setItem(
+      'home-scroll',
+      String(feed?.scrollTop || 0)
+    );
     sessionStorage.setItem('home-post-id', post.id);
   
     navigate(`/post/${post.id}`, {
@@ -435,17 +443,14 @@ export default function PostCard({
   };
 
   const handleCommentClick = () => {
-    if (variant === 'feed') {
-      navigate(`/post/${post.id}#comments`, {
-        state: {
-          from: `${location.pathname}${location.search}${location.hash}`,
-        },
-      });
-      return;
-    }
-    // In detail variant, the page renders inline comments and handles focus
-    // itself; fall back to a modal only if somehow used elsewhere.
-    setShowComments(true);
+    setShowComments(false);
+  
+    navigate(`/post/${post.id}#comments`, {
+      replace: false,
+      state: {
+        from: `${location.pathname}${location.search}${location.hash}`,
+      },
+    });
   };
 
   const authorName = author?.display_name || author?.username || 'Utilisateur';
@@ -482,7 +487,11 @@ export default function PostCard({
             data-stop-card-click="1"
             onClick={(e) => {
               e.stopPropagation();
-              sessionStorage.setItem('home-scroll', String(window.scrollY));
+              const feed = document.querySelector('main');
+              sessionStorage.setItem(
+                'home-scroll',
+                String(feed?.scrollTop || 0)
+              );
               sessionStorage.setItem('home-post-id', post.id);
               navigate(`/u/${post.user_id}`);
             }}
@@ -753,7 +762,6 @@ function SharePostDialogLoader({
     };
   }, [buildPreview]);
   if (!preview) return null;
-  if (!author) return null;
   return (
     <SharePostDialog
       open={open}
