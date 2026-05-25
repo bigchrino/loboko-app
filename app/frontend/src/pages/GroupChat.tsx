@@ -993,7 +993,7 @@ export default function GroupChat() {
 
   return (
     <Layout title={group.name}>
-      <div className="flex flex-col h-[calc(100vh-180px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
+      <div className="flex flex-col min-h-[calc(100dvh-120px)] max-h-[calc(100dvh-120px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
         <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
           <button
             onClick={goBack}
@@ -1072,7 +1072,13 @@ export default function GroupChat() {
           </div>
         )}
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
           <LoadOlderTrigger
             hasMore={hasMoreOlder}
             loading={loadingOlder}
@@ -1356,7 +1362,7 @@ export default function GroupChat() {
           </div>
         )}
 
-        <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0">
+        <div className="p-2 sm:p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 bg-[var(--loboko-surface)]">
           {showRecorder ? (
             <VoiceRecorder onSend={handleSendVoice} onClose={() => setShowRecorder(false)} />
           ) : (
