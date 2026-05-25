@@ -1845,7 +1845,7 @@ export default function Messages() {
           )}
         </>
       ) : (
-        <div className="flex flex-col h-[calc(100dvh-96px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden overscroll-none">
+        <div className="fixed inset-x-4 top-[72px] bottom-0 z-30 flex flex-col bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)]">
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
               onClick={closeConversation}
