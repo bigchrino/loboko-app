@@ -290,6 +290,7 @@ export default function Messages() {
   const [convSearchOpen, setConvSearchOpen] = useState(urlSearch);
   const [convQuery, setConvQuery] = useState('');
   const [convMatchIndex, setConvMatchIndex] = useState(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   // Confirm dialogs
   const [pendingAction, setPendingAction] = useState<{
@@ -1583,7 +1584,38 @@ export default function Messages() {
     return <>{out}</>;
   };
 
-
+  useEffect(() => {
+    if (!activeUserId) {
+      setKeyboardOffset(0);
+      return;
+    }
+  
+    const updateKeyboardOffset = () => {
+      const vv = window.visualViewport;
+      if (!vv) {
+        setKeyboardOffset(0);
+        return;
+      }
+  
+      const offset = Math.max(
+        0,
+        window.innerHeight - vv.height - vv.offsetTop
+      );
+  
+      setKeyboardOffset(offset);
+    };
+  
+    updateKeyboardOffset();
+  
+    window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
+    window.visualViewport?.addEventListener('scroll', updateKeyboardOffset);
+  
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
+      window.visualViewport?.removeEventListener('scroll', updateKeyboardOffset);
+      setKeyboardOffset(0);
+    };
+  }, [activeUserId]);
 
   return (
     <Layout title="Messages" hideMobileNav={!!activeUserId}>
@@ -1826,7 +1858,12 @@ export default function Messages() {
           )}
         </>
       ) : (
-        <div className="fixed inset-x-0 top-[64px] bottom-0 z-30 flex flex-col bg-[var(--loboko-surface)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl">
+        <div
+          className="fixed inset-x-0 top-[64px] z-30 flex flex-col bg-[var(--loboko-surface)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl"
+          style={{
+            bottom: keyboardOffset,
+          }}
+        >
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
               onClick={closeConversation}
