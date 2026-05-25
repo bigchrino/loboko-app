@@ -522,7 +522,7 @@ export default function Messages() {
       setGroupLastMessages(lm);
       setGroupUnreadCounts(unread);
     } catch (e) {
-      logger.error(('[messages] loadGroups', e);
+      logger.error('[messages] loadGroups', e);
     }
   }, [myId]);
 
