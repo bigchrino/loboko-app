@@ -1584,7 +1584,7 @@ export default function Messages() {
   };
 
   return (
-    <Layout title="Messages">
+    <Layout title="Messages" hideMobileNav={!!activeUserId}>
       <h1 className="text-2xl font-bold mb-4 hidden lg:block">Messages</h1>
 
       {!activeUserId ? (
@@ -1824,7 +1824,7 @@ export default function Messages() {
           )}
         </>
       ) : (
-        <div className="flex flex-col h-[calc(100vh-180px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
+        <div className="flex flex-col h-[calc(100dvh-96px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
               onClick={closeConversation}
