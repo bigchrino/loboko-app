@@ -72,7 +72,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const row = payload.new as { read?: boolean } | null;
           if (row && !row.read) {
-            setUnreadCount((c) => c + 1);
+            refresh();
           }
         },
       )
@@ -87,11 +87,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const oldRow = payload.old as { read?: boolean } | null;
           const newRow = payload.new as { read?: boolean } | null;
-          if (oldRow?.read === false && newRow?.read === true) {
-            setUnreadCount((c) => Math.max(0, c - 1));
-          } else if (oldRow?.read === true && newRow?.read === false) {
-            setUnreadCount((c) => c + 1);
-          }
+          refresh();
         },
       )
       .on(
@@ -104,9 +100,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           const oldRow = payload.old as { read?: boolean } | null;
-          if (oldRow && !oldRow.read) {
-            setUnreadCount((c) => Math.max(0, c - 1));
-          }
+          refresh();
         },
       )
       .subscribe();
