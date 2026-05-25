@@ -128,7 +128,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
   };
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[var(--loboko-bg)] text-[var(--loboko-text)]">
+    <div className="min-h-[100dvh] bg-[var(--loboko-bg)] text-[var(--loboko-text)] overflow-x-hidden">
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
         <div className="px-6 py-6 border-b border-[var(--loboko-border)]">
@@ -201,7 +201,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
       </aside>
 
       {/* Mobile top header */}
-      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
+      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
         <div className="flex items-center gap-2.5 min-w-0">
           <Logo size="md" />
           {title && title !== 'LOBOKO' && (
@@ -242,7 +242,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
 
       {/* Main content */}
       <main
-        className={`lg:ml-60 h-[100dvh] overflow-y-auto lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-24'}`}
+        className={`lg:ml-60 min-h-[100dvh] overflow-x-hidden lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-[calc(6rem+env(safe-area-inset-bottom,0px))]'}`}
         style={{
           overflowAnchor: 'none',
           WebkitOverflowScrolling: 'touch',
