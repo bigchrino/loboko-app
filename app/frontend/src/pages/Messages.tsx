@@ -1583,6 +1583,27 @@ export default function Messages() {
     return <>{out}</>;
   };
 
+  useEffect(() => {
+    if (!activeUserId) return;
+  
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalBodyPosition = document.body.style.position;
+    const originalBodyWidth = document.body.style.width;
+  
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+  
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.position = originalBodyPosition;
+      document.body.style.width = originalBodyWidth;
+    };
+  }, [activeUserId]);
+
   return (
     <Layout title="Messages" hideMobileNav={!!activeUserId}>
       <h1 className="text-2xl font-bold mb-4 hidden lg:block">Messages</h1>
@@ -1824,7 +1845,7 @@ export default function Messages() {
           )}
         </>
       ) : (
-        <div className="flex flex-col h-[calc(100dvh-96px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
+        <div className="flex flex-col h-[calc(100dvh-96px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden overscroll-none">
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
               onClick={closeConversation}
@@ -1977,7 +1998,13 @@ export default function Messages() {
             </div>
           )}
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
             <LoadOlderTrigger
               hasMore={activeConvHasMore}
               loading={activeConvLoadingOlder}
