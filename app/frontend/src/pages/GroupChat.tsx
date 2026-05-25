@@ -80,6 +80,7 @@ import {
 } from '@/lib/ephemeral';
 import EphemeralSettingsDialog from '@/components/EphemeralSettingsDialog';
 import EphemeralBadge from '@/components/EphemeralBadge';
+import { logger } from '@/lib/logger';
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
@@ -259,7 +260,10 @@ export default function GroupChat() {
         new Set(((delRows as { message_id: string }[]) || []).map((r) => r.message_id)),
       );
     } catch (e) {
-      console.error('[group-chat] loadAll', e);
+      logger.error('group chat load failed', {
+        context: 'GroupChat.loadAll',
+        error: e,
+      });
     } finally {
       setLoading(false);
     }
@@ -561,7 +565,10 @@ export default function GroupChat() {
           ),
         );
       } catch (nErr) {
-        console.error('[group-chat] mention notifications failed', nErr);
+        logger.warn('group mention notifications failed', {
+          context: 'GroupChat.mentions',
+          error: nErr,
+        });
       }
       // Fire-and-forget push fan-out to all members.
       try {
@@ -579,7 +586,10 @@ export default function GroupChat() {
           body: notificationPreview(text, 'Nouveau message'),
         });
       } catch (pErr) {
-        console.warn('[group-chat] push fan-out failed', pErr);
+        logger.warn('group push fanout failed', {
+          context: 'GroupChat.pushFanout',
+          error: pErr,
+        });
       }
     } catch (e) {
       const err = e as { message?: string };
