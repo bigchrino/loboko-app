@@ -150,6 +150,19 @@ export default function Menu() {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const visibleItems =
+    profile?.role === 'prestataire'
+      ? [
+          ...items,
+          {
+            to: '/received-orders',
+            label: 'Commandes reçues',
+            desc: 'Voir les commandes envoyées par les clients',
+            icon: Briefcase,
+            color: '#2563eb',
+          },
+        ]
+      : items;
 
   const badgeCountFor = (key?: MenuItem['badgeKey']): number => {
     if (key === 'missedCalls') return unseenMissed;
@@ -178,7 +191,7 @@ export default function Menu() {
         </div>
 
         <div className="space-y-3">
-          {items.map(({ to, label, desc, icon: Icon, color, badgeKey }) => {
+          {visibleItems.map(({ to, label, desc, icon: Icon, color, badgeKey }) => {
             const badgeCount = badgeCountFor(badgeKey);
             const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
 
