@@ -67,6 +67,7 @@ export default function ServiceOrder() {
         client_id: user.id,
         prestataire_id: userId,
         provider_id: userId,
+        title: description.trim().slice(0, 80),
         description: description.trim(),
         proposed_budget: budget ? Number(budget) : null,
         status: 'requested',
