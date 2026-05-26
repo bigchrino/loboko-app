@@ -60,6 +60,7 @@ export default function ReceivedOrders() {
           .from('service_orders')
           .select('*')
           .eq('provider_id', user.id)
+          .in('status', ['requested', 'accepted'])
           .order('created_at', {
             ascending: false,
           });
