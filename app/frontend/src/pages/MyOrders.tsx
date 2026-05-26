@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 interface ServiceOrder {
   id: string;
@@ -22,6 +23,7 @@ interface ProviderProfile {
 
 export default function MyOrders() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [providers, setProviders] = useState<
@@ -98,9 +100,10 @@ export default function MyOrders() {
               'Prestataire';
 
             return (
-              <div
+              <button
                 key={order.id}
-                className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4"
+                onClick={() => navigate(`/my-orders/${order.id}`)}
+                className="w-full text-left bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 hover:border-[#2563eb] transition"
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div>
@@ -137,7 +140,7 @@ export default function MyOrders() {
                     {order.payment_status}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
