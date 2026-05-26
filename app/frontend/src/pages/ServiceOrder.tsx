@@ -76,9 +76,14 @@ export default function ServiceOrder() {
 
       toast.success('Commande envoyée');
       navigate('/my-orders');
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast.error("Impossible d'envoyer la commande");
+    
+      toast.error(
+        e?.message ||
+        e?.error_description ||
+        "Impossible d'envoyer la commande"
+      );
     } finally {
       setLoading(false);
     }
