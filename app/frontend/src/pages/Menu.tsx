@@ -99,17 +99,7 @@ const items: MenuItem[] = [
     icon: Heart,
     color: '#ef4444',
   },
-  ...(profile?.role === 'prestataire'
-    ? [
-        {
-          to: '/received-orders',
-          label: 'Commandes reçues',
-          desc: 'Voir les commandes envoyées par les clients',
-          icon: Briefcase,
-          color: '#2563eb',
-        },
-      ]
-    : []),
+ 
   {
     to: '/recherches',
     label: 'Recherches',
