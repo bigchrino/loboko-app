@@ -316,6 +316,17 @@ export default function UserProfilePage() {
               Message
             </button>
           )}
+          {isPrestataire && !isSelf && (
+            <button
+              onClick={() =>
+                navigate(`/services/order/${targetProfile.user_id}`)
+              }
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white font-semibold text-sm"
+            >
+              <Briefcase size={16} />
+              Commander
+            </button>
+          )}
           {canRate && (
             <button
               onClick={() => setModalOpen(true)}
