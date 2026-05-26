@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface ServiceOrder {
   id: string;
@@ -24,6 +24,7 @@ export default function ReceivedOrders() {
   const { user } = useAuth();
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
 
@@ -105,7 +106,7 @@ export default function ReceivedOrders() {
     };
 
     loadOrders();
-  }, [user?.id]);
+  }, [user?.id, location.key]);
 
   return (
     <Layout title="Commandes reçues">
