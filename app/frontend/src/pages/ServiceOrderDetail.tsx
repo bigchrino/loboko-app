@@ -5,12 +5,6 @@ import { ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Layout from '@/components/Layout';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { ArrowLeft } from 'lucide-react';
 
 interface ServiceOrder {
   id: string;
@@ -25,7 +19,7 @@ interface ServiceOrder {
     | 'completed'
     | 'cancelled'
     | 'disputed'
-    | 'refused';
+    | 'declined';
 
   payment_status:
     | 'pending'
@@ -33,9 +27,10 @@ interface ServiceOrder {
     | 'failed'
     | 'refunded';
 
-  refusal_reason: string | null;
-  refusal_is_budget_issue: boolean | null;
-  requested_min_budget: number | null;
+  decline_reason: string | null;
+  decline_is_budget_related: boolean | null;
+  provider_requested_budget: number | null;
+  declined_at?: string | null;
 
   created_at: string;
 }
@@ -150,12 +145,13 @@ export default function ServiceOrderDetail() {
       const { error } = await supabase
         .from('service_orders')
         .update({
-          status: 'refused',
-          refusal_reason: refusalReason.trim(),
-          refusal_is_budget_issue: isBudgetIssue,
-          requested_min_budget: isBudgetIssue
+          status: 'declined',
+          decline_reason: refusalReason.trim(),
+          decline_is_budget_related: isBudgetIssue,
+          provider_requested_budget: isBudgetIssue
             ? Number(requestedBudget)
             : null,
+          declined_at: new Date().toISOString(),
         })
         .eq('id', order.id);
   
@@ -163,10 +159,10 @@ export default function ServiceOrderDetail() {
   
       setOrder({
         ...order,
-        status: 'refused',
-        refusal_reason: refusalReason.trim(),
-        refusal_is_budget_issue: isBudgetIssue,
-        requested_min_budget: isBudgetIssue
+        status: 'declined',
+        decline_reason: refusalReason.trim(),
+        decline_is_budget_related: isBudgetIssue,
+        provider_requested_budget: isBudgetIssue
           ? Number(requestedBudget)
           : null,
       });
@@ -229,22 +225,22 @@ export default function ServiceOrderDetail() {
           </div>
         </div>
 
-        {order.refusal_reason && (
+        {order.decline_reason && (
           <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
             <div className="font-semibold text-red-400 mb-2">
               Refus du prestataire
             </div>
-
+        
             <div className="text-sm whitespace-pre-wrap">
-              {order.refusal_reason}
+              {order.decline_reason}
             </div>
-
-            {order.refusal_is_budget_issue && (
+        
+            {order.decline_is_budget_related && (
               <div className="mt-3 text-sm">
                 Budget minimum demandé :
                 {' '}
                 <span className="font-semibold">
-                  {order.requested_min_budget}
+                  {order.provider_requested_budget}
                 </span>
               </div>
             )}
