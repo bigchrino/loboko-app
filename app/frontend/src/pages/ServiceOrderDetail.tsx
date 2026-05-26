@@ -51,6 +51,13 @@ export default function ServiceOrderDetail() {
     useState<ServiceOrder | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [refusalReason, setRefusalReason] = useState('');
+
+  const [isBudgetIssue, setIsBudgetIssue] =
+    useState(false);
+  
+  const [requestedBudget, setRequestedBudget] =
+    useState('');
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -101,6 +108,75 @@ export default function ServiceOrderDetail() {
 
   const isProvider =
     user?.id === order.provider_id;
+  const acceptOrder = async () => {
+    if (!order) return;
+  
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({
+          status: 'accepted',
+        })
+        .eq('id', order.id);
+  
+      if (error) throw error;
+  
+      setOrder({
+        ...order,
+        status: 'accepted',
+      });
+  
+      toast.success('Commande acceptée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
+  
+  const refuseOrder = async () => {
+    if (!order) return;
+  
+    if (!refusalReason.trim()) {
+      toast.error('Ajoutez une raison');
+      return;
+    }
+  
+    if (isBudgetIssue && !requestedBudget.trim()) {
+      toast.error('Ajoutez le budget demandé');
+      return;
+    }
+  
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({
+          status: 'refused',
+          refusal_reason: refusalReason.trim(),
+          refusal_is_budget_issue: isBudgetIssue,
+          requested_min_budget: isBudgetIssue
+            ? Number(requestedBudget)
+            : null,
+        })
+        .eq('id', order.id);
+  
+      if (error) throw error;
+  
+      setOrder({
+        ...order,
+        status: 'refused',
+        refusal_reason: refusalReason.trim(),
+        refusal_is_budget_issue: isBudgetIssue,
+        requested_min_budget: isBudgetIssue
+          ? Number(requestedBudget)
+          : null,
+      });
+  
+      toast.success('Commande refusée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
 
   return (
     <Layout title="Commande">
