@@ -10,6 +10,7 @@ import AdminRoute from './components/AdminRoute';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminPosts from './pages/admin/AdminPosts';
 import AdminStats from './pages/admin/AdminStats';
+import MyOrders from './pages/MyOrders';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -215,6 +216,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/works', element: <Works /> },
 
   { path: '/requests', element: <ServiceRequests /> },
+  { path: '/my-orders', element: <MyOrders /> },
   { path: '/requests/:requestId', element: <ServiceRequestDetail /> },
 
   { path: '/favorites', element: <Favorites /> },
