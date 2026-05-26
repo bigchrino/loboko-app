@@ -19,7 +19,7 @@ interface ServiceOrder {
     | 'completed'
     | 'cancelled'
     | 'disputed'
-    | 'declined';
+    | 'refused';
 
   payment_status:
     | 'pending'
@@ -145,7 +145,7 @@ export default function ServiceOrderDetail() {
       const { error } = await supabase
         .from('service_orders')
         .update({
-          status: 'declined',
+          status: 'refused',
           decline_reason: refusalReason.trim(),
           decline_is_budget_related: isBudgetIssue,
           provider_requested_budget: isBudgetIssue
@@ -159,7 +159,7 @@ export default function ServiceOrderDetail() {
   
       setOrder({
         ...order,
-        status: 'declined',
+        status: 'refused',
         decline_reason: refusalReason.trim(),
         decline_is_budget_related: isBudgetIssue,
         provider_requested_budget: isBudgetIssue
