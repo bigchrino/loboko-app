@@ -255,6 +255,87 @@ export default function ServiceOrderDetail() {
           {isClient && 'Vous êtes le client'}
           {isProvider && 'Vous êtes le prestataire'}
         </div>
+        {isProvider && order.status === 'requested' && (
+          <div className="space-y-4">
+        
+            <button
+              onClick={acceptOrder}
+              className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold"
+            >
+              Accepter la commande
+            </button>
+        
+            <div className="p-4 rounded-2xl border border-red-500/20 bg-red-500/5 space-y-3">
+              <div className="font-semibold text-red-400">
+                Refuser la commande
+              </div>
+        
+              <textarea
+                value={refusalReason}
+                onChange={(e) =>
+                  setRefusalReason(e.target.value)
+                }
+                placeholder="Expliquez pourquoi vous refusez..."
+                className="w-full min-h-[120px] p-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] outline-none"
+              />
+        
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsBudgetIssue(true)
+                  }
+                  className={`px-4 py-2 rounded-xl border ${
+                    isBudgetIssue
+                      ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                      : 'border-[var(--loboko-border)]'
+                  }`}
+                >
+                  Oui
+                </button>
+        
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsBudgetIssue(false)
+                  }
+                  className={`px-4 py-2 rounded-xl border ${
+                    !isBudgetIssue
+                      ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                      : 'border-[var(--loboko-border)]'
+                  }`}
+                >
+                  Non
+                </button>
+        
+                <span className="text-sm">
+                  Problème de budget ?
+                </span>
+              </div>
+        
+              {isBudgetIssue && (
+                <input
+                  type="number"
+                  value={requestedBudget}
+                  onChange={(e) =>
+                    setRequestedBudget(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Budget minimum demandé"
+                  className="w-full p-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] outline-none"
+                />
+              )}
+        
+              <button
+                onClick={refuseOrder}
+                className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold"
+              >
+                Refuser définitivement
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
