@@ -11,6 +11,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminPosts from './pages/admin/AdminPosts';
 import AdminStats from './pages/admin/AdminStats';
 import MyOrders from './pages/MyOrders';
+import ServiceOrderDetail from './pages/ServiceOrderDetail';
 
 import Index from './pages/Index';
 import AuthCallback from './pages/AuthCallback';
@@ -217,6 +218,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 
   { path: '/requests', element: <ServiceRequests /> },
   { path: '/my-orders', element: <MyOrders /> },
+  { path: '/my-orders/:orderId', element: <ServiceOrderDetail /> },
   { path: '/requests/:requestId', element: <ServiceRequestDetail /> },
 
   { path: '/favorites', element: <Favorites /> },
