@@ -37,6 +37,7 @@ export default function ReceivedOrders() {
   const statusFr: Record<string, string> = {
     requested: 'En attente',
     accepted: 'Acceptée',
+    refused: 'Refusée',
     declined: 'Refusée',
     completed: 'Terminée',
     cancelled: 'Annulée',
