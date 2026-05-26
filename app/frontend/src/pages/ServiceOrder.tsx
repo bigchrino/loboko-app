@@ -65,6 +65,7 @@ export default function ServiceOrder() {
     try {
       const { error } = await supabase.from('service_orders').insert({
         client_id: user.id,
+        prestataire_id: userId,
         provider_id: userId,
         description: description.trim(),
         proposed_budget: budget ? Number(budget) : null,
