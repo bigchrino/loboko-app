@@ -47,6 +47,7 @@ import ProvidersByCategory from './pages/ProvidersByCategory';
 import Works from './pages/Works';
 import ServiceRequests from './pages/ServiceRequests';
 import ServiceRequestDetail from './pages/ServiceRequestDetail';
+import ServiceOrder from './pages/ServiceOrder';
 import Favorites from './pages/Favorites';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -175,6 +176,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 
   { path: '/find', element: <FindProviders /> },
   { path: '/services/:slug', element: <ProvidersByCategory /> },
+  { path: '/services/order/:userId', element: <ServiceOrder /> },
 
   {
     path: '/admin',
