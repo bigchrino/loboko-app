@@ -140,15 +140,22 @@ export default function ServiceOrderDetail() {
         .update({
           status: 'completed',
           payment_status: 'paid',
+          mission_counted: true,
         })
         .eq('id', order.id);
   
       if (orderError) throw orderError;
+      if (!order.mission_counted) {
+        await supabase.rpc('increment_completed_jobs', {
+          provider_user_id: order.provider_id,
+        });
+      }
   
       setOrder({
         ...order,
         status: 'completed',
         payment_status: 'paid',
+        mission_counted: true,
       });
   
       toast.success('Mission confirmée');
