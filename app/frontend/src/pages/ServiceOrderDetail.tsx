@@ -53,6 +53,21 @@ export default function ServiceOrderDetail() {
   
   const [requestedBudget, setRequestedBudget] =
     useState('');
+  const statusFr: Record<string, string> = {
+    requested: 'En attente',
+    accepted: 'Acceptée',
+    declined: 'Refusée',
+    completed: 'Terminée',
+    cancelled: 'Annulée',
+    disputed: 'Litige',
+  };
+  
+  const paymentFr: Record<string, string> = {
+    pending: 'En attente',
+    paid: 'Payé',
+    failed: 'Échoué',
+    refunded: 'Remboursé',
+  };
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -221,7 +236,7 @@ export default function ServiceOrderDetail() {
           </div>
 
           <div className="font-semibold">
-            {order.status}
+            {statusFr[order.status] || order.status}
           </div>
         </div>
 
@@ -231,7 +246,7 @@ export default function ServiceOrderDetail() {
           </div>
 
           <div className="font-semibold">
-            {order.payment_status}
+            {paymentFr[order.payment_status] || order.payment_status}
           </div>
         </div>
 
