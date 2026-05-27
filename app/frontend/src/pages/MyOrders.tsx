@@ -30,6 +30,21 @@ export default function MyOrders() {
     Record<string, ProviderProfile>
   >({});
   const [loading, setLoading] = useState(true);
+  const statusFr: Record<string, string> = {
+    requested: 'En attente',
+    accepted: 'Acceptée',
+    refused: 'Refusée',
+    completed: 'Terminée',
+    cancelled: 'Annulée',
+    disputed: 'Litige',
+  };
+  
+  const paymentFr: Record<string, string> = {
+    pending: 'En attente',
+    paid: 'Payé',
+    failed: 'Échoué',
+    refunded: 'Remboursé',
+  };
 
   useEffect(() => {
     const loadOrders = async () => {
@@ -119,7 +134,7 @@ export default function MyOrders() {
                   </div>
 
                   <div className="text-xs px-2 py-1 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
-                    {order.status}
+                    {statusFr[order.status] || order.status}
                   </div>
                 </div>
 
@@ -137,7 +152,7 @@ export default function MyOrders() {
                   <span>
                     Paiement :
                     {' '}
-                    {order.payment_status}
+                    {paymentFr[order.payment_status] || order.payment_status}
                   </span>
                 </div>
               </button>
