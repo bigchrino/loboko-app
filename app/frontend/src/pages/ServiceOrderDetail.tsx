@@ -174,6 +174,36 @@ export default function ServiceOrderDetail() {
     }
   };
 
+  const completeOrder = async () => {
+    if (!order) return;
+  
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+  
+      if (error) throw error;
+  
+      await supabase.rpc('increment_completed_jobs', {
+        provider_user_id: order.provider_id,
+      });
+  
+      setOrder({
+        ...order,
+        status: 'completed',
+      });
+  
+      toast.success('Mission terminée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
+
   return (
     <Layout title="Commande">
       <button
