@@ -281,6 +281,14 @@ export default function ServiceOrderDetail() {
           {isClient && 'Vous êtes le client'}
           {isProvider && 'Vous êtes le prestataire'}
         </div>
+        {isClient && order.status === 'accepted' && (
+          <button
+            onClick={completeOrder}
+            className="w-full py-3 rounded-xl bg-[#2563eb] text-white font-semibold"
+          >
+            Marquer la mission comme terminée
+          </button>
+        )}
         {isProvider && order.status === 'requested' && (
           <div className="space-y-4">
         
