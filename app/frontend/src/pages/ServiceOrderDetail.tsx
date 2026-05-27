@@ -56,7 +56,7 @@ export default function ServiceOrderDetail() {
   const statusFr: Record<string, string> = {
     requested: 'En attente',
     accepted: 'Acceptée',
-    declined: 'Refusée',
+    refused: 'Refusée',
     completed: 'Terminée',
     cancelled: 'Annulée',
     disputed: 'Litige',
