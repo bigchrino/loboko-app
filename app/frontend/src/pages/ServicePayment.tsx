@@ -97,7 +97,9 @@ export default function ServicePayment() {
         .from('service_orders')
         .update({
           payment_id: payment.id,
-          payment_status: 'pending',
+          payment_status: 'held',
+          is_paid: true,
+          paid_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
