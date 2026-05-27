@@ -41,6 +41,7 @@ export default function MyOrders() {
   
   const paymentFr: Record<string, string> = {
     pending: 'En attente',
+    held: 'En sécurité',
     paid: 'Payé',
     failed: 'Échoué',
     refunded: 'Remboursé',
