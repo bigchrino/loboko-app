@@ -119,6 +119,46 @@ export default function ServiceOrderDetail() {
 
   const isProvider =
     user?.id === order.provider_id;
+  const confirmMissionCompleted = async () => {
+    if (!order) return;
+  
+    try {
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .update({
+          status: 'released',
+          provider_confirmed: true,
+          provider_confirmed_at: new Date().toISOString(),
+          released_at: new Date().toISOString(),
+        })
+        .eq('id', order.payment_id);
+  
+      if (paymentError) throw paymentError;
+  
+      const { error: orderError } = await supabase
+        .from('service_orders')
+        .update({
+          status: 'completed',
+          payment_status: 'paid',
+        })
+        .eq('id', order.id);
+  
+      if (orderError) throw orderError;
+  
+      setOrder({
+        ...order,
+        status: 'completed',
+        payment_status: 'paid',
+      });
+  
+      toast.success('Mission confirmée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(
+        e?.message || 'Impossible de confirmer'
+      );
+    }
+  };
   const acceptOrder = async () => {
     if (!order) return;
   
@@ -297,6 +337,16 @@ export default function ServiceOrderDetail() {
           {isClient && 'Vous êtes le client'}
           {isProvider && 'Vous êtes le prestataire'}
         </div>
+        {isProvider &&
+          order.status === 'accepted' &&
+          order.payment_status === 'held' && (
+            <button
+              onClick={confirmMissionCompleted}
+              className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold"
+            >
+              Confirmer la mission terminée
+            </button>
+          )}
         {isClient &&
           order.status === 'accepted' &&
           order.payment_status === 'pending' && (
