@@ -296,6 +296,16 @@ export default function ServiceOrderDetail() {
           {isClient && 'Vous êtes le client'}
           {isProvider && 'Vous êtes le prestataire'}
         </div>
+        {isClient &&
+          order.status === 'accepted' &&
+          order.payment_status === 'pending' && (
+            <button
+              onClick={() => navigate(`/payments/${order.id}`)}
+              className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold"
+            >
+              Payer le prestataire
+            </button>
+          )}
         {isClient && order.status === 'accepted' && (
           <button
             onClick={completeOrder}
