@@ -37,6 +37,8 @@ export default function Profile() {
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [service, setService] = useState<Service | null>(null);
   const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [commune, setCommune] = useState('');
   const [availability, setAvailability] =
     useState<'available' | 'unavailable'>('available');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
@@ -54,6 +56,8 @@ export default function Profile() {
       setMetier(profile.metier || '');
       setServiceId(profile.service_id || null);
       setCity(profile.city || '');
+      setProvince(profile.province || '');
+      setCommune(profile.commune || '');
       setAvailability(profile.availability_status || 'available');
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
       else setAvatarUrl(null);
@@ -147,6 +151,8 @@ export default function Profile() {
         // backward compatibility with existing UI that reads profile.metier.
         patch.metier = metier;
         patch.city = city.trim() || null;
+        patch.province = province.trim() || null;
+        patch.commune = commune.trim() || null;
         patch.availability_status = availability;
       }
       await updateLobokoProfile(patch as Partial<typeof profile>);
@@ -304,11 +310,39 @@ export default function Profile() {
             )}
             {profile.role === 'prestataire' && (
               <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">
+                  Province
+                </label>
+            
+                <input
+                  value={province}
+                  onChange={(e) => setProvince(e.target.value)}
+                  placeholder="Ex: Kinshasa"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                />
+              </div>
+            )}
+            {profile.role === 'prestataire' && (
+              <div>
                 <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Ville</label>
                 <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Ex: Kinshasa, Lubumbashi…"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                />
+              </div>
+            )}
+            {profile.role === 'prestataire' && (
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">
+                  Commune
+                </label>
+            
+                <input
+                  value={commune}
+                  onChange={(e) => setCommune(e.target.value)}
+                  placeholder="Ex: Barumbu"
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
                 />
               </div>
