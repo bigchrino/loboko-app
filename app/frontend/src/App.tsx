@@ -39,6 +39,7 @@ import Urgences from './pages/Urgences';
 import UrgencesHopitaux from './pages/UrgencesHopitaux';
 import UrgencesPolices from './pages/UrgencesPolices';
 import UrgencesCasernes from './pages/UrgencesCasernes';
+import UrgencePrestataires from './pages/urgences/UrgencePrestataires';
 import Recherches from './pages/Recherches';
 import Menu from './pages/Menu';
 import UserProfilePage from './pages/UserProfile';
@@ -168,6 +169,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
   { path: '/urgences/polices', element: <UrgencesPolices /> },
   { path: '/urgences/casernes', element: <UrgencesCasernes /> },
+  { path: '/urgences/prestataires', element: <UrgencePrestataires /> },
 
   { path: '/recherches', element: <Recherches /> },
   { path: '/menu', element: <Menu /> },
