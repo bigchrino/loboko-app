@@ -150,6 +150,14 @@ export default function Discover() {
     const q = search.trim().toLowerCase();
     return profiles.filter((p) => {
       if (filter !== 'all' && p.role !== filter) return false;
+      if (provinceFilter && p.province !== provinceFilter)
+        return false;
+      
+      if (cityFilter && p.city !== cityFilter)
+        return false;
+      
+      if (communeFilter && p.commune !== communeFilter)
+        return false;
       if (!q) return true;
       return (
         p.username?.toLowerCase().includes(q) ||
@@ -158,7 +166,14 @@ export default function Discover() {
         p.bio?.toLowerCase().includes(q)
       );
     });
-  }, [profiles, search, filter]);
+  }, [
+    profiles,
+    search,
+    filter,
+    provinceFilter,
+    cityFilter,
+    communeFilter,
+  ]);
 
   const handleMessage = (userId: string) => {
     navigate(`/messages?to=${encodeURIComponent(userId)}`);
