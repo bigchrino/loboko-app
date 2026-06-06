@@ -25,6 +25,11 @@ import {
 import PortfolioEditor from '@/components/PortfolioEditor';
 import PremiumBadge from '@/components/PremiumBadge';
 import { isPremium, describePremiumExpiry } from '@/lib/subscription';
+import {
+  getProvinceNames,
+  getCitiesByProvince,
+  getCommunesByCity,
+} from '@/data/rdcLocations';
 
 export default function Profile() {
   const { profile, user, updateLobokoProfile } = useAuth();
@@ -46,6 +51,9 @@ export default function Profile() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const provinces = getProvinceNames();
+  const cities = getCitiesByProvince(province);
+  const communes = getCommunesByCity(province, city);
 
   const userId = user?.id || '';
 
@@ -314,23 +322,48 @@ export default function Profile() {
                   Province
                 </label>
             
-                <input
+                <select
                   value={province}
-                  onChange={(e) => setProvince(e.target.value)}
-                  placeholder="Ex: Kinshasa"
+                  onChange={(e) => {
+                    setProvince(e.target.value);
+                    setCity('');
+                    setCommune('');
+                  }}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-                />
+                >
+                  <option value="">Choisir une province</option>
+            
+                  {provinces.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             {profile.role === 'prestataire' && (
               <div>
-                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Ville</label>
-                <input
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">
+                  Ville
+                </label>
+              
+                <select
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Ex: Kinshasa, Lubumbashi…"
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    setCommune('');
+                  }}
+                  disabled={!province}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-                />
+                >
+                  <option value="">Choisir une ville</option>
+              
+                  {cities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             {profile.role === 'prestataire' && (
@@ -338,13 +371,21 @@ export default function Profile() {
                 <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">
                   Commune
                 </label>
-            
-                <input
+              
+                <select
                   value={commune}
                   onChange={(e) => setCommune(e.target.value)}
-                  placeholder="Ex: Barumbu"
+                  disabled={!city}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
-                />
+                >
+                  <option value="">Choisir une commune</option>
+              
+                  {communes.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             {profile.role === 'prestataire' && (
