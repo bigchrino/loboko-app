@@ -1,6 +1,6 @@
 import Layout from '@/components/Layout';
 import { Link } from 'react-router-dom';
-import { Siren, Hospital, Shield, Flame, ChevronRight } from 'lucide-react';
+import { Siren, Hospital, Shield, Flame, ChevronRight, Briefcase } from 'lucide-react';
 
 export default function Urgences() {
   return (
@@ -16,6 +16,24 @@ export default function Urgences() {
         <p className="text-[var(--loboko-text-secondary)]">
           Contactez les urgences pour un quelconque problème grave.
         </p>
+
+        <Link
+          to="/urgences/prestataires"
+          className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
+        >
+          <div className="w-11 h-11 rounded-xl bg-[rgba(34,197,94,0.15)] flex items-center justify-center shrink-0">
+            <Briefcase size={22} className="text-[#22c55e]" />
+          </div>
+        
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold">Prestataire en urgence</div>
+            <div className="text-sm text-[var(--loboko-text-secondary)]">
+              Trouvez un prestataire disponible maintenant
+            </div>
+          </div>
+        
+          <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
+        </Link>
 
         <Link
           to="/urgences/hopitaux"
