@@ -27,6 +27,15 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
   const initials = name.slice(0, 2).toUpperCase();
   const isAdmin = profile.is_admin === true;
   const isPrestataire = profile.role === 'prestataire' && !isAdmin;
+  const completedJobs = profile.completed_jobs_count || 0;
+
+  let level = '🥉 Débutant';
+  
+  if (completedJobs >= 50) {
+    level = '🥇 Expert';
+  } else if (completedJobs >= 10) {
+    level = '🥈 Confirmé';
+  }
   return (
     <div
       className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 flex gap-3 items-center cursor-pointer hover:border-[#2563eb] transition"
@@ -54,6 +63,11 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
         </div>
         {isPrestataire && profile.metier && (
           <div className="text-xs text-[#2563eb] font-medium truncate">{profile.metier}</div>
+        )}
+        {isPrestataire && (
+          <div className="text-[11px] text-amber-400 font-medium">
+            {level}
+          </div>
         )}
         {isPrestataire && summary && summary.count > 0 && (
           <div className="flex items-center gap-1 mt-1">
