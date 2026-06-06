@@ -162,8 +162,12 @@ export default function Discover() {
     return profiles.filter((p) => {
       if (filter !== 'all' && p.role !== filter) return false;
   
-      if (availableOnly && p.role === 'prestataire') {
-        return p.availability_status === 'available';
+      if (
+        availableOnly &&
+        p.role === 'prestataire' &&
+        p.availability_status !== 'available'
+      ) {
+        return false;
       }
   
       if (provinceFilter && p.province !== provinceFilter) return false;
