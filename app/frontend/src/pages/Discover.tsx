@@ -159,7 +159,7 @@ export default function Discover() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
   
-    return profiles.filter((p) => {
+    const result = profiles.filter((p) => {
       if (filter !== 'all' && p.role !== filter) return false;
   
       if (
@@ -183,6 +183,27 @@ export default function Discover() {
         p.bio?.toLowerCase().includes(q)
       );
     });
+  
+    return result.sort((a, b) => {
+      const aAvailable = a.availability_status === 'available' ? 1 : 0;
+      const bAvailable = b.availability_status === 'available' ? 1 : 0;
+  
+      if (aAvailable !== bAvailable) {
+        return bAvailable - aAvailable;
+      }
+  
+      const aJobs = a.completed_jobs_count || 0;
+      const bJobs = b.completed_jobs_count || 0;
+  
+      if (aJobs !== bJobs) {
+        return bJobs - aJobs;
+      }
+  
+      const aRating = ratingMap[a.user_id]?.average || 0;
+      const bRating = ratingMap[b.user_id]?.average || 0;
+  
+      return bRating - aRating;
+    });
   }, [
     profiles,
     search,
@@ -191,6 +212,7 @@ export default function Discover() {
     cityFilter,
     communeFilter,
     availableOnly,
+    ratingMap,
   ]);
 
   const handleMessage = (userId: string) => {
