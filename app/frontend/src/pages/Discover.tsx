@@ -5,6 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { Profile } from '@/contexts/AuthContext';
+import {
+  getProvinceNames,
+  getCitiesByProvince,
+  getCommunesByCity,
+} from '@/data/rdcLocations';
 
 interface ProfileCardProps {
   profile: Profile;
@@ -86,6 +91,17 @@ export default function Discover() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>('all');
+  const [provinceFilter, setProvinceFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [communeFilter, setCommuneFilter] = useState('');
+
+  
+  const provinces = getProvinceNames();
+  const cities = getCitiesByProvince(provinceFilter);
+  const communes = getCommunesByCity(
+    provinceFilter,
+    cityFilter,
+  );
 
   useEffect(() => {
     (async () => {
@@ -167,6 +183,59 @@ export default function Discover() {
           placeholder="Rechercher un métier, un nom..."
           className="w-full pl-11 pr-4 py-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
         />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+        <select
+          value={provinceFilter}
+          onChange={(e) => {
+            setProvinceFilter(e.target.value);
+            setCityFilter('');
+            setCommuneFilter('');
+          }}
+          className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm"
+        >
+          <option value="">Toutes les provinces</option>
+      
+          {provinces.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      
+        <select
+          value={cityFilter}
+          onChange={(e) => {
+            setCityFilter(e.target.value);
+            setCommuneFilter('');
+          }}
+          disabled={!provinceFilter}
+          className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm"
+        >
+          <option value="">Toutes les villes</option>
+      
+          {cities.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      
+        <select
+          value={communeFilter}
+          onChange={(e) => setCommuneFilter(e.target.value)}
+          disabled={!cityFilter}
+          className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm"
+        >
+          <option value="">Toutes les communes</option>
+      
+          {communes.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto">
