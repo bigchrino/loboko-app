@@ -158,24 +158,20 @@ export default function Discover() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+  
     return profiles.filter((p) => {
       if (filter !== 'all' && p.role !== filter) return false;
-      if (
-        availableOnly &&
-        p.role === 'prestataire' &&
-        p.availability_status !== 'available'
-      ) {
-        return false;
+  
+      if (availableOnly && p.role === 'prestataire') {
+        return p.availability_status === 'available';
       }
-      if (provinceFilter && p.province !== provinceFilter)
-        return false;
-      
-      if (cityFilter && p.city !== cityFilter)
-        return false;
-      
-      if (communeFilter && p.commune !== communeFilter)
-        return false;
+  
+      if (provinceFilter && p.province !== provinceFilter) return false;
+      if (cityFilter && p.city !== cityFilter) return false;
+      if (communeFilter && p.commune !== communeFilter) return false;
+  
       if (!q) return true;
+  
       return (
         p.username?.toLowerCase().includes(q) ||
         p.display_name?.toLowerCase().includes(q) ||
@@ -190,6 +186,7 @@ export default function Discover() {
     provinceFilter,
     cityFilter,
     communeFilter,
+    availableOnly,
   ]);
 
   const handleMessage = (userId: string) => {
