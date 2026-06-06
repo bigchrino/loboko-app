@@ -69,6 +69,15 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
             {profile.bio}
           </div>
         )}
+        {isPrestataire &&
+          (profile.commune || profile.city) && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-[var(--loboko-text-muted)]">
+              <MapPin size={11} />
+              {[profile.commune, profile.city]
+                .filter(Boolean)
+                .join(' • ')}
+            </div>
+        )}
       </div>
       <button
         onClick={(e) => {
