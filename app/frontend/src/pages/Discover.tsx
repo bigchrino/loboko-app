@@ -100,6 +100,7 @@ export default function Discover() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>('all');
+  const [availableOnly, setAvailableOnly] = useState(false);
   const [provinceFilter, setProvinceFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [communeFilter, setCommuneFilter] = useState('');
@@ -159,6 +160,13 @@ export default function Discover() {
     const q = search.trim().toLowerCase();
     return profiles.filter((p) => {
       if (filter !== 'all' && p.role !== filter) return false;
+      if (
+        availableOnly &&
+        p.role === 'prestataire' &&
+        p.availability_status !== 'available'
+      ) {
+        return false;
+      }
       if (provinceFilter && p.province !== provinceFilter)
         return false;
       
@@ -280,6 +288,20 @@ export default function Discover() {
             {l}
           </button>
         ))}
+      </div>
+      <div className="mb-4">
+        <button
+          onClick={() => setAvailableOnly(!availableOnly)}
+          className={`px-4 py-2 rounded-full text-xs font-semibold transition ${
+            availableOnly
+              ? 'bg-green-600 text-white'
+              : 'bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)]'
+          }`}
+        >
+          {availableOnly
+            ? '✓ Disponibles uniquement'
+            : 'Disponibles uniquement'}
+        </button>
       </div>
 
       {loading ? (
