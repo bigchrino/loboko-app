@@ -455,10 +455,12 @@ export default function Profile() {
                     ? 'Disponible'
                     : 'Indisponible'}
                 </div>
-                {profile.city && (
+                {(profile.commune || profile.city || profile.province) && (
                   <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
                     <MapPin size={13} className="text-[var(--loboko-text-muted)]" />
-                    {profile.city}
+                    {[profile.commune, profile.city, profile.province]
+                      .filter(Boolean)
+                      .join(' • ')}
                   </div>
                 )}
                 <div className="flex items-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs">
