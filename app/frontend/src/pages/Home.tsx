@@ -79,12 +79,22 @@ export default function Home() {
     loadPosts();
   }, [loadPosts]);
 
+  // Ne restaurer la position de scroll qu'une seule fois par visite de la
+  // page (au premier chargement), jamais lors des changements ultérieurs de
+  // `posts.length` (ex: "Voir plus", nouvelle publication, suppression...).
+  // Sans ce garde-fou, le fil "remontait" sans arrêt vers l'ancien post à
+  // chaque mise à jour de la liste.
+  const hasRestoredScrollRef = useRef(false);
+
   useEffect(() => {
     if (loading) return;
     if (posts.length === 0) return;
+    if (hasRestoredScrollRef.current) return;
   
     const postId = sessionStorage.getItem('home-post-id');
     if (!postId) return;
+  
+    hasRestoredScrollRef.current = true;
   
     setTimeout(() => {
       const el = document.getElementById(`post-card-${postId}`);
@@ -93,8 +103,11 @@ export default function Home() {
           block: 'start',
           behavior: 'auto',
         });
-        
       }
+      // On efface la trace pour que la restauration ne se reproduise pas
+      // lors d'une prochaine visite non liée (ex: clic sur "Accueil" dans le menu).
+      sessionStorage.removeItem('home-post-id');
+      sessionStorage.removeItem('home-scroll');
     }, 800);
   }, [loading, posts.length]);
 
