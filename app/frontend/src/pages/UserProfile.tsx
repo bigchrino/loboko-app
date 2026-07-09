@@ -240,6 +240,8 @@ export default function UserProfilePage() {
               className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl border text-xs font-semibold ${
                 (targetProfile.availability_status || 'available') === 'available'
                   ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
+                  : (targetProfile.availability_status || 'available') === 'busy'
+                  ? 'bg-[rgba(245,158,11,0.12)] border-[rgba(245,158,11,0.45)] text-[#f59e0b]'
                   : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
               }`}
             >
@@ -247,11 +249,16 @@ export default function UserProfilePage() {
                 className={`inline-block w-2 h-2 rounded-full ${
                   (targetProfile.availability_status || 'available') === 'available'
                     ? 'bg-[#22c55e]'
+                    : (targetProfile.availability_status || 'available') === 'busy'
+                    ? 'bg-[#f59e0b]'
                     : 'bg-[#ef4444]'
                 }`}
               />
+            
               {(targetProfile.availability_status || 'available') === 'available'
                 ? 'Disponible'
+                : (targetProfile.availability_status || 'available') === 'busy'
+                ? 'Occupé'
                 : 'Indisponible'}
             </div>
             {targetProfile.city && (
