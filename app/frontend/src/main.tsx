@@ -4,6 +4,16 @@ import './index.css';
 import { loadRuntimeConfig } from './lib/config.ts';
 import { registerServiceWorker } from './lib/push-notifications.ts';
 
+// Empêche le navigateur de tenter sa propre restauration automatique de la
+// position de scroll lors d'une navigation "retour". Sans cela, le fil
+// d'actualité (qui charge ses publications de façon asynchrone) provoque un
+// flash visible : la page atterrit en haut le temps que le contenu se
+// recharge, puis "saute" à la bonne position une fois les données arrivées.
+// L'app gère elle-même la restauration (voir src/pages/Home.tsx).
+if ('scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
 // Load runtime configuration before rendering the app
 async function initializeApp() {
   // Prerendered blog pages are served as pure static HTML for SEO.
