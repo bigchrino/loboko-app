@@ -45,7 +45,7 @@ export default function Profile() {
   const [province, setProvince] = useState('');
   const [commune, setCommune] = useState('');
   const [availability, setAvailability] =
-    useState<'available' | 'unavailable'>('available');
+  useState<'available' | 'busy' | 'unavailable'>('available');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
   const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -391,34 +391,27 @@ export default function Profile() {
             {profile.role === 'prestataire' && (
               <div>
                 <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Disponibilité</label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAvailability((v) =>
-                      v === 'available' ? 'unavailable' : 'available',
+                <select
+                  value={availability}
+                  onChange={(e) =>
+                    setAvailability(
+                      e.target.value as 'available' | 'busy' | 'unavailable'
                     )
                   }
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border w-full text-left text-sm ${
-                    availability === 'available'
-                      ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
-                      : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
-                  }`}
-                  aria-pressed={availability === 'available'}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)]"
                 >
-                  <span
-                    className={`inline-block w-2.5 h-2.5 rounded-full ${
-                      availability === 'available'
-                        ? 'bg-[#22c55e]'
-                        : 'bg-[#ef4444]'
-                    }`}
-                  />
-                  {availability === 'available'
-                    ? 'Disponible pour travailler'
-                    : 'Indisponible'}
-                  <span className="ml-auto text-[10px] opacity-80">
-                    Cliquer pour basculer
-                  </span>
-                </button>
+                  <option value="available">
+                    🟢 Disponible
+                  </option>
+                
+                  <option value="busy">
+                    🟠 Occupé
+                  </option>
+                
+                  <option value="unavailable">
+                    🔴 Indisponible
+                  </option>
+                </select>
               </div>
             )}
             <div>
@@ -482,6 +475,8 @@ export default function Profile() {
                   className={`flex items-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-semibold ${
                     (profile.availability_status || 'available') === 'available'
                       ? 'bg-[rgba(34,197,94,0.12)] border-[rgba(34,197,94,0.45)] text-[#22c55e]'
+                      : (profile.availability_status || 'available') === 'busy'
+                      ? 'bg-[rgba(245,158,11,0.12)] border-[rgba(245,158,11,0.45)] text-[#f59e0b]'
                       : 'bg-[rgba(239,68,68,0.12)] border-[rgba(239,68,68,0.45)] text-[#ef4444]'
                   }`}
                 >
@@ -489,11 +484,16 @@ export default function Profile() {
                     className={`inline-block w-2 h-2 rounded-full ${
                       (profile.availability_status || 'available') === 'available'
                         ? 'bg-[#22c55e]'
+                        : (profile.availability_status || 'available') === 'busy'
+                        ? 'bg-[#f59e0b]'
                         : 'bg-[#ef4444]'
                     }`}
                   />
+                
                   {(profile.availability_status || 'available') === 'available'
                     ? 'Disponible'
+                    : (profile.availability_status || 'available') === 'busy'
+                    ? 'Occupé'
                     : 'Indisponible'}
                 </div>
                 {(profile.commune || profile.city || profile.province) && (
