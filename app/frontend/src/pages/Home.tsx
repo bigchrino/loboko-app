@@ -8,6 +8,13 @@ import AdsCarousel from '@/components/AdsCarousel';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Clé générique : la position de scroll exacte de la page d'accueil, mise à
+// jour en continu pendant qu'on y est. Contrairement à `home-post-id` (posé
+// uniquement quand on clique sur un post précis), celle-ci couvre TOUS les
+// cas où on quitte l'accueil (changement d'onglet, retour depuis Favoris,
+// Menu, etc.) pour qu'on retrouve exactement la même position au retour.
+const HOME_SCROLL_KEY = 'home-scroll-y';
+
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -18,12 +25,16 @@ export default function Home() {
   const PAGE_SIZE = 10;
   
 
-  // Si on revient d'un post consulté, on connaît déjà l'ID à restaurer dès le
-  // premier rendu (lecture synchrone du sessionStorage) — ça permet de garder
-  // le fil invisible dès le départ, sans jamais l'afficher en haut avant de
-  // sauter à la bonne position.
+  // Si on revient d'un post consulté OU simplement d'une autre page, on sait
+  // déjà dès le premier rendu s'il y a une position à restaurer (lecture
+  // synchrone du sessionStorage) — ça permet de garder le fil invisible dès
+  // le départ, sans jamais l'afficher au mauvais endroit avant de sauter à
+  // la bonne position.
   const [restoring, setRestoring] = useState(
-    () => typeof window !== 'undefined' && !!sessionStorage.getItem('home-post-id')
+    () =>
+      typeof window !== 'undefined' &&
+      (!!sessionStorage.getItem('home-post-id') ||
+        !!sessionStorage.getItem(HOME_SCROLL_KEY))
   );
 
   const userId = user?.id || '';
@@ -87,11 +98,33 @@ export default function Home() {
     loadPosts();
   }, [loadPosts]);
 
-  // Ne restaurer la position de scroll qu'une seule fois par visite de la
-  // page (au premier chargement), jamais lors des changements ultérieurs de
+  // Mémorise en continu la position de scroll pendant qu'on est sur
+  // l'accueil (limité à une fois par frame pour ne pas surcharger), et une
+  // dernière fois au démontage — ainsi, peu importe comment on quitte la
+  // page (onglet, bouton retour, navigation interne...), la position est
+  // toujours à jour pour le prochain retour.
+  useEffect(() => {
+    let frame: number | null = null;
+    const saveScroll = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        sessionStorage.setItem(HOME_SCROLL_KEY, String(window.scrollY));
+        frame = null;
+      });
+    };
+    window.addEventListener('scroll', saveScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', saveScroll);
+      if (frame !== null) cancelAnimationFrame(frame);
+      sessionStorage.setItem(HOME_SCROLL_KEY, String(window.scrollY));
+    };
+  }, []);
+
+  // Ne restaurer la position qu'une seule fois par visite de la page (au
+  // premier chargement), jamais lors des changements ultérieurs de
   // `posts.length` (ex: "Voir plus", nouvelle publication, suppression...).
-  // Sans ce garde-fou, le fil "remontait" sans arrêt vers l'ancien post à
-  // chaque mise à jour de la liste.
+  // Sans ce garde-fou, le fil "remontait" sans arrêt vers l'ancienne position
+  // à chaque mise à jour de la liste.
   const hasRestoredScrollRef = useRef(false);
 
   useEffect(() => {
@@ -103,7 +136,8 @@ export default function Home() {
     if (hasRestoredScrollRef.current) return;
   
     const postId = sessionStorage.getItem('home-post-id');
-    if (!postId) {
+    const savedY = sessionStorage.getItem(HOME_SCROLL_KEY);
+    if (!postId && !savedY) {
       setRestoring(false);
       return;
     }
@@ -116,17 +150,25 @@ export default function Home() {
     // positionné.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const el = document.getElementById(`post-card-${postId}`);
-        if (el) {
-          el.scrollIntoView({
-            block: 'start',
-            behavior: 'auto',
-          });
+        // Priorité au post précis (plus fiable si l'ordre du fil a changé
+        // entre-temps, ex: nouvelle publication ajoutée en haut). Sinon, on
+        // retombe sur la position brute mémorisée en continu.
+        let restored = false;
+        if (postId) {
+          const el = document.getElementById(`post-card-${postId}`);
+          if (el) {
+            el.scrollIntoView({ block: 'start', behavior: 'auto' });
+            restored = true;
+          }
         }
-        // On efface la trace pour que la restauration ne se reproduise pas
-        // lors d'une prochaine visite non liée (ex: clic sur "Accueil" dans le menu).
+        if (!restored && savedY) {
+          window.scrollTo(0, parseInt(savedY, 10) || 0);
+        }
+        // On efface les traces pour que la restauration ne se reproduise pas
+        // lors d'une prochaine visite non liée.
         sessionStorage.removeItem('home-post-id');
         sessionStorage.removeItem('home-scroll');
+        sessionStorage.removeItem(HOME_SCROLL_KEY);
         setRestoring(false);
       });
     });
