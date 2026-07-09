@@ -561,11 +561,7 @@ export default function PostCard({
           </div>
         </header>
 
-        <div
-          className="mb-3"
-          data-stop-card-click="1"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="mb-3">
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
             <MentionText
               text={displayedContent}
@@ -576,7 +572,11 @@ export default function PostCard({
           {isLongPost && (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
+              data-stop-card-click="1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
               className="mt-1 text-sm font-semibold text-[#2563eb] hover:underline !bg-transparent !hover:bg-transparent p-0"
             >
               {expanded ? 'Voir moins' : 'Voir plus'}
