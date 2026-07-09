@@ -266,6 +266,14 @@ export default function ServiceOrderDetail() {
         .eq('id', order.id);
   
       if (error) throw error;
+      const { error: availabilityError } = await supabase
+        .from('profiles')
+        .update({
+          availability_status: 'available',
+        })
+        .eq('user_id', order.provider_id);
+      
+      if (availabilityError) throw availabilityError;
   
       await supabase.rpc('increment_completed_jobs', {
         provider_user_id: order.provider_id,
