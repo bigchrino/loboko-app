@@ -62,6 +62,8 @@ import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
 import { PresenceProvider } from './contexts/PresenceContext';
 import RoleChangeRequestPage from './pages/settings/RoleChangeRequestPage';
+import BlockedContacts from './pages/settings/BlockedContacts';
+import HelpSupport from './pages/settings/HelpSupport';
 import AdminRoleRequests from './pages/admin/AdminRoleRequests';
 
 const queryClient = new QueryClient();
@@ -156,6 +158,8 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/notifications', element: <Notifications /> },
   { path: '/settings', element: <Settings /> },
   { path: '/settings/role-change', element: <RoleChangeRequestPage /> },
+  { path: '/settings/privacy', element: <BlockedContacts /> },
+  { path: '/settings/help', element: <HelpSupport /> },
 
   { path: '/suggestion', element: <Suggestion /> },
 
