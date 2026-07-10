@@ -210,6 +210,10 @@ export interface ProviderProfile {
   service_id?: string | null;
   created_at?: string;
   city?: string | null;
+  province?: string | null;
+  commune?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
   is_verified?: boolean;
