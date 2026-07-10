@@ -150,26 +150,39 @@ export default function Home() {
     // positionné.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // Priorité au post précis (plus fiable si l'ordre du fil a changé
-        // entre-temps, ex: nouvelle publication ajoutée en haut). Sinon, on
-        // retombe sur la position brute mémorisée en continu.
-        let restored = false;
-        if (postId) {
+        // On privilégie la position EXACTE mémorisée en continu (c'est
+        // littéralement "l'endroit où on était", peu importe où se trouvait
+        // le post visible à l'écran à ce moment-là). L'alignement sur le
+        // post précis ne sert que de filet si, pour une raison quelconque,
+        // on n'a pas de position brute valable.
+        const targetY = savedY !== null ? parseInt(savedY, 10) || 0 : null;
+
+        if (targetY !== null) {
+          window.scrollTo(0, targetY);
+        } else if (postId) {
           const el = document.getElementById(`post-card-${postId}`);
-          if (el) {
-            el.scrollIntoView({ block: 'start', behavior: 'auto' });
-            restored = true;
-          }
+          el?.scrollIntoView({ block: 'start', behavior: 'auto' });
         }
-        if (!restored && savedY) {
-          window.scrollTo(0, parseInt(savedY, 10) || 0);
-        }
+
         // On efface les traces pour que la restauration ne se reproduise pas
         // lors d'une prochaine visite non liée.
         sessionStorage.removeItem('home-post-id');
         sessionStorage.removeItem('home-scroll');
         sessionStorage.removeItem(HOME_SCROLL_KEY);
         setRestoring(false);
+
+        // Filet de sécurité : certaines images du fil se chargent en
+        // différé et peuvent légèrement décaler la mise en page juste après
+        // qu'on ait repositionné le scroll. On revérifie une fois, un peu
+        // plus tard, et on ne corrige que si l'écart est net — pour ne
+        // jamais interrompre un scroll volontaire de l'utilisateur.
+        if (targetY !== null) {
+          setTimeout(() => {
+            if (Math.abs(window.scrollY - targetY) > 40) {
+              window.scrollTo(0, targetY);
+            }
+          }, 600);
+        }
       });
     });
   }, [loading, posts.length]);
