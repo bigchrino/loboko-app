@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, LocateFixed } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -12,6 +12,10 @@ interface ServiceOrder {
   provider_id: string;
   description: string;
   proposed_budget: number | null;
+  address_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  urgency_level: 'normal' | 'urgent' | null;
 
   status:
     | 'requested'
@@ -19,7 +23,8 @@ interface ServiceOrder {
     | 'completed'
     | 'cancelled'
     | 'disputed'
-    | 'refused';
+    | 'refused'
+    | 'counter_price';
 
   payment_status:
     | 'pending'
@@ -31,6 +36,8 @@ interface ServiceOrder {
   decline_is_budget_related: boolean | null;
   provider_requested_budget: number | null;
   declined_at?: string | null;
+  mission_counted?: boolean;
+  payment_id?: string | null;
 
   created_at: string;
 }
@@ -57,6 +64,7 @@ export default function ServiceOrderDetail() {
     requested: 'En attente',
     accepted: 'Acceptée',
     refused: 'Refusée',
+    counter_price: 'Contre-proposition de prix',
     completed: 'Terminée',
     cancelled: 'Annulée',
     disputed: 'Litige',
@@ -119,6 +127,7 @@ export default function ServiceOrderDetail() {
 
   const isProvider =
     user?.id === order.provider_id;
+
   const confirmMissionCompleted = async () => {
     if (!order) return;
   
@@ -219,12 +228,17 @@ export default function ServiceOrderDetail() {
       toast.error('Ajoutez le budget demandé');
       return;
     }
+
+    // Une contre-proposition de prix reste une commande "ouverte" — le
+    // client peut encore l'accepter — contrairement à un refus classique,
+    // qui est définitif.
+    const newStatus = isBudgetIssue ? 'counter_price' : 'refused';
   
     try {
       const { error } = await supabase
         .from('service_orders')
         .update({
-          status: 'refused',
+          status: newStatus,
           decline_reason: refusalReason.trim(),
           decline_is_budget_related: isBudgetIssue,
           provider_requested_budget: isBudgetIssue
@@ -238,7 +252,7 @@ export default function ServiceOrderDetail() {
   
       setOrder({
         ...order,
-        status: 'refused',
+        status: newStatus,
         decline_reason: refusalReason.trim(),
         decline_is_budget_related: isBudgetIssue,
         provider_requested_budget: isBudgetIssue
@@ -246,7 +260,84 @@ export default function ServiceOrderDetail() {
           : null,
       });
   
-      toast.success('Commande refusée');
+      toast.success(
+        isBudgetIssue ? 'Contre-proposition envoyée' : 'Commande refusée',
+      );
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
+
+  /** Le client accepte le nouveau prix proposé par le prestataire. */
+  const acceptCounterPrice = async () => {
+    if (!order || order.provider_requested_budget == null) return;
+
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({
+          status: 'accepted',
+          proposed_budget: order.provider_requested_budget,
+        })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      const { error: availabilityError } = await supabase
+        .from('profiles')
+        .update({ availability_status: 'busy' })
+        .eq('user_id', order.provider_id);
+
+      if (availabilityError) throw availabilityError;
+
+      setOrder({
+        ...order,
+        status: 'accepted',
+        proposed_budget: order.provider_requested_budget,
+      });
+
+      toast.success('Nouveau prix accepté, commande confirmée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
+
+  /** Le client refuse la contre-proposition — la commande s'arrête là. */
+  const declineCounterPrice = async () => {
+    if (!order) return;
+
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      setOrder({ ...order, status: 'cancelled' });
+      toast.success('Commande annulée');
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || 'Action impossible');
+    }
+  };
+
+  /** Le client annule sa demande tant qu'elle est encore en attente. */
+  const cancelOrder = async () => {
+    if (!order) return;
+
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      setOrder({ ...order, status: 'cancelled' });
+      toast.success('Demande annulée');
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Action impossible');
@@ -302,6 +393,12 @@ export default function ServiceOrderDetail() {
       </button>
 
       <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 space-y-4">
+        {order.urgency_level === 'urgent' && (
+          <div className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-red-600 text-white">
+            🔴 URGENT
+          </div>
+        )}
+
         <div>
           <div className="text-xs text-[var(--loboko-text-muted)]">
             Statut
@@ -332,6 +429,26 @@ export default function ServiceOrderDetail() {
           </div>
         </div>
 
+        {order.address_text && (
+          <div>
+            <div className="text-xs text-[var(--loboko-text-muted)]">
+              Adresse
+            </div>
+            <div>{order.address_text}</div>
+          </div>
+        )}
+
+        {order.latitude != null && order.longitude != null && (
+          <a
+            href={`https://www.google.com/maps?q=${order.latitude},${order.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-[#2563eb] hover:underline"
+          >
+            <LocateFixed size={14} /> Voir la position sur la carte
+          </a>
+        )}
+
         <div>
           <div className="text-xs text-[var(--loboko-text-muted)]">
             Budget proposé
@@ -345,7 +462,9 @@ export default function ServiceOrderDetail() {
         {order.decline_reason && (
           <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
             <div className="font-semibold text-red-400 mb-2">
-              Refus du prestataire
+              {order.status === 'counter_price'
+                ? 'Contre-proposition du prestataire'
+                : 'Refus du prestataire'}
             </div>
         
             <div className="text-sm whitespace-pre-wrap">
@@ -354,7 +473,9 @@ export default function ServiceOrderDetail() {
         
             {order.decline_is_budget_related && (
               <div className="mt-3 text-sm">
-                Budget minimum demandé :
+                {order.status === 'counter_price'
+                  ? 'Nouveau prix proposé :'
+                  : 'Budget minimum demandé :'}
                 {' '}
                 <span className="font-semibold">
                   {order.provider_requested_budget}
@@ -368,6 +489,33 @@ export default function ServiceOrderDetail() {
           {isClient && 'Vous êtes le client'}
           {isProvider && 'Vous êtes le prestataire'}
         </div>
+
+        {isClient && order.status === 'counter_price' && (
+          <div className="space-y-2">
+            <button
+              onClick={acceptCounterPrice}
+              className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold"
+            >
+              Accepter ce prix ({order.provider_requested_budget})
+            </button>
+            <button
+              onClick={declineCounterPrice}
+              className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 font-semibold"
+            >
+              Refuser et annuler
+            </button>
+          </div>
+        )}
+
+        {isClient && order.status === 'requested' && (
+          <button
+            onClick={cancelOrder}
+            className="w-full py-3 rounded-xl border border-[var(--loboko-border)] text-[var(--loboko-text-secondary)] font-semibold"
+          >
+            Annuler ma demande
+          </button>
+        )}
+
         {isProvider &&
           order.status === 'accepted' &&
           order.payment_status === 'held' && (
@@ -472,7 +620,7 @@ export default function ServiceOrderDetail() {
                 onClick={refuseOrder}
                 className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold"
               >
-                Refuser définitivement
+                {isBudgetIssue ? 'Envoyer la contre-proposition' : 'Refuser définitivement'}
               </button>
             </div>
           </div>
