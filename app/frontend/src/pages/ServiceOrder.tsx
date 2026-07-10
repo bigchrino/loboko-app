@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, LocateFixed } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { Coordinates, getCurrentPosition } from '@/lib/geo';
 
 interface ProviderProfile {
   user_id: string;
   username?: string;
   display_name?: string;
   metier?: string;
+  service_id?: string | null;
 }
 
 export default function ServiceOrder() {
@@ -21,6 +23,10 @@ export default function ServiceOrder() {
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
+  const [addressText, setAddressText] = useState('');
+  const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'urgent'>('normal');
+  const [coords, setCoords] = useState<Coordinates | null>(null);
+  const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -29,7 +35,7 @@ export default function ServiceOrder() {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, username, display_name, metier')
+        .select('user_id, username, display_name, metier, service_id')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -43,6 +49,25 @@ export default function ServiceOrder() {
 
     loadProvider();
   }, [userId]);
+
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    try {
+      const { coords: position, error } = await getCurrentPosition();
+      if (!position) {
+        if (error === 'denied') {
+          toast.error('Localisation refusée. Décrivez votre adresse dans le champ ci-dessus.');
+        } else {
+          toast.error('Impossible de récupérer votre position pour le moment.');
+        }
+        return;
+      }
+      setCoords(position);
+      toast.success('Position ajoutée à la demande.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const submitOrder = async () => {
     if (!user?.id) {
@@ -67,9 +92,14 @@ export default function ServiceOrder() {
         client_id: user.id,
         prestataire_id: userId,
         provider_id: userId,
+        service_id: provider?.service_id || null,
         title: description.trim().slice(0, 80),
         description: description.trim(),
         proposed_budget: budget ? Number(budget) : null,
+        address_text: addressText.trim() || null,
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
+        urgency_level: urgencyLevel,
         status: 'requested',
         payment_status: 'pending',
       });
@@ -128,6 +158,34 @@ export default function ServiceOrder() {
 
           <div>
             <label className="text-sm font-medium">
+              Adresse / point de repère
+            </label>
+
+            <input
+              type="text"
+              value={addressText}
+              onChange={(e) => setAddressText(e.target.value)}
+              className="w-full mt-1 p-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] outline-none"
+              placeholder="Ex: Avenue Kasa-Vubu, en face de la pharmacie..."
+            />
+
+            <button
+              type="button"
+              onClick={handleUseMyLocation}
+              disabled={locating}
+              className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm font-semibold disabled:opacity-50"
+            >
+              <LocateFixed size={16} className={locating ? 'animate-pulse' : ''} />
+              {locating
+                ? 'Localisation en cours…'
+                : coords
+                ? '📍 Position ajoutée — toucher pour actualiser'
+                : 'Ajouter ma position GPS (recommandé)'}
+            </button>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">
               Budget proposé
             </label>
 
@@ -138,6 +196,35 @@ export default function ServiceOrder() {
               className="w-full mt-1 p-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] outline-none"
               placeholder="Ex: 50"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Urgence</label>
+
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUrgencyLevel('normal')}
+                className={`flex-1 py-2.5 rounded-xl border font-semibold text-sm ${
+                  urgencyLevel === 'normal'
+                    ? 'bg-[#2563eb] text-white border-[#2563eb]'
+                    : 'border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+                }`}
+              >
+                Normal
+              </button>
+              <button
+                type="button"
+                onClick={() => setUrgencyLevel('urgent')}
+                className={`flex-1 py-2.5 rounded-xl border font-semibold text-sm ${
+                  urgencyLevel === 'urgent'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'border-[var(--loboko-border)] text-[var(--loboko-text-secondary)]'
+                }`}
+              >
+                🔴 Urgent
+              </button>
+            </div>
           </div>
 
           <button
