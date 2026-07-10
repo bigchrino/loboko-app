@@ -14,6 +14,8 @@ export interface ConversationState {
   archived: boolean;
   archived_at?: string | null;
   cleared_at?: string | null;
+  pinned: boolean;
+  pinned_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -88,6 +90,7 @@ async function upsertState(
       owner_id: ownerId,
       peer_id: peerId,
       archived: false,
+      pinned: false,
       ...patch,
     })
     .select()
@@ -113,6 +116,26 @@ export async function unarchiveConversation(
   return upsertState(ownerId, peerId, {
     archived: false,
     archived_at: null,
+  });
+}
+
+export async function pinConversation(
+  ownerId: string,
+  peerId: string,
+): Promise<ConversationState> {
+  return upsertState(ownerId, peerId, {
+    pinned: true,
+    pinned_at: new Date().toISOString(),
+  });
+}
+
+export async function unpinConversation(
+  ownerId: string,
+  peerId: string,
+): Promise<ConversationState> {
+  return upsertState(ownerId, peerId, {
+    pinned: false,
+    pinned_at: null,
   });
 }
 
