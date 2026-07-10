@@ -18,6 +18,10 @@ export interface Profile {
   last_seen_at?: string | null;
 
   city?: string | null;
+  province?: string | null;
+  commune?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   availability_status?: 'available' | 'unavailable';
   completed_jobs_count?: number;
 
