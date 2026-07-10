@@ -68,6 +68,41 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // Comportement façon Facebook/Instagram : la barre du bas se cache quand on
+  // descend dans le fil, et réapparaît dès qu'on remonte, même légèrement —
+  // pour laisser plus de place au contenu tout en gardant la navigation
+  // accessible à tout moment d'un simple geste vers le haut.
+  const [navHidden, setNavHidden] = useState(false);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const delta = currentY - lastY;
+
+        if (currentY < 40) {
+          // Toujours visible tout en haut de l'écran.
+          setNavHidden(false);
+        } else if (delta > 4) {
+          setNavHidden(true); // on descend
+        } else if (delta < -4) {
+          setNavHidden(false); // on remonte, même un peu
+        }
+
+        lastY = currentY;
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Resolve avatar_key -> signed/public URL whenever the profile's avatar changes.
   useEffect(() => {
     let cancelled = false;
@@ -255,7 +290,11 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
 
       {/* Mobile bottom nav */}
       {!hideMobileNav && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur">
+        <nav
+          className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--loboko-elevated)] border-t border-[var(--loboko-border)] backdrop-blur transition-transform duration-300 ease-out ${
+            navHidden ? 'translate-y-full' : 'translate-y-0'
+          }`}
+        >
           <div className="flex justify-around items-center px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
             {mobileNavItems.map(({ to, label, icon: Icon }) => {
               const badge = badgeFor(to);
