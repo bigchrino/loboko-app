@@ -110,11 +110,35 @@ export default function CommentsModal({
     const update = () => setViewport({ height: vv.height, top: vv.offsetTop });
     update();
 
+    // Volontairement UNIQUEMENT 'resize' (déclenché à l'ouverture/fermeture
+    // du clavier ou au zoom) — pas 'scroll'. Sur certains navigateurs
+    // intégrés (ex: WeChat), le scroll du contenu à l'intérieur de la
+    // feuille de commentaires pouvait faire varier `offsetTop` et donnait
+    // l'impression que l'espace clavier "suivait" la publication, alors que
+    // seul le contenu doit bouger.
     vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
     return () => {
       vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
+    };
+  }, [inline, open]);
+
+  /**
+   * Force-masque la barre de navigation mobile du bas (définie une seule
+   * fois dans Layout.tsx, présente sur toutes les pages) tant que la feuille
+   * de commentaires plein écran est ouverte. Elle ne doit jamais être
+   * visible ici, quel que soit son propre comportement de scroll — on agit
+   * directement sur son élément DOM plutôt que de faire passer une prop à
+   * travers toutes les pages qui utilisent ce composant.
+   */
+  useEffect(() => {
+    if (inline) return;
+    if (!open) return;
+    const nav = document.querySelector<HTMLElement>('nav.fixed.bottom-0');
+    if (!nav) return;
+    const previousDisplay = nav.style.display;
+    nav.style.display = 'none';
+    return () => {
+      nav.style.display = previousDisplay;
     };
   }, [inline, open]);
 
