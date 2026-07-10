@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import {
@@ -11,11 +11,15 @@ import {
   MapPin,
   LocateFixed,
   BadgeCheck,
+  X,
 } from 'lucide-react';
 import {
   fetchCategoryBySlug,
   fetchProvidersByCategory,
+  fetchProvidersByService,
+  fetchServiceById,
   ProviderProfile,
+  Service,
   ServiceCategory,
 } from '@/lib/service-categories';
 import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
@@ -64,11 +68,14 @@ const MIN_RATING_OPTIONS: Array<{ label: string; value: number }> = [
 
 export default function ProvidersByCategory() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const serviceId = searchParams.get('service');
   const navigate = useNavigate();
   const goBack = useBackNavigation('/find');
 
   const [category, setCategory] = useState<ServiceCategory | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(true);
+  const [service, setService] = useState<Service | null>(null);
   const [providers, setProviders] = useState<ProviderCardState[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,12 +130,21 @@ export default function ProvidersByCategory() {
     setCategoryLoading(false);
 
     if (!cat) {
+      setService(null);
       setProviders([]);
       setLoading(false);
       return;
     }
 
-    const list = await fetchProvidersByCategory(cat.id);
+    // Si on arrive via un service précis (ex: "Chauffeur" cliqué depuis la
+    // recherche), on ne montre que ses prestataires — sinon, toute la
+    // catégorie comme avant.
+    const svc = serviceId ? await fetchServiceById(serviceId) : null;
+    setService(svc);
+
+    const list = svc
+      ? await fetchProvidersByService(svc.id)
+      : await fetchProvidersByCategory(cat.id);
     // Resolve avatars + rating summaries in parallel.
     const enriched = await Promise.all(
       list.map(async (p) => {
@@ -144,7 +160,7 @@ export default function ProvidersByCategory() {
     );
     setProviders(enriched);
     setLoading(false);
-  }, [slug]);
+  }, [slug, serviceId]);
 
   useEffect(() => {
     loadData();
@@ -232,7 +248,7 @@ export default function ProvidersByCategory() {
   ]);
 
   return (
-    <Layout title={category?.name || 'Prestataires'}>
+    <Layout title={service?.name || category?.name || 'Prestataires'}>
       <button
         type="button"
         onClick={goBack}
@@ -246,11 +262,23 @@ export default function ProvidersByCategory() {
           <div className="h-8 w-48 rounded bg-[var(--loboko-surface)] animate-pulse" />
         ) : category ? (
           <>
-            <h1 className="text-2xl font-bold mb-1">{category.name}</h1>
-            {category.description && (
-              <p className="text-sm text-[var(--loboko-text-muted)]">
-                {category.description}
-              </p>
+            <h1 className="text-2xl font-bold mb-1">
+              {service ? service.name : category.name}
+            </h1>
+            {service ? (
+              <button
+                type="button"
+                onClick={() => setSearchParams({}, { replace: true })}
+                className="inline-flex items-center gap-1 text-xs text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] underline"
+              >
+                <X size={11} /> Voir toute la catégorie {category.name}
+              </button>
+            ) : (
+              category.description && (
+                <p className="text-sm text-[var(--loboko-text-muted)]">
+                  {category.description}
+                </p>
+              )
             )}
           </>
         ) : (
@@ -433,10 +461,14 @@ export default function ProvidersByCategory() {
             <Briefcase size={22} className="text-[#2563eb]" />
           </div>
           <h3 className="font-semibold mb-1">
-            Aucun prestataire disponible dans cette catégorie
+            {service
+              ? `Aucun prestataire "${service.name}" pour l'instant`
+              : 'Aucun prestataire disponible dans cette catégorie'}
           </h3>
           <p className="text-sm text-[var(--loboko-text-muted)]">
-            Revenez plus tard ou essayez une autre catégorie.
+            {service
+              ? `Essayez de voir toute la catégorie ${category.name}, ou revenez plus tard.`
+              : 'Revenez plus tard ou essayez une autre catégorie.'}
           </p>
         </div>
       ) : (
