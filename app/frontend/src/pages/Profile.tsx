@@ -11,6 +11,7 @@ import {
   Star,
   Image as ImageIcon,
   MapPin,
+  LocateFixed,
   BadgeCheck,
   Briefcase,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
 import PortfolioEditor from '@/components/PortfolioEditor';
 import PremiumBadge from '@/components/PremiumBadge';
 import { isPremium, describePremiumExpiry } from '@/lib/subscription';
+import { getCurrentPosition } from '@/lib/geo';
 import {
   getProvinceNames,
   getCitiesByProvince,
@@ -44,6 +46,9 @@ export default function Profile() {
   const [city, setCity] = useState('');
   const [province, setProvince] = useState('');
   const [commune, setCommune] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
   const [availability, setAvailability] =
   useState<'available' | 'busy' | 'unavailable'>('available');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
@@ -66,11 +71,43 @@ export default function Profile() {
       setCity(profile.city || '');
       setProvince(profile.province || '');
       setCommune(profile.commune || '');
+      setLatitude(profile.latitude ?? null);
+      setLongitude(profile.longitude ?? null);
       setAvailability(profile.availability_status || 'available');
       if (profile.avatar_key) getMediaUrl(profile.avatar_key).then(setAvatarUrl);
       else setAvatarUrl(null);
     }
   }, [profile]);
+
+  /**
+   * Capture la position GPS actuelle du prestataire, pour permettre au
+   * client de voir la distance qui le sépare de lui. Ne l'enregistre pas
+   * tout de suite en base : comme les autres champs de ce formulaire, elle
+   * n'est sauvegardée que quand on clique sur "Enregistrer".
+   */
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    try {
+      const { coords, error } = await getCurrentPosition();
+      if (!coords) {
+        if (error === 'denied') {
+          toast.error(
+            "Localisation refusée. Autorisez l'accès à la position dans les réglages de votre navigateur pour l'utiliser.",
+          );
+        } else if (error === 'unsupported') {
+          toast.error("La géolocalisation n'est pas disponible sur cet appareil.");
+        } else {
+          toast.error('Impossible de récupérer votre position pour le moment.');
+        }
+        return;
+      }
+      setLatitude(coords.latitude);
+      setLongitude(coords.longitude);
+      toast.success('Position capturée — pensez à Enregistrer pour la sauvegarder.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +198,8 @@ export default function Profile() {
         patch.city = city.trim() || null;
         patch.province = province.trim() || null;
         patch.commune = commune.trim() || null;
+        patch.latitude = latitude;
+        patch.longitude = longitude;
         patch.availability_status = availability;
       }
       await updateLobokoProfile(patch as Partial<typeof profile>);
@@ -386,6 +425,27 @@ export default function Profile() {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+            {profile.role === 'prestataire' && (
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">
+                  Position GPS
+                </label>
+                <button
+                  type="button"
+                  onClick={handleUseMyLocation}
+                  disabled={locating}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm font-semibold text-[var(--loboko-text)] hover:border-[#2563eb] disabled:opacity-50"
+                >
+                  <LocateFixed size={16} className={locating ? 'animate-pulse' : ''} />
+                  {locating ? 'Localisation en cours…' : 'Utiliser ma position actuelle'}
+                </button>
+                <p className="mt-1.5 text-[11px] text-[var(--loboko-text-muted)]">
+                  {latitude != null && longitude != null
+                    ? '📍 Position enregistrée — les clients pourront voir leur distance jusqu\'à vous.'
+                    : "Aucune position enregistrée pour l'instant. Sans elle, vous resterez visible mais sans distance affichée."}
+                </p>
               </div>
             )}
             {profile.role === 'prestataire' && (
