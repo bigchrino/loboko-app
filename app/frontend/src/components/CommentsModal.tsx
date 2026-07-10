@@ -88,6 +88,37 @@ export default function CommentsModal({
   const commentRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   /**
+   * Suit la hauteur RÉELLEMENT visible de l'écran (VisualViewport), qui se
+   * réduit quand le clavier s'ouvre — contrairement à `100vh`/`85vh` en CSS,
+   * qui ne tient pas compte du clavier de façon fiable selon les
+   * navigateurs. Sans ça, la feuille de commentaires et sa barre de saisie
+   * se calculaient par rapport à un écran "plein", ce qui provoquait des
+   * sauts au moment d'ouvrir le clavier et laissait parfois deviner la barre
+   * de navigation du bas derrière la feuille.
+   * Ces événements ne se déclenchent qu'à l'ouverture/fermeture du clavier
+   * (ou au zoom), jamais à chaque frappe — la position reste donc stable
+   * pendant qu'on écrit, comme sur Facebook.
+   */
+  const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
+
+  useEffect(() => {
+    if (inline) return;
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => setViewport({ height: vv.height, top: vv.offsetTop });
+    update();
+
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [inline, open]);
+
+  /**
    * Lock the body scroll while the comments modal (overlay variant) is
    * open, so the feed behind does not scroll or capture interactions.
    * Inline mode never touches the body scroll.
@@ -830,7 +861,7 @@ export default function CommentsModal({
       className={`${
         inline
           ? 'mt-2 border border-[var(--loboko-border)] rounded-2xl bg-[var(--loboko-surface)]'
-          : 'border-t border-[var(--loboko-border)]'
+          : 'border-t border-[var(--loboko-border)] pb-[env(safe-area-inset-bottom,0px)]'
       } p-3 flex items-center gap-2 flex-shrink-0`}
     >
       <EmojiPickerMini onSelect={insertEmoji} disabled={!currentUserId || sending} />
@@ -909,13 +940,18 @@ export default function CommentsModal({
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={
+        viewport
+          ? { top: viewport.top, height: viewport.height, bottom: 'auto' }
+          : undefined
+      }
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       {pulseStyle}
       <div
-        className="bg-[var(--loboko-surface)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl border border-[var(--loboko-border)] h-[85vh] sm:h-[75vh] flex flex-col"
+        className="bg-[var(--loboko-surface)] w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl border border-[var(--loboko-border)] h-[85%] sm:h-[75%] flex flex-col"
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
