@@ -8,6 +8,7 @@ import {
 } from '@/data/rdcLocations';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Profile } from '@/contexts/AuthContext';
 import {
   Coordinates,
@@ -15,7 +16,7 @@ import {
   formatDistance,
   getCurrentPosition,
 } from '@/lib/geo';
-import { LocateFixed, MessageCircle } from 'lucide-react';
+import { LocateFixed, MessageCircle, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UrgenceProvider extends Profile {
@@ -23,6 +24,7 @@ interface UrgenceProvider extends Profile {
 }
 
 export default function UrgencePrestataires() {
+  const { user } = useAuth();
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [province, setProvince] = useState('');
   const [city, setCity] = useState('');
@@ -38,6 +40,16 @@ export default function UrgencePrestataires() {
   const [providers, setProviders] = useState<UrgenceProvider[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  // Formulaire "demande urgente" (Phase 3 point 6) : remplace le simple
+  // message par une vraie commande structurée, créée directement depuis
+  // cette page — sans repasser par tous les champs déjà connus (service,
+  // position) ni perdre les résultats de recherche.
+  const [requestFor, setRequestFor] = useState<UrgenceProvider | null>(null);
+  const [requestDescription, setRequestDescription] = useState('');
+  const [requestBudget, setRequestBudget] = useState('');
+  const [requestAddress, setRequestAddress] = useState('');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   const provinces = getProvinceNames();
   const cities = getCitiesByProvince(province);
@@ -140,6 +152,60 @@ export default function UrgencePrestataires() {
       setProviders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openRequestForm = (p: UrgenceProvider) => {
+    setRequestFor(p);
+    setRequestDescription('');
+    setRequestBudget('');
+    setRequestAddress('');
+  };
+
+  const submitUrgentRequest = async () => {
+    if (!requestFor) return;
+    if (!user?.id) {
+      toast.error('Vous devez être connecté');
+      return;
+    }
+    if (!requestDescription.trim()) {
+      toast.error('Décrivez rapidement votre besoin');
+      return;
+    }
+
+    setSubmittingRequest(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_orders')
+        .insert({
+          client_id: user.id,
+          prestataire_id: requestFor.user_id,
+          provider_id: requestFor.user_id,
+          service_id: serviceId,
+          title: requestDescription.trim().slice(0, 80),
+          description: requestDescription.trim(),
+          proposed_budget: requestBudget ? Number(requestBudget) : null,
+          address_text: requestAddress.trim() || null,
+          // Réutilise la position GPS déjà connue pour la recherche —
+          // pas besoin de la redemander pour une urgence.
+          latitude: clientCoords?.latitude ?? null,
+          longitude: clientCoords?.longitude ?? null,
+          urgency_level: 'urgent',
+          status: 'requested',
+          payment_status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Demande urgente envoyée au prestataire');
+      navigate(`/my-orders/${data.id}`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Impossible d'envoyer la demande");
+    } finally {
+      setSubmittingRequest(false);
     }
   };
 
@@ -294,6 +360,7 @@ export default function UrgencePrestataires() {
               {providers.map((p) => {
                 const name = p.display_name || p.username;
                 const isBusy = p.availability_status === 'busy';
+                const formOpen = requestFor?.user_id === p.user_id;
 
                 return (
                   <div
@@ -333,13 +400,72 @@ export default function UrgencePrestataires() {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => navigate(`/messages?to=${encodeURIComponent(p.user_id)}`)}
-                      className="mt-3 w-full py-2.5 rounded-xl bg-red-600 text-white font-semibold inline-flex items-center justify-center gap-2"
-                    >
-                      <MessageCircle size={16} />
-                      Contacter maintenant
-                    </button>
+                    {formOpen ? (
+                      <div className="mt-3 p-3 rounded-xl bg-[var(--loboko-elevated)] border border-red-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-red-500">
+                            🔴 Demande urgente
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setRequestFor(null)}
+                            className="text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)]"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        <textarea
+                          value={requestDescription}
+                          onChange={(e) => setRequestDescription(e.target.value)}
+                          placeholder="Décrivez rapidement votre besoin..."
+                          className="w-full min-h-[70px] p-2.5 rounded-lg bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm outline-none"
+                        />
+
+                        {!clientCoords && (
+                          <input
+                            type="text"
+                            value={requestAddress}
+                            onChange={(e) => setRequestAddress(e.target.value)}
+                            placeholder="Adresse / point de repère (optionnel)"
+                            className="w-full p-2.5 rounded-lg bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm outline-none"
+                          />
+                        )}
+
+                        <input
+                          type="number"
+                          value={requestBudget}
+                          onChange={(e) => setRequestBudget(e.target.value)}
+                          placeholder="Budget proposé (optionnel)"
+                          className="w-full p-2.5 rounded-lg bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm outline-none"
+                        />
+
+                        <button
+                          onClick={submitUrgentRequest}
+                          disabled={submittingRequest}
+                          className="w-full py-2.5 rounded-xl bg-red-600 text-white font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                          <Send size={14} />
+                          {submittingRequest ? 'Envoi...' : "Envoyer la demande urgente"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-1.5">
+                        <button
+                          onClick={() => openRequestForm(p)}
+                          className="w-full py-2.5 rounded-xl bg-red-600 text-white font-semibold inline-flex items-center justify-center gap-2"
+                        >
+                          <Send size={14} />
+                          Contacter maintenant
+                        </button>
+                        <button
+                          onClick={() => navigate(`/messages?to=${encodeURIComponent(p.user_id)}`)}
+                          className="w-full text-center text-xs text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] inline-flex items-center justify-center gap-1"
+                        >
+                          <MessageCircle size={12} /> Ou envoyer juste un message
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
