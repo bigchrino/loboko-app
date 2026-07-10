@@ -9,6 +9,7 @@ import {
   Briefcase,
   MessageCircle,
   MapPin,
+  LocateFixed,
   BadgeCheck,
 } from 'lucide-react';
 import {
@@ -21,8 +22,20 @@ import { fetchRatingSummary, RatingSummary } from '@/lib/ratings';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { isPremium, premiumFirst } from '@/lib/subscription';
 import PremiumBadge from '@/components/PremiumBadge';
+import {
+  Coordinates,
+  distanceInMeters,
+  formatDistance,
+  getCurrentPosition,
+} from '@/lib/geo';
+import {
+  getProvinceNames,
+  getCitiesByProvince,
+  getCommunesByCity,
+} from '@/data/rdcLocations';
+import { toast } from 'sonner';
 
-type SortMode = 'recent' | 'rating' | 'jobs';
+type SortMode = 'recent' | 'rating' | 'jobs' | 'distance';
 
 /**
  * ProvidersByCategory
@@ -38,6 +51,9 @@ type SortMode = 'recent' | 'rating' | 'jobs';
 interface ProviderCardState extends ProviderProfile {
   avatar_url?: string | null;
   rating?: RatingSummary;
+  /** Distance en mètres depuis la position du client — null si l'un des
+   *  deux (client ou prestataire) n'a pas de coordonnées disponibles. */
+  distanceMeters?: number | null;
 }
 
 const MIN_RATING_OPTIONS: Array<{ label: string; value: number }> = [
@@ -58,10 +74,44 @@ export default function ProvidersByCategory() {
 
   const [query, setQuery] = useState('');
   const [minRating, setMinRating] = useState<number>(0);
-  const [city, setCity] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>('recent');
+
+  // Géolocalisation du client (Phase 2). Tant qu'on n'a pas de position,
+  // on propose le repli Province / Ville / Commune plutôt qu'un simple
+  // champ "ville" en texte libre.
+  const [clientCoords, setClientCoords] = useState<Coordinates | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [manualProvince, setManualProvince] = useState('');
+  const [manualCity, setManualCity] = useState('');
+  const [manualCommune, setManualCommune] = useState('');
+  const manualProvinces = getProvinceNames();
+  const manualCities = getCitiesByProvince(manualProvince);
+  const manualCommunes = getCommunesByCity(manualProvince, manualCity);
+
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    try {
+      const { coords, error } = await getCurrentPosition();
+      if (!coords) {
+        if (error === 'denied') {
+          toast.error(
+            'Localisation refusée. Utilisez le filtre par zone ci-dessous.',
+          );
+        } else if (error === 'unsupported') {
+          toast.error("La géolocalisation n'est pas disponible sur cet appareil.");
+        } else {
+          toast.error('Impossible de récupérer votre position pour le moment.');
+        }
+        return;
+      }
+      setClientCoords(coords);
+      setSort('distance');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     if (!slug) return;
@@ -102,8 +152,22 @@ export default function ProvidersByCategory() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const cityQ = city.trim().toLowerCase();
-    const list = providers.filter((p) => {
+
+    const withDistance: ProviderCardState[] = providers.map((p) => {
+      const hasBoth =
+        clientCoords && p.latitude != null && p.longitude != null;
+      return {
+        ...p,
+        distanceMeters: hasBoth
+          ? distanceInMeters(clientCoords as Coordinates, {
+              latitude: p.latitude as number,
+              longitude: p.longitude as number,
+            })
+          : null,
+      };
+    });
+
+    const list = withDistance.filter((p) => {
       const name = (p.display_name || p.username || '').toLowerCase();
       if (q && !name.includes(q) && !p.username.toLowerCase().includes(q)) {
         return false;
@@ -121,8 +185,12 @@ export default function ProvidersByCategory() {
       ) {
         return false;
       }
-      if (cityQ) {
-        if (!(p.city || '').toLowerCase().includes(cityQ)) return false;
+      // Repli Province / Ville / Commune : uniquement quand le client n'a
+      // pas (ou pas encore) partagé sa position GPS.
+      if (!clientCoords) {
+        if (manualProvince && p.province !== manualProvince) return false;
+        if (manualCity && p.city !== manualCity) return false;
+        if (manualCommune && p.commune !== manualCommune) return false;
       }
       return true;
     });
@@ -134,6 +202,15 @@ export default function ProvidersByCategory() {
       sorted.sort(
         (a, b) => (b.completed_jobs_count || 0) - (a.completed_jobs_count || 0),
       );
+    } else if (sort === 'distance') {
+      sorted.sort((a, b) => {
+        // Les prestataires sans position connue passent en fin de liste,
+        // plutôt que d'être exclus des résultats.
+        if (a.distanceMeters == null && b.distanceMeters == null) return 0;
+        if (a.distanceMeters == null) return 1;
+        if (b.distanceMeters == null) return -1;
+        return a.distanceMeters - b.distanceMeters;
+      });
     }
     // 'recent' keeps the server order (created_at DESC).
     // Finally, premium providers are always surfaced first (within each
@@ -141,7 +218,18 @@ export default function ProvidersByCategory() {
     // preserve the ordering chosen above.
     sorted.sort(premiumFirst);
     return sorted;
-  }, [providers, query, minRating, city, availableOnly, verifiedOnly, sort]);
+  }, [
+    providers,
+    query,
+    minRating,
+    availableOnly,
+    verifiedOnly,
+    sort,
+    clientCoords,
+    manualProvince,
+    manualCity,
+    manualCommune,
+  ]);
 
   return (
     <Layout title={category?.name || 'Prestataires'}>
@@ -186,15 +274,86 @@ export default function ProvidersByCategory() {
               className="flex-1 bg-transparent text-sm focus:outline-none"
             />
           </div>
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]">
-            <MapPin size={16} className="text-[var(--loboko-text-muted)]" />
-            <input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder="Filtrer par ville"
-              className="flex-1 bg-transparent text-sm focus:outline-none"
-            />
-          </div>
+
+          {clientCoords ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[rgba(34,197,94,0.1)] border border-[rgba(34,197,94,0.3)]">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#22c55e]">
+                <LocateFixed size={14} /> Triés par distance depuis votre position
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setClientCoords(null);
+                  setSort('recent');
+                }}
+                className="text-xs text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] underline flex-shrink-0"
+              >
+                Modifier
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleUseMyLocation}
+                disabled={locating}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#2563eb] text-white text-sm font-semibold disabled:opacity-60"
+              >
+                <LocateFixed size={16} className={locating ? 'animate-pulse' : ''} />
+                {locating
+                  ? 'Localisation en cours…'
+                  : 'Utiliser ma position pour voir les plus proches'}
+              </button>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select
+                  value={manualProvince}
+                  onChange={(e) => {
+                    setManualProvince(e.target.value);
+                    setManualCity('');
+                    setManualCommune('');
+                  }}
+                  className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-xs focus:outline-none focus:border-[#2563eb]"
+                >
+                  <option value="">Toute province</option>
+                  {manualProvinces.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={manualCity}
+                  onChange={(e) => {
+                    setManualCity(e.target.value);
+                    setManualCommune('');
+                  }}
+                  disabled={!manualProvince}
+                  className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-xs focus:outline-none focus:border-[#2563eb] disabled:opacity-50"
+                >
+                  <option value="">Toute ville</option>
+                  {manualCities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={manualCommune}
+                  onChange={(e) => setManualCommune(e.target.value)}
+                  disabled={!manualCity}
+                  className="px-3 py-2 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-xs focus:outline-none focus:border-[#2563eb] disabled:opacity-50"
+                >
+                  <option value="">Toute commune</option>
+                  {manualCommunes.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {MIN_RATING_OPTIONS.map((opt) => (
               <button
@@ -243,6 +402,9 @@ export default function ProvidersByCategory() {
               { key: 'recent', label: 'Plus récent' },
               { key: 'rating', label: 'Meilleure note' },
               { key: 'jobs', label: 'Plus de missions' },
+              ...(clientCoords
+                ? [{ key: 'distance', label: '📍 Plus proche' }]
+                : []),
             ] as Array<{ key: SortMode; label: string }>).map((s) => (
               <button
                 key={s.key}
@@ -335,6 +497,11 @@ export default function ProvidersByCategory() {
                     {p.city && (
                       <span className="ml-1.5 inline-flex items-center gap-0.5">
                         · <MapPin size={10} /> {p.city}
+                      </span>
+                    )}
+                    {p.distanceMeters != null && (
+                      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[#22c55e] font-semibold">
+                        · <LocateFixed size={10} /> {formatDistance(p.distanceMeters)}
                       </span>
                     )}
                   </div>
