@@ -42,7 +42,7 @@ import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMe
 import ForwardDialog from '@/components/ForwardDialog';
 import ReportDialog from '@/components/ReportDialog';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
-import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus } from 'lucide-react';
+import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus, Pin } from 'lucide-react';
 import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
 import { loadGroupReads } from '@/lib/group-reads';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
@@ -82,8 +82,10 @@ import {
   clearConversation,
   loadBlockedIds,
   loadConversationStates,
+  pinConversation,
   reportUser,
   unarchiveConversation,
+  unpinConversation,
 } from '@/lib/conversation-controls';
 import {
   broadcastDmEphemeral,
@@ -758,10 +760,16 @@ export default function Messages() {
     () => conversations.filter((c) => states[c.userId]?.archived),
     [conversations, states],
   );
-  const mainList = useMemo(
-    () => conversations.filter((c) => !states[c.userId]?.archived),
-    [conversations, states],
-  );
+  const mainList = useMemo(() => {
+    const list = conversations.filter((c) => !states[c.userId]?.archived);
+    // Épinglées en premier — tri stable, donc le classement "plus récent
+    // d'abord" déjà appliqué à `conversations` est conservé au sein de
+    // chaque groupe (épinglées / non épinglées).
+    return [...list].sort(
+      (a, b) =>
+        (states[b.userId]?.pinned ? 1 : 0) - (states[a.userId]?.pinned ? 1 : 0),
+    );
+  }, [conversations, states]);
 
   // Per-conversation unread count for 1-to-1 (text/audio/image/video only,
   // excluding signalling and call_events), based on `read` flag.
@@ -1557,7 +1565,33 @@ export default function Messages() {
       setShowEphemeralDialog(true);
       return;
     }
+    if (action === 'pin' || action === 'unpin') {
+      handleTogglePin(activeUserId, action === 'pin');
+      return;
+    }
     askAction(action, activeUserId);
+  };
+
+  /**
+   * Épingler/désépingler est volontairement instantané (pas de dialogue de
+   * confirmation) — contrairement à archiver/supprimer/bloquer, ce n'est pas
+   * une action destructive, donc pas besoin de ralentir l'utilisateur.
+   */
+  const handleTogglePin = async (peerId: string, pin: boolean) => {
+    if (!myId) return;
+    try {
+      if (pin) {
+        await pinConversation(myId, peerId);
+        toast.success('Conversation épinglée');
+      } else {
+        await unpinConversation(myId, peerId);
+        toast.success('Conversation désépinglée');
+      }
+      await loadStates();
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+    }
   };
 
   const handleEphemeralConfirm = async (durationSeconds: number) => {
@@ -1850,6 +1884,13 @@ export default function Messages() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-semibold text-sm truncate flex items-center gap-1 min-w-0">
+                          {states[c.userId]?.pinned && (
+                            <Pin
+                              size={11}
+                              className="text-[#2563eb] shrink-0 fill-current"
+                              aria-label="Épinglée"
+                            />
+                          )}
                           <span className="truncate">
                             {highlightText(displayName, listQuery)}
                           </span>
@@ -1975,6 +2016,7 @@ export default function Messages() {
             </button>
             <ConversationMenu
               archived={!!activeState?.archived}
+              pinned={!!activeState?.pinned}
               onAction={handleConvMenu}
               ephemeralLabel={
                 ephemeralDuration > 0 ? durationShort(ephemeralDuration) : undefined
