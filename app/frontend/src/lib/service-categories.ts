@@ -163,29 +163,46 @@ export async function fetchCategoryById(
 /**
  * Fetch categories with a count of prestataires attached to each.
  * Best-effort: if counting fails we still return categories with 0.
+ *
+ * IMPORTANT : les prestataires sont rattachés à un SERVICE précis
+ * (`profiles.service_id`, ex: "Chauffeur"), pas directement à une
+ * catégorie — `profiles.service_category_id` est un champ hérité que le
+ * formulaire de profil actuel remet systématiquement à `null`. On compte
+ * donc via les services (service_id -> category_id), pas via ce vieux champ.
  */
 export async function fetchCategoriesWithCounts(): Promise<ServiceCategoryWithCount[]> {
   const categories = await fetchActiveCategories();
   if (categories.length === 0) return [];
 
-  // One grouped count query — cheap and works with RLS on profiles.
   try {
+    const { data: services, error: servicesError } = await supabase
+      .from('services')
+      .select('id, category_id')
+      .eq('is_active', true);
+    if (servicesError) {
+      console.error('fetchCategoriesWithCounts services error', servicesError);
+      return categories.map((c) => ({ ...c, provider_count: 0 }));
+    }
+    const categoryByServiceId = new Map<string, string>();
+    for (const s of (services || []) as { id: string; category_id: string }[]) {
+      categoryByServiceId.set(s.id, s.category_id);
+    }
+
     const { data, error } = await supabase
       .from('profiles')
-      .select('service_category_id')
+      .select('service_id')
       .eq('role', 'prestataire')
-      .not('service_category_id', 'is', null);
+      .not('service_id', 'is', null);
     if (error) {
       console.error('fetchCategoriesWithCounts count error', error);
       return categories.map((c) => ({ ...c, provider_count: 0 }));
     }
     const counts = new Map<string, number>();
-    for (const row of (data as { service_category_id: string | null }[]) || []) {
-      if (!row.service_category_id) continue;
-      counts.set(
-        row.service_category_id,
-        (counts.get(row.service_category_id) || 0) + 1,
-      );
+    for (const row of (data as { service_id: string | null }[]) || []) {
+      if (!row.service_id) continue;
+      const catId = categoryByServiceId.get(row.service_id);
+      if (!catId) continue;
+      counts.set(catId, (counts.get(catId) || 0) + 1);
     }
     return categories.map((c) => ({
       ...c,
@@ -233,16 +250,32 @@ export interface ProviderSearchFilters {
   verifiedOnly?: boolean;
 }
 
-/** Fetch all prestataires linked to a category id. */
+/**
+ * Fetch all prestataires under a category — resolved via the precise
+ * services that belong to it (see comment on fetchCategoriesWithCounts
+ * above for why we can't query profiles.service_category_id directly).
+ */
 export async function fetchProvidersByCategory(
   categoryId: string,
 ): Promise<ProviderProfile[]> {
   try {
+    const { data: services, error: servicesError } = await supabase
+      .from('services')
+      .select('id')
+      .eq('category_id', categoryId)
+      .eq('is_active', true);
+    if (servicesError) {
+      console.error('fetchProvidersByCategory (services) error', servicesError);
+      return [];
+    }
+    const serviceIds = ((services || []) as { id: string }[]).map((s) => s.id);
+    if (serviceIds.length === 0) return [];
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('role', 'prestataire')
-      .eq('service_category_id', categoryId)
+      .in('service_id', serviceIds)
       .order('created_at', { ascending: false });
     if (error) {
       console.error('fetchProvidersByCategory error', error);
@@ -255,17 +288,45 @@ export async function fetchProvidersByCategory(
   }
 }
 
+/** Fetch all prestataires linked to one precise service id (ex: "Chauffeur"). */
+export async function fetchProvidersByService(
+  serviceId: string,
+): Promise<ProviderProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'prestataire')
+      .eq('service_id', serviceId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('fetchProvidersByService error', error);
+      return [];
+    }
+    return (data as ProviderProfile[]) || [];
+  } catch (e) {
+    console.error('fetchProvidersByService exception', e);
+    return [];
+  }
+}
+
 /**
  * Fetch all prestataires matching the given filters. Used by the global
  * advanced search page. Rating-based filters are applied client-side (after
  * enrichment) because rating lives in a separate table.
+ *
+ * NOTE : cette fonction n'est appelée nulle part dans l'app pour l'instant.
+ * Si vous la branchez un jour, sachez que `filters.categoryId` ne fonctionne
+ * pas correctement (même souci que fetchProvidersByCategory avant sa
+ * correction) — passez plutôt par `filters.serviceId`, ou reprenez la
+ * logique "services de la catégorie -> service_id IN (...)" de
+ * fetchProvidersByCategory ci-dessus.
  */
 export async function fetchProviders(
   filters: ProviderSearchFilters = {},
 ): Promise<ProviderProfile[]> {
   try {
     let q = supabase.from('profiles').select('*').eq('role', 'prestataire');
-    if (filters.categoryId) q = q.eq('service_category_id', filters.categoryId);
     if (filters.serviceId) q = q.eq('service_id', filters.serviceId);
     if (filters.availableOnly) q = q.eq('availability_status', 'available');
     if (filters.verifiedOnly) q = q.eq('is_verified', true);
