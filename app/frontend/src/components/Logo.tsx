@@ -1,22 +1,36 @@
+import logoMain from '@/assets/logo-main.png';
+import logoLogin from '@/assets/logo-login.png';
+
 interface LogoProps {
-  variant?: 'full' | 'icon';
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /**
+   * 'default' — logo horizontal (icône + texte côte à côte), utilisé
+   * partout dans l'app (en-tête, menu latéral...).
+   * 'login'   — logo empilé (icône au-dessus du texte), réservé à l'écran
+   * de connexion/inscription.
+   */
+  variant?: 'default' | 'login';
 }
 
+// Hauteurs de rendu par taille — la largeur suit automatiquement pour
+// préserver les proportions de chaque image (elles n'ont pas le même
+// ratio : le logo par défaut est très large, celui de connexion est
+// plus carré).
 const sizeMap = {
-  sm: 'text-xl',
-  md: 'text-2xl',
-  lg: 'text-3xl',
-  xl: 'text-5xl',
+  sm: 'h-6',
+  md: 'h-8',
+  lg: 'h-11',
+  xl: 'h-16',
 };
 
-export default function Logo({ className = '', size = 'md' }: LogoProps) {
+export default function Logo({ className = '', size = 'md', variant = 'default' }: LogoProps) {
+  const src = variant === 'login' ? logoLogin : logoMain;
   return (
-    <span
-      className={`font-extrabold tracking-tight leading-none bg-gradient-to-r from-[#2563eb] via-[#22c55e] to-[#f59e0b] bg-clip-text text-transparent select-none ${sizeMap[size]} ${className}`}
-    >
-      LOBOKO
-    </span>
+    <img
+      src={src}
+      alt="LOBOKO"
+      className={`w-auto select-none ${sizeMap[size]} ${className}`}
+    />
   );
 }
