@@ -34,6 +34,7 @@ export default function MyOrders() {
     requested: 'En attente',
     accepted: 'Acceptée',
     refused: 'Refusée',
+    counter_price: 'Contre-proposition',
     completed: 'Terminée',
     cancelled: 'Annulée',
     disputed: 'Litige',
