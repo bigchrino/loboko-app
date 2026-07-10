@@ -12,6 +12,7 @@ interface ServiceOrder {
   status: string;
   payment_status: string;
   created_at: string;
+  urgency_level?: string | null;
 }
 
 interface ClientProfile {
@@ -70,6 +71,15 @@ export default function ReceivedOrders() {
 
         const list =
           (data as ServiceOrder[]) || [];
+
+        // Les commandes urgentes remontent tout en haut — tri stable, donc
+        // l'ordre "plus récent d'abord" (déjà fait par la requête) est
+        // conservé à l'intérieur de chaque groupe (urgentes / normales).
+        list.sort(
+          (a, b) =>
+            (b.urgency_level === 'urgent' ? 1 : 0) -
+            (a.urgency_level === 'urgent' ? 1 : 0),
+        );
 
         setOrders(list);
 
@@ -144,14 +154,25 @@ export default function ReceivedOrders() {
                     `/my-orders/${order.id}`
                   )
                 }
-                className="w-full text-left bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 hover:border-[#2563eb] transition"
+                className={`w-full text-left bg-[var(--loboko-surface)] rounded-2xl p-4 hover:border-[#2563eb] transition ${
+                  order.urgency_level === 'urgent'
+                    ? 'border-2 border-red-500'
+                    : 'border border-[var(--loboko-border)]'
+                }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="font-semibold">
-                    {clientName}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold">
+                      {clientName}
+                    </span>
+                    {order.urgency_level === 'urgent' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-600 text-white">
+                        🔴 URGENT
+                      </span>
+                    )}
                   </div>
 
-                  <div className="text-xs px-2 py-1 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold">
+                  <div className="text-xs px-2 py-1 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold flex-shrink-0">
                     {statusFr[order.status] || order.status}
                   </div>
                 </div>
