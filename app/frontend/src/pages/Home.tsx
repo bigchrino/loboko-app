@@ -99,10 +99,13 @@ export default function Home() {
   }, [loadPosts]);
 
   // Mémorise en continu la position de scroll pendant qu'on est sur
-  // l'accueil (limité à une fois par frame pour ne pas surcharger), et une
-  // dernière fois au démontage — ainsi, peu importe comment on quitte la
-  // page (onglet, bouton retour, navigation interne...), la position est
-  // toujours à jour pour le prochain retour.
+  // l'accueil (limité à une fois par frame pour ne pas surcharger). On ne
+  // fait volontairement RIEN au démontage : au moment où le composant se
+  // démonte (ex: on vient de cliquer sur un post), la page suivante a déjà
+  // commencé à remplacer le contenu, et si elle est plus courte, le
+  // navigateur réduit automatiquement `window.scrollY` — écrire cette
+  // valeur-là écraserait la bonne position, déjà enregistrée par le dernier
+  // événement de scroll avant le clic.
   useEffect(() => {
     let frame: number | null = null;
     const saveScroll = () => {
@@ -116,7 +119,6 @@ export default function Home() {
     return () => {
       window.removeEventListener('scroll', saveScroll);
       if (frame !== null) cancelAnimationFrame(frame);
-      sessionStorage.setItem(HOME_SCROLL_KEY, String(window.scrollY));
     };
   }, []);
 
