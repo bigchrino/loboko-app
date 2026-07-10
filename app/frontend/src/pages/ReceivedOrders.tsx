@@ -40,6 +40,7 @@ export default function ReceivedOrders() {
     accepted: 'Acceptée',
     refused: 'Refusée',
     declined: 'Refusée',
+    counter_price: 'Contre-proposition',
     completed: 'Terminée',
     cancelled: 'Annulée',
     disputed: 'Litige',
