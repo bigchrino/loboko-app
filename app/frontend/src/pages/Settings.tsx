@@ -82,16 +82,22 @@ export default function Settings() {
             {theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
           </span>
         </button>
-        <div className="w-full flex items-center gap-3 px-4 py-4 border-b border-[var(--loboko-border)]">
+        <button
+          onClick={() => navigate('/settings/privacy')}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
+        >
           <Shield size={18} className="text-[#2563eb]" />
           <span className="flex-1 text-left text-sm font-medium">Confidentialité</span>
-          <span className="text-xs text-[var(--loboko-text-muted)]">Bientôt</span>
-        </div>
-        <div className="w-full flex items-center gap-3 px-4 py-4">
+          <span className="text-[var(--loboko-text-muted)]">›</span>
+        </button>
+        <button
+          onClick={() => navigate('/settings/help')}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition"
+        >
           <HelpCircle size={18} className="text-[#2563eb]" />
           <span className="flex-1 text-left text-sm font-medium">Aide & support</span>
-          <span className="text-xs text-[var(--loboko-text-muted)]">Bientôt</span>
-        </div>
+          <span className="text-[var(--loboko-text-muted)]">›</span>
+        </button>
       </div>
 
       <div className="mb-4">
