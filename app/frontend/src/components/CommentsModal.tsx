@@ -88,6 +88,29 @@ export default function CommentsModal({
   const commentRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   /**
+   * Force-masque la barre de navigation mobile du bas (définie une seule
+   * fois dans Layout.tsx, présente sur toutes les pages) pendant qu'on écrit
+   * un commentaire (clavier ouvert) — c'est le focus du champ de saisie qui
+   * déclenche ça, pas le scroll, exactement comme sur Facebook. Ça couvre à
+   * la fois la feuille plein écran (mode "modal", ouverte depuis le fil) et
+   * les commentaires affichés directement sur la page d'un post (mode
+   * "inline"), où Layout.tsx reste monté normalement le reste du temps.
+   */
+  const [commentInputFocused, setCommentInputFocused] = useState(false);
+
+  useEffect(() => {
+    const shouldHideNav = (!inline && open) || commentInputFocused;
+    if (!shouldHideNav) return;
+    const nav = document.querySelector<HTMLElement>('nav.fixed.bottom-0');
+    if (!nav) return;
+    const previousDisplay = nav.style.display;
+    nav.style.display = 'none';
+    return () => {
+      nav.style.display = previousDisplay;
+    };
+  }, [inline, open, commentInputFocused]);
+
+  /**
    * Suit la hauteur RÉELLEMENT visible de l'écran (VisualViewport), qui se
    * réduit quand le clavier s'ouvre — contrairement à `100vh`/`85vh` en CSS,
    * qui ne tient pas compte du clavier de façon fiable selon les
@@ -119,26 +142,6 @@ export default function CommentsModal({
     vv.addEventListener('resize', update);
     return () => {
       vv.removeEventListener('resize', update);
-    };
-  }, [inline, open]);
-
-  /**
-   * Force-masque la barre de navigation mobile du bas (définie une seule
-   * fois dans Layout.tsx, présente sur toutes les pages) tant que la feuille
-   * de commentaires plein écran est ouverte. Elle ne doit jamais être
-   * visible ici, quel que soit son propre comportement de scroll — on agit
-   * directement sur son élément DOM plutôt que de faire passer une prop à
-   * travers toutes les pages qui utilisent ce composant.
-   */
-  useEffect(() => {
-    if (inline) return;
-    if (!open) return;
-    const nav = document.querySelector<HTMLElement>('nav.fixed.bottom-0');
-    if (!nav) return;
-    const previousDisplay = nav.style.display;
-    nav.style.display = 'none';
-    return () => {
-      nav.style.display = previousDisplay;
     };
   }, [inline, open]);
 
@@ -921,6 +924,8 @@ export default function CommentsModal({
               handleSend();
             }
           }}
+          onFocus={() => setCommentInputFocused(true)}
+          onBlur={() => setCommentInputFocused(false)}
           placeholder={
             !currentUserId
               ? 'Connectez-vous pour commenter'
