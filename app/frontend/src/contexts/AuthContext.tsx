@@ -22,7 +22,7 @@ export interface Profile {
   commune?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  availability_status?: 'available' | 'unavailable';
+  availability_status?: 'available' | 'busy' | 'unavailable';
   completed_jobs_count?: number;
 
   is_verified?: boolean;
