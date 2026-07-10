@@ -7,9 +7,13 @@ import {
   Flag,
   ArchiveRestore,
   Timer,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 
 export type ConversationMenuAction =
+  | 'pin'
+  | 'unpin'
   | 'archive'
   | 'unarchive'
   | 'delete'
@@ -19,6 +23,7 @@ export type ConversationMenuAction =
 
 interface Props {
   archived: boolean;
+  pinned: boolean;
   onAction: (action: ConversationMenuAction) => void;
   ephemeralLabel?: string; // e.g. "24h" to display next to Messages éphémères
 }
@@ -29,6 +34,7 @@ interface Props {
  */
 export default function ConversationMenu({
   archived,
+  pinned,
   onAction,
   ephemeralLabel,
 }: Props) {
@@ -52,6 +58,9 @@ export default function ConversationMenu({
     hidden?: boolean;
     hint?: string;
   }> = [
+    pinned
+      ? { key: 'unpin', label: 'Désépingler', icon: PinOff }
+      : { key: 'pin', label: 'Épingler la conversation', icon: Pin },
     {
       key: 'ephemeral',
       label: 'Messages éphémères',
