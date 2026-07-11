@@ -426,7 +426,7 @@ function CreateWorkDialog({ userId, onClose, onCreated }: CreateProps) {
         setSubmitting(false);
         return;
       }
-      const created = await createWork({
+      const { data: created, error: createError } = await createWork({
         user_id: userId,
         title: title.trim(),
         description: description.trim() || null,
@@ -436,7 +436,7 @@ function CreateWorkDialog({ userId, onClose, onCreated }: CreateProps) {
         media_type: mediaType,
       });
       if (!created) {
-        toast.error('Erreur lors de la publication.');
+        toast.error(createError || 'Erreur lors de la publication.');
         setSubmitting(false);
         return;
       }
