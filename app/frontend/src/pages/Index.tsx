@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon, Users, MessageCircle, Briefcase, Heart } from 'lucide-react';
-import Logo from '@/components/Logo';
+import logoLogin from '@/assets/logo-login.png';
 import { toast } from 'sonner';
 import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 
@@ -108,7 +108,7 @@ export default function Index() {
 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-12 py-5">
-        <Logo size="lg" />
+        <img src={logoLogin} alt="LOBOKO" className="h-14 w-auto select-none" />
         <button
           onClick={toggleTheme}
           className="p-2.5 rounded-full bg-[var(--loboko-surface)] text-[var(--loboko-text-secondary)] hover:text-[var(--loboko-text)] transition"
@@ -278,6 +278,16 @@ export default function Index() {
                   ? 'Se connecter'
                   : 'Créer mon compte'}
               </button>
+
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/contact')}
+                  className="w-full text-center text-sm text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] mt-3 underline underline-offset-2"
+                >
+                  Un souci à vous connecter ? Contactez-nous
+                </button>
+              )}
             </form>
 
             <div className="mt-4">
