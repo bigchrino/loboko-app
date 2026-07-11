@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Search, Send, Link2 } from 'lucide-react';
+import { X, Search, Send, Link2, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/contexts/AuthContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -182,6 +182,34 @@ export default function SharePostDialog({
     }
   };
 
+  /**
+   * Ouvre le menu de partage natif du téléphone (WhatsApp, SMS, e-mail,
+   * autres apps installées...). Si le navigateur ne le supporte pas
+   * (surtout certains navigateurs de bureau), on retombe simplement sur la
+   * copie du lien.
+   */
+  const shareExternal = async () => {
+    const url = `${window.location.origin}/post/${preview.post_id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: authorLabel,
+          text: postText || 'Découvrez cette publication sur LOBOKO',
+          url,
+        });
+      } catch (e) {
+        // AbortError = la personne a fermé le menu sans choisir — pas une
+        // vraie erreur, on ne montre rien.
+        if ((e as Error)?.name !== 'AbortError') {
+          console.error('[share-post] external share', e);
+          toast.error('Partage impossible');
+        }
+      }
+    } else {
+      await copyLink();
+    }
+  };
+
   const submit = async () => {
     if (selected.size === 0) return;
     setBusy(true);
@@ -282,14 +310,24 @@ export default function SharePostDialog({
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={copyLink}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-[var(--loboko-border)] text-xs font-medium hover:bg-[var(--loboko-surface-hover)]"
-          >
-            <Link2 size={14} />
-            Copier le lien
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copyLink}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-[var(--loboko-border)] text-xs font-medium hover:bg-[var(--loboko-surface-hover)]"
+            >
+              <Link2 size={14} />
+              Copier le lien
+            </button>
+            <button
+              type="button"
+              onClick={shareExternal}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-[var(--loboko-border)] text-xs font-medium hover:bg-[var(--loboko-surface-hover)]"
+            >
+              <Share2 size={14} />
+              Partager via…
+            </button>
+          </div>
           <button
             type="button"
             onClick={submit}
