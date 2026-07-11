@@ -62,6 +62,8 @@ export interface WorksFilter {
   categoryId?: string | null;
   city?: string | null;
   userId?: string | null;
+  /** Recherche texte sur le titre et la description (côté serveur). */
+  query?: string | null;
 }
 
 export async function fetchWorks(
@@ -77,6 +79,10 @@ export async function fetchWorks(
     if (filter.categoryId) q = q.eq('category_id', filter.categoryId);
     if (filter.city) q = q.eq('city', filter.city);
     if (filter.userId) q = q.eq('user_id', filter.userId);
+    if (filter.query && filter.query.trim()) {
+      const term = filter.query.trim().replace(/[%,]/g, ' ');
+      q = q.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+    }
     const { data, error } = await q;
     if (error) throw error;
     return (data as ProviderWork[]) || [];
