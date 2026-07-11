@@ -37,6 +37,8 @@ export interface Profile {
   suspended_until?: string | null;
   banned?: boolean;
   banned_reason?: string | null;
+  deactivated_at?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface LobokoAccount {
@@ -126,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const loadedProfile = (data as Profile) || null;
+      let loadedProfile = (data as Profile) || null;
 
       if (loadedProfile?.banned) {
         await supabase.auth.signOut();
@@ -137,7 +139,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loadedProfile.banned_reason || 'Votre compte a été banni.',
         );
       }
-      
+
+      // Compte supprimé définitivement : on ne peut pas effacer l'identifiant
+      // de connexion lui-même depuis le client (ça demanderait une clé
+      // serveur qu'on n'expose jamais côté app), mais on bloque
+      // systématiquement l'accès dès qu'on détecte ce champ — dans les
+      // faits, le compte est donc inutilisable pour toujours.
+      if (loadedProfile?.deleted_at) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        throw new Error('Ce compte a été supprimé définitivement.');
+      }
+
       if (loadedProfile && isSuspensionActive(loadedProfile)) {
         await supabase.auth.signOut();
         setSession(null);
@@ -147,7 +162,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loadedProfile.suspended_reason || 'Votre compte est suspendu.',
         );
       }
-      
+
+      // Compte désactivé temporairement : le fait de se reconnecter suffit
+      // à le réactiver automatiquement, comme sur Instagram — pas besoin
+      // d'une action séparée.
+      if (loadedProfile?.deactivated_at) {
+        const { data: reactivated, error: reactivateError } = await supabase
+          .from('profiles')
+          .update({ deactivated_at: null })
+          .eq('user_id', u.id)
+          .select()
+          .single();
+
+        if (!reactivateError && reactivated) {
+          loadedProfile = reactivated as Profile;
+        }
+      }
+
       setProfile(loadedProfile);
     } catch (e) {
       console.error('loadProfile exception', e);
