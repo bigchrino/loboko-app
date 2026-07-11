@@ -100,7 +100,7 @@ export async function createWork(input: {
   city?: string | null;
   media_key: string;
   media_type: 'image' | 'video';
-}): Promise<ProviderWork | null> {
+}): Promise<{ data: ProviderWork | null; error: string | null }> {
   try {
     const { data, error } = await supabase
       .from('provider_works')
@@ -108,10 +108,14 @@ export async function createWork(input: {
       .select('*')
       .single();
     if (error) throw error;
-    return data as ProviderWork;
+    return { data: data as ProviderWork, error: null };
   } catch (e) {
     console.error('createWork', e);
-    return null;
+    const err = e as { message?: string; details?: string; hint?: string };
+    const message =
+      [err?.message, err?.details, err?.hint].filter(Boolean).join(' — ') ||
+      'Erreur inconnue';
+    return { data: null, error: message };
   }
 }
 
