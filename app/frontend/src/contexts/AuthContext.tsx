@@ -183,12 +183,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error('loadProfile exception', e);
       setProfile(null);
+      // Important : on relance l'erreur. Avant ce correctif, elle était
+      // avalée ici en silence — les appelants (loginLoboko,
+      // onAuthStateChange) croyaient donc que tout s'était bien passé et
+      // remettaient `user` à une valeur "connectée" juste après, écrasant
+      // le nettoyage qui venait d'avoir lieu pour un compte banni/suspendu/
+      // supprimé. C'était la vraie cause du problème.
+      throw e;
     }
   }, []);
 
   const refreshProfile = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
-    await loadProfileFor(data.user || null);
+    try {
+      await loadProfileFor(data.user || null);
+    } catch {
+      // loadProfileFor a déjà géré le nettoyage (compte bloqué détecté en
+      // cours de session) — on avale juste ici pour ne pas remonter une
+      // exception non gérée aux appelants de refreshProfile.
+    }
   }, [loadProfileFor]);
 
   useEffect(() => {
@@ -203,7 +216,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(data.session);
       setUser(accountFromUser(data.session?.user || null));
-      await loadProfileFor(data.session?.user || null);
+      try {
+        await loadProfileFor(data.session?.user || null);
+      } catch {
+        // Compte banni/suspendu/supprimé détecté dès le chargement initial
+        // (session déjà présente dans le navigateur) — loadProfileFor a
+        // déjà tout nettoyé en interne ; on l'attrape juste ici pour ne pas
+        // bloquer l'app sur l'écran de chargement.
+      }
       setLoading(false);
 
       const uid = data.session?.user?.id;
