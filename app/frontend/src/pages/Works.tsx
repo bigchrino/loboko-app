@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import LazyMedia from '@/components/LazyMedia';
 import FavoriteButton from '@/components/FavoriteButton';
 import ServiceCategorySelect from '@/components/ServiceCategorySelect';
-import { Plus, Image as ImageIcon, Video as VideoIcon, X, Loader2, MapPin } from 'lucide-react';
+import { Plus, Image as ImageIcon, Video as VideoIcon, X, Loader2, MapPin, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   createWork,
@@ -42,6 +42,7 @@ interface WorkCardState extends ProviderWork {
 export default function Works() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<WorkCardState[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -50,21 +51,58 @@ export default function Works() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const isProvider = profile?.role === 'prestataire';
 
+  // Arrivée depuis le bouton "Publier une réalisation" du profil
+  // (/works?publish=1) : ouvre directement le formulaire, puis nettoie
+  // l'URL pour que ça ne se rouvre pas si on revient sur cette page plus
+  // tard (ex: bouton retour).
+  useEffect(() => {
+    if (searchParams.get('publish') === '1') {
+      setShowCreate(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('publish');
+        return next;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Petite temporisation pour ne pas relancer une recherche à chaque
+  // frappe — 300ms sans nouvelle touche avant d'interroger le serveur.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
   useEffect(() => {
     fetchActiveCategories().then(setCategories);
   }, []);
+
+  // Catégories dont le nom correspond à la recherche — permet de retrouver
+  // rapidement une catégorie précise parmi beaucoup, plutôt que de tout
+  // faire défiler à l'horizontale.
+  const filteredCategories = useMemo(() => {
+    const q = debouncedQuery.toLowerCase();
+    if (!q) return categories;
+    return categories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [categories, debouncedQuery]);
 
   const load = useCallback(
     async (p: number, replace: boolean) => {
       if (p === 0) setLoading(true);
       else setLoadingMore(true);
       try {
-        const rows = await fetchWorks(p, { categoryId: categoryId || undefined });
+        const rows = await fetchWorks(p, {
+          categoryId: categoryId || undefined,
+          query: debouncedQuery || undefined,
+        });
         // Enrich with media URLs + author.
         const { supabase } = await import('@/lib/supabase');
         const authorIds = Array.from(new Set(rows.map((r) => r.user_id)));
@@ -106,7 +144,7 @@ export default function Works() {
         setLoadingMore(false);
       }
     },
-    [categoryId],
+    [categoryId, debouncedQuery],
   );
 
   useEffect(() => {
@@ -170,6 +208,19 @@ export default function Works() {
         )}
       </div>
 
+      <div className="relative mb-3">
+        <Search
+          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--loboko-text-muted)]"
+        />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher une catégorie, un service, un titre…"
+          className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+        />
+      </div>
+
       {/* Category filter */}
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1 -mx-2 px-2 scrollbar-none">
         <button
@@ -182,7 +233,7 @@ export default function Works() {
         >
           Toutes
         </button>
-        {categories.map((c) => (
+        {filteredCategories.map((c) => (
           <button
             key={c.id}
             onClick={() => setCategoryId(c.id)}
