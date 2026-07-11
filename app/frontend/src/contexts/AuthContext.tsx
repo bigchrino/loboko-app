@@ -216,8 +216,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
-      setUser(accountFromUser(newSession?.user || null));
-      loadProfileFor(newSession?.user || null);
+
+      // Important : on attend que loadProfileFor ait fini de vérifier
+      // banni/suspendu/supprimé AVANT de considérer l'utilisateur comme
+      // connecté. Sans ça, ProtectedRoute voyait `user` déjà rempli et
+      // affichait brièvement l'écran suivant avant que le blocage (et la
+      // déconnexion automatique) ne rattrape — d'où le flash "Bienvenue sur
+      // LOBOKO" observé sur un compte pourtant supprimé.
+      (async () => {
+        try {
+          await loadProfileFor(newSession?.user || null);
+          setUser(accountFromUser(newSession?.user || null));
+        } catch {
+          // loadProfileFor a déjà nettoyé session/user/profile dans ce cas
+          // (compte banni, suspendu ou supprimé) — rien de plus à faire ici.
+        }
+      })();
 
       const uid = newSession?.user?.id;
       if (uid) {
@@ -280,9 +294,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!u) throw new Error('Identifiants invalides');
 
       const account = accountFromUser(u)!;
+      // Même principe que pour onAuthStateChange : on vérifie le profil
+      // (banni/suspendu/supprimé) AVANT de marquer l'utilisateur comme
+      // connecté, pour ne jamais afficher un écran protégé — même
+      // brièvement — à un compte qui va être bloqué dans la foulée.
       try {
-        setUser(account);
         await loadProfileFor(u);
+        setUser(account);
         return account;
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Compte bloqué';
