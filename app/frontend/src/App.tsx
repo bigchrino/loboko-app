@@ -16,6 +16,7 @@ import ReceivedOrders from './pages/ReceivedOrders';
 import ServicePayment from './pages/ServicePayment';
 
 import Index from './pages/Index';
+import PublicContact from './pages/PublicContact';
 import AuthCallback from './pages/AuthCallback';
 import AuthError from './pages/AuthError';
 import Home from './pages/Home';
@@ -242,6 +243,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Index />} />
+    <Route path="/contact" element={<PublicContact />} />
 
     <Route path="/auth/callback" element={<AuthCallback />} />
     <Route path="/auth/error" element={<AuthError />} />
