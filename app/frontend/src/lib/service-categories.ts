@@ -192,6 +192,8 @@ export async function fetchCategoriesWithCounts(): Promise<ServiceCategoryWithCo
       .from('profiles')
       .select('service_id')
       .eq('role', 'prestataire')
+      .is('deactivated_at', null)
+      .is('deleted_at', null)
       .not('service_id', 'is', null);
     if (error) {
       console.error('fetchCategoriesWithCounts count error', error);
@@ -275,6 +277,8 @@ export async function fetchProvidersByCategory(
       .from('profiles')
       .select('*')
       .eq('role', 'prestataire')
+      .is('deactivated_at', null)
+      .is('deleted_at', null)
       .in('service_id', serviceIds)
       .order('created_at', { ascending: false });
     if (error) {
@@ -297,6 +301,8 @@ export async function fetchProvidersByService(
       .from('profiles')
       .select('*')
       .eq('role', 'prestataire')
+      .is('deactivated_at', null)
+      .is('deleted_at', null)
       .eq('service_id', serviceId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -326,7 +332,12 @@ export async function fetchProviders(
   filters: ProviderSearchFilters = {},
 ): Promise<ProviderProfile[]> {
   try {
-    let q = supabase.from('profiles').select('*').eq('role', 'prestataire');
+    let q = supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'prestataire')
+      .is('deactivated_at', null)
+      .is('deleted_at', null);
     if (filters.serviceId) q = q.eq('service_id', filters.serviceId);
     if (filters.availableOnly) q = q.eq('availability_status', 'available');
     if (filters.verifiedOnly) q = q.eq('is_verified', true);
