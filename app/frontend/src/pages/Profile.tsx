@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +35,7 @@ import {
 } from '@/data/rdcLocations';
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { profile, user, updateLobokoProfile } = useAuth();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -582,7 +584,18 @@ export default function Profile() {
       </div>
 
       {profile.role === 'prestataire' && userId && (
-        <PortfolioEditor userId={userId} />
+        <>
+          <PortfolioEditor userId={userId} />
+
+          <button
+            type="button"
+            onClick={() => navigate('/works?publish=1')}
+            className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-dashed border-[#2563eb] text-sm font-semibold text-[#2563eb] hover:bg-[rgba(37,99,235,0.08)]"
+          >
+            <Briefcase size={16} />
+            Publier une réalisation
+          </button>
+        </>
       )}
 
       <h3 className="text-lg font-bold mb-3">Mes publications</h3>
