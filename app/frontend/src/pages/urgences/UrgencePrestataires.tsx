@@ -97,7 +97,9 @@ export default function UrgencePrestataires() {
         // récupère que disponibles + occupés directement depuis la base.
         .in('availability_status', ['available', 'busy'])
         .eq('banned', false)
-        .eq('suspended', false);
+        .eq('suspended', false)
+        .is('deactivated_at', null)
+        .is('deleted_at', null);
 
       // Repli zone manuelle : seulement quand on n'a pas de position GPS.
       // Province obligatoire, ville/commune optionnelles pour affiner —
