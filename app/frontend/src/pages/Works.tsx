@@ -27,7 +27,7 @@ import { toast } from 'sonner';
  * - "Publier" dialog is only available for prestataires.
  */
 
-interface WorkCardState extends ProviderWork {
+export interface WorkCardState extends ProviderWork {
   media_url?: string | null;
   author?: {
     display_name?: string | null;
@@ -288,14 +288,14 @@ export default function Works() {
 
 // ------ Work card -----------------------------------------------------
 
-interface CardProps {
+export interface CardProps {
   work: WorkCardState;
   onAuthorClick: () => void;
   canDelete: boolean;
   onDelete: () => void;
 }
 
-function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
+export function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
   const initials = (work.author?.display_name || work.author?.username || 'U')
     .slice(0, 2)
     .toUpperCase();
@@ -368,12 +368,6 @@ function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
             {work.city}
           </p>
         )}
-        {/* Diagnostic temporaire — à retirer une fois le bug d'affichage
-            d'image résolu. */}
-        <p className="mt-2 text-[10px] text-red-400 break-all">
-          DEBUG media_key="{work.media_key || '(vide)'}" media_type="{work.media_type}" media_url=
-          {work.media_url ? `"${work.media_url}"` : '(vide/null)'}
-        </p>
       </div>
     </article>
   );
