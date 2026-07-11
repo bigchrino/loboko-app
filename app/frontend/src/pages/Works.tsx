@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import LazyMedia from '@/components/LazyMedia';
 import FavoriteButton from '@/components/FavoriteButton';
 import { Plus, Image as ImageIcon, Video as VideoIcon, X, Loader2, MapPin, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,8 +22,8 @@ import { toast } from 'sonner';
  * Works — "Réalisations" feed.
  *
  * - Paginated (20 items / load), infinite scroll via IntersectionObserver.
- * - Media rendered inside <LazyMedia> so off-screen images/videos skip
- *   network work entirely. Videos are never autoplayed.
+ * - Media rendered directly (native `loading="lazy"` on <img>), same
+ *   approach used for images elsewhere in the app.
  * - "Publier" dialog is only available for prestataires.
  */
 
@@ -303,25 +302,23 @@ function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
   return (
     <article className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
       <div className="relative aspect-square bg-black/5">
-        <LazyMedia className="absolute inset-0">
-          {work.media_type === 'video' ? (
-            <video
-              src={work.media_url || undefined}
-              controls
-              preload="none"
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <img
-              src={work.media_url || undefined}
-              alt={work.title}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-          )}
-        </LazyMedia>
+        {work.media_type === 'video' ? (
+          <video
+            src={work.media_url || undefined}
+            controls
+            preload="none"
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <img
+            src={work.media_url || undefined}
+            alt={work.title}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
         <div className="absolute top-2 right-2 flex items-center gap-2">
           <FavoriteButton type="work" targetId={work.id} />
           {canDelete && (
