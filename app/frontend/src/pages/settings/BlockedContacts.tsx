@@ -5,7 +5,7 @@ import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
-import { ArrowLeft, Ban, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Ban, ShieldCheck, PauseCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { loadBlockedIds, unblockUser } from '@/lib/conversation-controls';
@@ -26,7 +26,7 @@ interface BlockedProfile {
  * bloqué, ni de le débloquer. Cette page comble ce trou.
  */
 export default function BlockedContacts() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const goBack = useBackNavigation('/settings');
 
@@ -34,6 +34,10 @@ export default function BlockedContacts() {
   const [loading, setLoading] = useState(true);
   const [confirmUnblock, setConfirmUnblock] = useState<BlockedProfile | null>(null);
   const [unblocking, setUnblocking] = useState(false);
+
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [accountActionLoading, setAccountActionLoading] = useState(false);
 
   const myId = user?.id || '';
 
@@ -89,6 +93,71 @@ export default function BlockedContacts() {
       toast.error(err?.message || 'Action impossible');
     } finally {
       setUnblocking(false);
+    }
+  };
+
+  /**
+   * Désactivation temporaire — le compte disparaît des recherches et est
+   * déconnecté immédiatement, mais se réactive tout seul dès la prochaine
+   * connexion (voir AuthContext.tsx), sans action supplémentaire.
+   */
+  const handleDeactivate = async () => {
+    if (!myId) return;
+    setAccountActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ deactivated_at: new Date().toISOString() })
+        .eq('user_id', myId);
+      if (error) throw error;
+
+      toast.success('Compte désactivé — reconnectez-vous quand vous voulez pour le réactiver.');
+      await logout();
+      navigate('/');
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+      setAccountActionLoading(false);
+    }
+  };
+
+  /**
+   * Suppression définitive — anonymise le profil (nom, photo, position...)
+   * et bloque l'accès pour toujours. Note technique honnête : l'identifiant
+   * de connexion Supabase lui-même n'est pas supprimé ici (ça demande une
+   * clé serveur, jamais exposée côté app pour des raisons de sécurité) —
+   * mais AuthContext.tsx refuse systématiquement l'accès à tout compte
+   * marqué `deleted_at`, donc le compte est inutilisable dans les faits.
+   */
+  const handleDelete = async () => {
+    if (!myId) return;
+    setAccountActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          deleted_at: new Date().toISOString(),
+          display_name: 'Utilisateur supprimé',
+          bio: null,
+          metier: null,
+          avatar_key: null,
+          city: null,
+          province: null,
+          commune: null,
+          latitude: null,
+          longitude: null,
+          availability_status: 'unavailable',
+        })
+        .eq('user_id', myId);
+      if (error) throw error;
+
+      toast.success('Compte supprimé définitivement.');
+      await logout();
+      navigate('/');
+    } catch (e) {
+      const err = e as { message?: string };
+      toast.error(err?.message || 'Action impossible');
+      setAccountActionLoading(false);
     }
   };
 
@@ -181,6 +250,59 @@ export default function BlockedContacts() {
         loading={unblocking}
         onCancel={() => setConfirmUnblock(null)}
         onConfirm={handleUnblock}
+      />
+
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--loboko-text-muted)] mt-6 mb-2">
+        Compte
+      </h2>
+      <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setConfirmDeactivate(true)}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition border-b border-[var(--loboko-border)]"
+        >
+          <PauseCircle size={18} className="text-[#f59e0b] shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium">Désactiver temporairement</div>
+            <div className="text-xs text-[var(--loboko-text-muted)]">
+              Votre profil disparaît des recherches. Il revient dès que vous vous reconnectez.
+            </div>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-[var(--loboko-surface-hover)] transition"
+        >
+          <Trash2 size={18} className="text-red-500 shrink-0" />
+          <div className="flex-1 text-left">
+            <div className="text-sm font-medium text-red-500">Supprimer définitivement</div>
+            <div className="text-xs text-[var(--loboko-text-muted)]">
+              Votre profil est effacé et l'accès à ce compte est bloqué pour toujours.
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <ConfirmDialog
+        open={confirmDeactivate}
+        title="Désactiver temporairement le compte ?"
+        description="Vous serez déconnecté et votre profil disparaîtra des recherches. Reconnectez-vous à tout moment pour le réactiver automatiquement."
+        confirmLabel="Désactiver"
+        loading={accountActionLoading}
+        onCancel={() => setConfirmDeactivate(false)}
+        onConfirm={handleDeactivate}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Supprimer définitivement le compte ?"
+        description="Cette action est irréversible : votre nom, votre photo et votre position seront effacés, et vous ne pourrez plus jamais vous reconnecter à ce compte."
+        confirmLabel="Supprimer définitivement"
+        destructive
+        loading={accountActionLoading}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
       />
     </Layout>
   );
