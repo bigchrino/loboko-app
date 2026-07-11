@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import LazyMedia from '@/components/LazyMedia';
 import FavoriteButton from '@/components/FavoriteButton';
-import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 import { Plus, Image as ImageIcon, Video as VideoIcon, X, Loader2, MapPin, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -279,6 +278,7 @@ export default function Works() {
       {showCreate && isProvider && user && (
         <CreateWorkDialog
           userId={user.id}
+          categories={categories}
           onClose={() => setShowCreate(false)}
           onCreated={handleCreated}
         />
@@ -377,11 +377,12 @@ function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
 
 interface CreateProps {
   userId: string;
+  categories: ServiceCategory[];
   onClose: () => void;
   onCreated: (w: ProviderWork) => void;
 }
 
-function CreateWorkDialog({ userId, onClose, onCreated }: CreateProps) {
+function CreateWorkDialog({ userId, categories, onClose, onCreated }: CreateProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
@@ -522,11 +523,18 @@ function CreateWorkDialog({ userId, onClose, onCreated }: CreateProps) {
             maxLength={80}
             className="w-full px-3 py-2 rounded-xl bg-[var(--loboko-bg)] border border-[var(--loboko-border)] text-sm"
           />
-          <ServiceCategorySelect
-            value={categoryId}
-            onChange={(id) => setCategoryId(id)}
-            placeholder="Catégorie (optionnel)"
-          />
+          <select
+            value={categoryId ?? ''}
+            onChange={(e) => setCategoryId(e.target.value || null)}
+            className="w-full px-3 py-2 rounded-xl bg-[var(--loboko-bg)] border border-[var(--loboko-border)] text-sm"
+          >
+            <option value="">Catégorie (optionnel)</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="p-4 border-t border-[var(--loboko-border)] flex justify-end gap-2">
           <button
