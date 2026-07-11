@@ -301,7 +301,10 @@ function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
     .toUpperCase();
   return (
     <article className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
-      <div className="relative aspect-square bg-black/5">
+      <div
+        className="relative w-full overflow-hidden bg-black/5"
+        style={{ paddingBottom: '100%' }}
+      >
         {work.media_type === 'video' ? (
           <video
             src={work.media_url || undefined}
