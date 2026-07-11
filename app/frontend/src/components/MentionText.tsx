@@ -84,6 +84,20 @@ export default function MentionText({
     <span className={className ?? 'whitespace-pre-wrap break-words'}>
       {chunks.map((c, i) => {
         if (c.type === 'text') return <span key={i}>{c.value}</span>;
+        if (c.type === 'link') {
+          return (
+            <a
+              key={i}
+              href={c.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#60a5fa] hover:underline break-all"
+            >
+              {c.display}
+            </a>
+          );
+        }
         return (
           <button
             key={i}
