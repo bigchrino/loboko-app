@@ -11,7 +11,10 @@ import RatingModal from '@/components/RatingModal';
 import PortfolioGallery from '@/components/PortfolioGallery';
 import ReportDialog from '@/components/ReportDialog';
 import PremiumBadge from '@/components/PremiumBadge';
+import FavoriteButton from '@/components/FavoriteButton';
 import { isPremium } from '@/lib/subscription';
+import { fetchWorks, deleteWork } from '@/lib/marketplace';
+import { WorkCard, WorkCardState } from './Works';
 import {
   fetchRatingSummary,
   fetchRatingsList,
@@ -52,6 +55,8 @@ export default function UserProfilePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [showAvatar, setShowAvatar] = useState(false);
+  const [works, setWorks] = useState<WorkCardState[]>([]);
+  const [worksLoading, setWorksLoading] = useState(true);
 
 
   const loadAll = useCallback(async () => {
@@ -112,6 +117,51 @@ export default function UserProfilePage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Réalisations de ce prestataire — affichées directement sur son profil
+  // pour que n'importe quel visiteur les découvre sans devoir chercher sur
+  // la page /works séparée.
+  useEffect(() => {
+    if (!targetProfile?.user_id || targetProfile.role !== 'prestataire') {
+      setWorks([]);
+      setWorksLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setWorksLoading(true);
+    (async () => {
+      try {
+        const rows = await fetchWorks(0, { userId: targetProfile.user_id });
+        const enriched: WorkCardState[] = await Promise.all(
+          rows.map(async (row) => ({
+            ...row,
+            media_url: row.media_key ? await getMediaUrl(row.media_key) : null,
+            author: {
+              display_name: targetProfile.display_name,
+              username: targetProfile.username,
+              avatar_url: avatarUrl,
+            },
+          })),
+        );
+        if (!cancelled) setWorks(enriched);
+      } catch (e) {
+        console.error('load profile works', e);
+      } finally {
+        if (!cancelled) setWorksLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetProfile?.user_id, targetProfile?.role, targetProfile?.display_name, targetProfile?.username, avatarUrl]);
+
+  const handleWorkDeleted = async (id: string) => {
+    if (!confirm('Supprimer cette réalisation ?')) return;
+    const ok = await deleteWork(id);
+    if (ok) {
+      setWorks((cur) => cur.filter((w) => w.id !== id));
+    }
+  };
 
   /**
    * Custom back handler: when the user arrived here via a mention click,
@@ -312,6 +362,16 @@ export default function UserProfilePage() {
         )}
 
         <div className="flex flex-wrap gap-2 mt-4">
+          {isPrestataire && !isSelf && (
+            <div className="flex items-center justify-center w-11 h-11 rounded-xl border border-[var(--loboko-border)] hover:border-red-500">
+              <FavoriteButton
+                type="provider"
+                targetId={targetProfile.user_id}
+                ariaLabel="Ajouter ce prestataire aux favoris"
+                ghost
+              />
+            </div>
+          )}
           {!isSelf && (
             <button
               onClick={() =>
@@ -388,6 +448,35 @@ export default function UserProfilePage() {
 
       {isPrestataire && targetProfile.user_id && (
         <PortfolioGallery userId={targetProfile.user_id} />
+      )}
+
+      {isPrestataire && (
+        <div className="mb-6">
+          <h3 className="text-lg font-bold mb-3">Réalisations</h3>
+          {worksLoading ? (
+            <div className="text-center py-6 text-sm text-[var(--loboko-text-muted)]">
+              Chargement…
+            </div>
+          ) : works.length === 0 ? (
+            <div className="text-center py-6 text-sm text-[var(--loboko-text-muted)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl">
+              {isSelf
+                ? 'Vous n\u2019avez pas encore publié de réalisation.'
+                : 'Aucune réalisation publiée pour l\u2019instant.'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {works.map((w) => (
+                <WorkCard
+                  key={w.id}
+                  work={w}
+                  onAuthorClick={() => undefined}
+                  canDelete={isSelf}
+                  onDelete={() => handleWorkDeleted(w.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {isPrestataire && (
