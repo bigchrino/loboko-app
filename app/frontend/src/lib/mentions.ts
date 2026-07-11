@@ -136,7 +136,8 @@ export async function resolveMentionedUserIds(
 
 export type MentionChunk =
   | { type: 'text'; value: string }
-  | { type: 'mention'; username: string };
+  | { type: 'mention'; username: string }
+  | { type: 'link'; url: string; display: string };
 
 /**
  * Resolve a single @username to a user_id via the profiles table.
@@ -165,6 +166,46 @@ export async function resolveUsernameToId(
  * Split text into plain/mention chunks for safe rendering. Consumers can
  * map each chunk to a <span> or a clickable profile link.
  */
+// Détecte http(s)://... et www.xxx — volontairement limité à ces deux formes
+// (plutôt que tout ce qui ressemble à un nom de domaine) pour éviter les faux
+// positifs sur du texte normal ("Mr. Dupont", "3.5kg"...). Ça couvre le cas
+// courant : un lien copié-collé depuis un navigateur inclut toujours l'un
+// des deux.
+const URL_RE = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+
+// Ponctuation de fin de phrase qu'on ne veut pas inclure dans le lien
+// lui-même (ex: "Regarde ça: https://exemple.com." → le point final n'est
+// pas censé faire partie de l'URL).
+const TRAILING_PUNCTUATION_RE = /[.,;:!?)\]}'"”’]+$/;
+
+function splitLinkChunks(text: string): MentionChunk[] {
+  if (!text) return [];
+  const out: MentionChunk[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(text))) {
+    let raw = m[0];
+    let end = m.index + raw.length;
+    const trailingMatch = raw.match(TRAILING_PUNCTUATION_RE);
+    if (trailingMatch) {
+      raw = raw.slice(0, raw.length - trailingMatch[0].length);
+      end -= trailingMatch[0].length;
+    }
+    if (!raw) continue;
+    if (m.index > lastIndex) {
+      out.push({ type: 'text', value: text.slice(lastIndex, m.index) });
+    }
+    const url = raw.toLowerCase().startsWith('http') ? raw : `https://${raw}`;
+    out.push({ type: 'link', url, display: raw });
+    lastIndex = end;
+  }
+  if (lastIndex < text.length) {
+    out.push({ type: 'text', value: text.slice(lastIndex) });
+  }
+  return out;
+}
+
 export function splitMentionChunks(text: string): MentionChunk[] {
   if (!text) return [];
   const re = /(^|\s)@([\w.]{1,32})/g;
@@ -177,13 +218,13 @@ export function splitMentionChunks(text: string): MentionChunk[] {
     const matchStart = m.index + leading.length;
     const matchEnd = matchStart + uname.length + 1; // "@" + uname
     if (matchStart > lastIndex) {
-      out.push({ type: 'text', value: text.slice(lastIndex, matchStart) });
+      out.push(...splitLinkChunks(text.slice(lastIndex, matchStart)));
     }
     out.push({ type: 'mention', username: uname });
     lastIndex = matchEnd;
   }
   if (lastIndex < text.length) {
-    out.push({ type: 'text', value: text.slice(lastIndex) });
+    out.push(...splitLinkChunks(text.slice(lastIndex)));
   }
   return out;
 }
