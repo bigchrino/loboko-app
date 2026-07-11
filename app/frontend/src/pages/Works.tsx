@@ -365,6 +365,12 @@ function WorkCard({ work, onAuthorClick, canDelete, onDelete }: CardProps) {
             {work.city}
           </p>
         )}
+        {/* Diagnostic temporaire — à retirer une fois le bug d'affichage
+            d'image résolu. */}
+        <p className="mt-2 text-[10px] text-red-400 break-all">
+          DEBUG media_key="{work.media_key || '(vide)'}" media_type="{work.media_type}" media_url=
+          {work.media_url ? `"${work.media_url}"` : '(vide/null)'}
+        </p>
       </div>
     </article>
   );
