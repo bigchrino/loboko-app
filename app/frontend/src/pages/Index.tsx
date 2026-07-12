@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import SplashScreen from '@/components/SplashScreen';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon, Users, MessageCircle, Briefcase, Heart } from 'lucide-react';
 import logoLogin from '@/assets/logo-login.png';
@@ -90,11 +91,7 @@ export default function Index() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)] text-[var(--loboko-text)]">
-        <div className="w-10 h-10 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   return (
