@@ -58,6 +58,7 @@ import Favorites from './pages/Favorites';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import SplashScreen from './components/SplashScreen';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
@@ -73,11 +74,7 @@ function ProtectedWithProfile({ children }: { children: JSX.Element }) {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
-        <div className="w-10 h-10 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) return <Navigate to="/" replace />;
@@ -90,11 +87,7 @@ function OnboardingGate() {
   const { user, profile, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--loboko-bg)]">
-        <div className="w-10 h-10 border-4 border-[#2563eb] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) return <Navigate to="/" replace />;
