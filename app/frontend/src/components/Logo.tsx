@@ -3,7 +3,7 @@ import logoLogin from '@/assets/logo-login.png';
 
 interface LogoProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   /**
    * 'default' — logo horizontal (icône + texte côte à côte), utilisé
    * partout dans l'app (en-tête, menu latéral...).
@@ -22,6 +22,7 @@ const sizeMap = {
   md: 'h-8',
   lg: 'h-11',
   xl: 'h-16',
+  '2xl': 'h-28',
 };
 
 export default function Logo({ className = '', size = 'md', variant = 'default' }: LogoProps) {
