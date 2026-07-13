@@ -27,6 +27,7 @@ import { useNotifications } from '@/contexts/NotificationsContext';
 import { useMessages } from '@/contexts/MessagesContext';
 import { useMissedCalls } from '@/contexts/MissedCallsContext';
 import Logo from '@/components/Logo';
+import DevNoticeDialog from '@/components/DevNoticeDialog';
 
 interface LayoutProps {
   children: ReactNode;
@@ -164,6 +165,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
 
   return (
     <div className="min-h-[100dvh] bg-[var(--loboko-bg)] text-[var(--loboko-text)] overflow-x-hidden">
+      <DevNoticeDialog />
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
         <div className="px-6 py-6 border-b border-[var(--loboko-border)]">
