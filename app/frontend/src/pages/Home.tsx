@@ -5,6 +5,7 @@ import ComposePost from '@/components/ComposePost';
 import PostCard, { PostItem } from '@/components/PostCard';
 import HeroBanner from '@/components/HeroBanner';
 import AdsCarousel from '@/components/AdsCarousel';
+import DevNoticeDialog from '@/components/DevNoticeDialog';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -191,6 +192,7 @@ export default function Home() {
 
   return (
     <Layout title="Accueil">
+      <DevNoticeDialog />
       <HeroBanner onFindProvider={() => navigate('/find')} />
 
       <AdsCarousel />
