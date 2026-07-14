@@ -12,6 +12,48 @@ export interface Shop {
   updated_at: string;
 }
 
+export interface ProductWithShop extends ShopProduct {
+  shop: Pick<Shop, 'id' | 'name' | 'slug' | 'color_key'>;
+}
+
+/** Recherche des produits individuels (pas des boutiques), tous vendeurs
+ *  confondus — pour un résultat façon "grille de produits" (Pinduoduo). */
+export async function searchProducts(query: string): Promise<ProductWithShop[]> {
+  const term = query.trim();
+  if (!term) return [];
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('*, shops!inner(id, name, slug, color_key)')
+      .eq('is_active', true)
+      .ilike('name', `%${term}%`)
+      .order('created_at', { ascending: false })
+      .limit(60);
+    if (error) throw error;
+    return ((data || []) as any[]).map((row) => ({ ...row, shop: row.shops }));
+  } catch (e) {
+    console.error('searchProducts', e);
+    return [];
+  }
+}
+
+export async function fetchProduct(productId: string): Promise<ProductWithShop | null> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('*, shops!inner(id, name, slug, color_key)')
+      .eq('id', productId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const row = data as any;
+    return { ...row, shop: row.shops };
+  } catch (e) {
+    console.error('fetchProduct', e);
+    return null;
+  }
+}
+
 export interface ShopColorOption {
   key: string;
   label: string;
