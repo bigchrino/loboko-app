@@ -1,7 +1,30 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, Store, Settings } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchMyShop, getShopColor, Shop } from '@/lib/shops';
 
 export default function Panier() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [loadingShop, setLoadingShop] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLoadingShop(false);
+      return;
+    }
+    (async () => {
+      const s = await fetchMyShop(user.id);
+      setShop(s);
+      setLoadingShop(false);
+    })();
+  }, [user?.id]);
+
+  const shopColor = shop ? getShopColor(shop.color_key) : null;
+
   return (
     <Layout title="Panier">
       <div className="space-y-6">
@@ -11,6 +34,31 @@ export default function Panier() {
           </div>
           <h1 className="text-2xl font-bold">Panier</h1>
         </div>
+
+        {/* Boutiques — Phase A : créer/gérer sa boutique. La découverte des
+            boutiques des autres ("Voir des boutiques") arrivera en Phase C. */}
+        {!loadingShop && (
+          <div className="flex flex-wrap gap-2">
+            {shop ? (
+              <button
+                onClick={() => navigate('/shop/manage')}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm text-white"
+                style={{ backgroundColor: shopColor?.hex }}
+              >
+                <Settings size={16} />
+                Gérer ma boutique
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/shop/create')}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm"
+              >
+                <Store size={16} />
+                Créer sa boutique
+              </button>
+            )}
+          </div>
+        )}
 
         <p className="text-[var(--loboko-text-secondary)]">
           Achetez vos articles et gardez-les ici pour les payer plus tard.
