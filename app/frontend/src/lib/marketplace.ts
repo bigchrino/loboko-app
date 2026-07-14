@@ -46,7 +46,7 @@ export interface ServiceRequestResponse {
   created_at: string;
 }
 
-export type FavoriteType = 'provider' | 'work' | 'service';
+export type FavoriteType = 'provider' | 'work' | 'service' | 'product';
 
 export interface FavoriteRow {
   id: string;
