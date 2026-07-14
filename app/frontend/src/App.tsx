@@ -38,6 +38,8 @@ import EntrepriseMusala from './pages/EntrepriseMusala';
 import Panier from './pages/Panier';
 import CreateShop from './pages/CreateShop';
 import ShopManage from './pages/ShopManage';
+import DiscoverShops from './pages/DiscoverShops';
+import ShopDetail from './pages/ShopDetail';
 import Urgences from './pages/Urgences';
 import UrgencesHopitaux from './pages/UrgencesHopitaux';
 import UrgencesPolices from './pages/UrgencesPolices';
@@ -166,6 +168,8 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/panier', element: <Panier /> },
   { path: '/shop/create', element: <CreateShop /> },
   { path: '/shop/manage', element: <ShopManage /> },
+  { path: '/shops', element: <DiscoverShops /> },
+  { path: '/shop/:slug', element: <ShopDetail /> },
 
   { path: '/urgences', element: <Urgences /> },
   { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
