@@ -132,6 +132,97 @@ export async function createShop(input: {
   };
 }
 
+export interface ShopProduct {
+  id: string;
+  shop_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock_quantity: number;
+  image_key: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchShopProducts(shopId: string): Promise<ShopProduct[]> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data as ShopProduct[]) || [];
+  } catch (e) {
+    console.error('fetchShopProducts', e);
+    return [];
+  }
+}
+
+export async function createProduct(input: {
+  shop_id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  stock_quantity: number;
+  image_key?: string | null;
+}): Promise<{ data: ShopProduct | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .insert({
+        shop_id: input.shop_id,
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        price: input.price,
+        stock_quantity: input.stock_quantity,
+        image_key: input.image_key || null,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { data: data as ShopProduct, error: null };
+  } catch (e) {
+    const err = e as { message?: string };
+    console.error('createProduct', e);
+    return { data: null, error: err?.message || 'Erreur inconnue' };
+  }
+}
+
+export async function updateProduct(
+  productId: string,
+  patch: Partial<
+    Pick<ShopProduct, 'name' | 'description' | 'price' | 'stock_quantity' | 'image_key' | 'is_active'>
+  >,
+): Promise<{ data: ShopProduct | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .update(patch)
+      .eq('id', productId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return { data: data as ShopProduct, error: null };
+  } catch (e) {
+    const err = e as { message?: string };
+    console.error('updateProduct', e);
+    return { data: null, error: err?.message || 'Erreur inconnue' };
+  }
+}
+
+export async function deleteProduct(productId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('shop_products').delete().eq('id', productId);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('deleteProduct', e);
+    return false;
+  }
+}
+
 export async function updateShop(
   shopId: string,
   patch: Partial<Pick<Shop, 'name' | 'color_key' | 'description'>>,
