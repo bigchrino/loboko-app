@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ShoppingCart, Store, Settings } from 'lucide-react';
+import { ShoppingCart, Store, Settings, Compass } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyShop, getShopColor, Shop } from '@/lib/shops';
 
@@ -35,8 +35,8 @@ export default function Panier() {
           <h1 className="text-2xl font-bold">Panier</h1>
         </div>
 
-        {/* Boutiques — Phase A : créer/gérer sa boutique. La découverte des
-            boutiques des autres ("Voir des boutiques") arrivera en Phase C. */}
+        {/* Boutiques — Phase A/C : créer/gérer sa boutique, et découvrir
+            celles des autres. */}
         {!loadingShop && (
           <div className="flex flex-wrap gap-2">
             {shop ? (
@@ -57,6 +57,13 @@ export default function Panier() {
                 Créer sa boutique
               </button>
             )}
+            <button
+              onClick={() => navigate('/shops')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] font-semibold text-sm"
+            >
+              <Compass size={16} />
+              Voir des boutiques
+            </button>
           </div>
         )}
 
