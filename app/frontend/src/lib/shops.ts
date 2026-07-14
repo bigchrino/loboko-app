@@ -223,6 +223,54 @@ export async function deleteProduct(productId: string): Promise<boolean> {
   }
 }
 
+/** Liste les boutiques actives, avec une recherche optionnelle par nom. */
+export async function fetchActiveShops(query?: string): Promise<Shop[]> {
+  try {
+    let q = supabase.from('shops').select('*').eq('is_active', true);
+    if (query && query.trim()) {
+      q = q.ilike('name', `%${query.trim()}%`);
+    }
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data as Shop[]) || [];
+  } catch (e) {
+    console.error('fetchActiveShops', e);
+    return [];
+  }
+}
+
+/** Récupère une boutique et retourne aussi les produits en stock qui
+ *  correspondent au terme recherché — utilisé pour "je cherche un produit
+ *  précis, quelles boutiques l'ont ?" (Phase D). */
+export async function searchShopsByProduct(query: string): Promise<
+  { shop: Shop; matchingProductNames: string[] }[]
+> {
+  try {
+    const term = query.trim();
+    if (!term) return [];
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('name, shop_id, shops!inner(*)')
+      .eq('is_active', true)
+      .gt('stock_quantity', 0)
+      .ilike('name', `%${term}%`)
+      .limit(50);
+    if (error) throw error;
+    const byShop = new Map<string, { shop: Shop; matchingProductNames: string[] }>();
+    for (const row of (data || []) as any[]) {
+      const shop = row.shops as Shop;
+      if (!shop) continue;
+      const entry = byShop.get(shop.id) || { shop, matchingProductNames: [] };
+      entry.matchingProductNames.push(row.name as string);
+      byShop.set(shop.id, entry);
+    }
+    return Array.from(byShop.values());
+  } catch (e) {
+    console.error('searchShopsByProduct', e);
+    return [];
+  }
+}
+
 export async function updateShop(
   shopId: string,
   patch: Partial<Pick<Shop, 'name' | 'color_key' | 'description'>>,
