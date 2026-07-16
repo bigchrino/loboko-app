@@ -42,6 +42,7 @@ import DiscoverShops from './pages/DiscoverShops';
 import ShopDetail from './pages/ShopDetail';
 import ProductDetail from './pages/ProductDetail';
 import MyProductOrders from './pages/MyProductOrders';
+import ShopReceivedOrders from './pages/ShopReceivedOrders';
 import Urgences from './pages/Urgences';
 import UrgencesHopitaux from './pages/UrgencesHopitaux';
 import UrgencesPolices from './pages/UrgencesPolices';
@@ -174,6 +175,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/shop/:slug', element: <ShopDetail /> },
   { path: '/product/:id', element: <ProductDetail /> },
   { path: '/my-product-orders', element: <MyProductOrders /> },
+  { path: '/shop/orders', element: <ShopReceivedOrders /> },
 
   { path: '/urgences', element: <Urgences /> },
   { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
