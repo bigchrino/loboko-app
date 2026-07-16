@@ -75,6 +75,26 @@ export async function fetchMyProductOrders(clientId: string): Promise<ProductOrd
   }
 }
 
+/** Le vendeur marque une commande comme préparée/terminée. */
+export async function completeProductOrder(
+  orderId: string,
+): Promise<{ data: ProductOrder | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('product_orders')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .select()
+      .single();
+    if (error) throw error;
+    return { data: data as ProductOrder, error: null };
+  } catch (e) {
+    const err = e as { message?: string };
+    console.error('completeProductOrder', e);
+    return { data: null, error: err?.message || 'Erreur inconnue' };
+  }
+}
+
 export async function fetchShopProductOrders(shopId: string): Promise<ProductOrder[]> {
   try {
     const { data, error } = await supabase
