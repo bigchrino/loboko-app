@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getMediaUrl } from './storage-helpers';
 
 export interface Shop {
   id: string;
@@ -13,6 +14,7 @@ export interface Shop {
 }
 
 export interface ProductWithShop extends ShopProduct {
+  image_url?: string | null;
   shop: Pick<Shop, 'id' | 'name' | 'slug' | 'color_key'>;
 }
 
@@ -26,11 +28,18 @@ export async function searchProducts(query: string): Promise<ProductWithShop[]> 
       .from('shop_products')
       .select('*, shops!inner(id, name, slug, color_key)')
       .eq('is_active', true)
+      .gt('stock_quantity', 0)
       .ilike('name', `%${term}%`)
       .order('created_at', { ascending: false })
       .limit(60);
     if (error) throw error;
-    return ((data || []) as any[]).map((row) => ({ ...row, shop: row.shops }));
+    return Promise.all(
+      ((data || []) as any[]).map(async (row) => ({
+        ...row,
+        shop: row.shops,
+        image_url: row.image_key ? await getMediaUrl(row.image_key) : null,
+      })),
+    );
   } catch (e) {
     console.error('searchProducts', e);
     return [];
@@ -47,7 +56,11 @@ export async function fetchProduct(productId: string): Promise<ProductWithShop |
     if (error) throw error;
     if (!data) return null;
     const row = data as any;
-    return { ...row, shop: row.shops };
+    return {
+      ...row,
+      shop: row.shops,
+      image_url: row.image_key ? await getMediaUrl(row.image_key) : null,
+    };
   } catch (e) {
     console.error('fetchProduct', e);
     return null;
