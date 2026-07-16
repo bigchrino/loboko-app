@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { ShoppingCart, Store, Settings, Compass, Minus, Plus, Trash2 } from 'lucide-react';
+import { ShoppingCart, Store, Settings, Compass, Minus, Plus, Trash2, Package } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyShop, getShopColor, Shop } from '@/lib/shops';
 import {
@@ -134,6 +134,13 @@ export default function Panier() {
               <Compass size={16} />
               Voir des boutiques
             </button>
+            <button
+              onClick={() => navigate('/my-product-orders')}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] font-semibold text-sm"
+            >
+              <Package size={16} />
+              Mes commandes
+            </button>
           </div>
         )}
 
@@ -163,7 +170,10 @@ export default function Panier() {
                     key={item.id}
                     className="flex gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]"
                   >
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/5 shrink-0">
+                    <button
+                      onClick={() => navigate(`/product/${item.product_id}`)}
+                      className="w-16 h-16 rounded-xl overflow-hidden bg-black/5 shrink-0"
+                    >
                       {item.product.image_url && (
                         <img
                           src={item.product.image_url}
@@ -171,12 +181,17 @@ export default function Panier() {
                           className="w-full h-full object-cover"
                         />
                       )}
-                    </div>
+                    </button>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{item.product.name}</div>
-                      <div className="text-xs text-[var(--loboko-text-muted)] truncate">
-                        {item.shop.name}
-                      </div>
+                      <button
+                        onClick={() => navigate(`/product/${item.product_id}`)}
+                        className="text-left"
+                      >
+                        <div className="text-sm font-semibold truncate">{item.product.name}</div>
+                        <div className="text-xs text-[var(--loboko-text-muted)] truncate">
+                          {item.shop.name}
+                        </div>
+                      </button>
                       <div className="text-sm font-bold text-[#2563eb] mt-0.5">
                         {item.product.price.toLocaleString('fr-FR')} $
                       </div>
