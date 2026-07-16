@@ -40,6 +40,26 @@ export async function placeProductOrder(
   }
 }
 
+/**
+ * Annule une commande produit en attente — remet automatiquement le
+ * stock réservé (voir la fonction SQL cancel_product_order).
+ */
+export async function cancelProductOrder(
+  orderId: string,
+): Promise<{ data: ProductOrder | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc('cancel_product_order', {
+      p_order_id: orderId,
+    });
+    if (error) throw error;
+    return { data: data as ProductOrder, error: null };
+  } catch (e) {
+    const err = e as { message?: string };
+    console.error('cancelProductOrder', e);
+    return { data: null, error: err?.message || 'Erreur inconnue' };
+  }
+}
+
 export async function fetchMyProductOrders(clientId: string): Promise<ProductOrder[]> {
   try {
     const { data, error } = await supabase
