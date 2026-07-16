@@ -40,6 +40,7 @@ import CreateShop from './pages/CreateShop';
 import ShopManage from './pages/ShopManage';
 import DiscoverShops from './pages/DiscoverShops';
 import ShopDetail from './pages/ShopDetail';
+import ProductDetail from './pages/ProductDetail';
 import Urgences from './pages/Urgences';
 import UrgencesHopitaux from './pages/UrgencesHopitaux';
 import UrgencesPolices from './pages/UrgencesPolices';
@@ -170,6 +171,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/shop/manage', element: <ShopManage /> },
   { path: '/shops', element: <DiscoverShops /> },
   { path: '/shop/:slug', element: <ShopDetail /> },
+  { path: '/product/:id', element: <ProductDetail /> },
 
   { path: '/urgences', element: <Urgences /> },
   { path: '/urgences/hopitaux', element: <UrgencesHopitaux /> },
