@@ -46,6 +46,14 @@ export default function ProductDetail() {
 
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const [activeImage, setActiveImage] = useState(0);
+
+  const handleGalleryScroll = () => {
+    const el = galleryRef.current;
+    if (!el || el.clientWidth === 0) return;
+    setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
+  };
 
   const load = async () => {
     if (!id) return;
@@ -53,6 +61,7 @@ export default function ProductDetail() {
     const p = await fetchProduct(id);
     setProduct(p);
     setQuantity(1);
+    setActiveImage(0);
     setLoading(false);
 
     setCommentsLoading(true);
@@ -166,24 +175,51 @@ export default function ProductDetail() {
         <ArrowLeft size={16} /> Retour
       </button>
 
-      {/* 1. Photo du produit */}
+      {/* 1. Photo(s) du produit */}
       <div
         className="relative w-full overflow-hidden bg-black/5 rounded-2xl mb-4"
         style={{ paddingBottom: '100%' }}
       >
-        {product.image_key ? (
-          <img
-            src={product.image_url || undefined}
-            alt={product.name}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Package size={40} className="text-[var(--loboko-text-muted)]" />
-          </div>
-        )}
+        {(() => {
+          const images = [
+            product.image_url,
+            ...(product.gallery?.map((g) => g.image_url) || []),
+          ].filter((src): src is string => !!src);
+
+          if (images.length === 0) {
+            return (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Package size={40} className="text-[var(--loboko-text-muted)]" />
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <div
+                ref={galleryRef}
+                onScroll={handleGalleryScroll}
+                className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+              >
+                {images.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={product.name}
+                    className="w-full h-full object-cover shrink-0 snap-center"
+                  />
+                ))}
+              </div>
+              {images.length > 1 && (
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[11px] font-medium">
+                  {activeImage + 1}/{images.length}
+                </div>
+              )}
+            </>
+          );
+        })()}
         {outOfStock && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none">
             <span className="text-white text-sm font-bold px-3 py-1.5 rounded-full bg-red-600">
               Produit épuisé
             </span>
