@@ -151,9 +151,11 @@ export default function ShopDetail() {
           {products.map((p) => {
             const outOfStock = p.stock_quantity <= 0;
             return (
-              <div
+              <button
                 key={p.id}
-                className={`rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] overflow-hidden ${
+                type="button"
+                onClick={() => navigate(`/product/${p.id}`)}
+                className={`text-left rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] overflow-hidden hover:border-[#2563eb] transition-colors ${
                   outOfStock ? 'opacity-60' : ''
                 }`}
               >
@@ -192,7 +194,7 @@ export default function ShopDetail() {
                     {p.price.toLocaleString('fr-FR')} $
                   </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
