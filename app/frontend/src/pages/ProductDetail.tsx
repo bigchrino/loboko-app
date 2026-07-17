@@ -21,6 +21,8 @@ import {
   ImagePlus,
   Send,
   X,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,6 +33,7 @@ export default function ProductDetail() {
 
   const [product, setProduct] = useState<ProductWithShop | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quantity, setQuantity] = useState(1);
   const [comments, setComments] = useState<ProductCommentWithAuthor[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
 
@@ -49,6 +52,7 @@ export default function ProductDetail() {
     setLoading(true);
     const p = await fetchProduct(id);
     setProduct(p);
+    setQuantity(1);
     setLoading(false);
 
     setCommentsLoading(true);
@@ -102,7 +106,7 @@ export default function ProductDetail() {
   const handleAddToCart = async () => {
     if (!user?.id || !product) return;
     setAddingToCart(true);
-    const { error } = await addToCart(user.id, product.id, 1);
+    const { error } = await addToCart(user.id, product.id, quantity);
     setAddingToCart(false);
     if (error) {
       toast.error(error);
@@ -114,7 +118,7 @@ export default function ProductDetail() {
   const handleOrderNow = async () => {
     if (!user?.id || !product) return;
     setOrdering(true);
-    const { data, error } = await placeProductOrder(user.id, product.id, 1);
+    const { data, error } = await placeProductOrder(user.id, product.id, quantity);
     setOrdering(false);
     if (!data) {
       toast.error(error || 'Commande impossible');
@@ -122,8 +126,9 @@ export default function ProductDetail() {
     }
     toast.success('Commande envoyée — le vendeur va la préparer.');
     setProduct((cur) =>
-      cur ? { ...cur, stock_quantity: Math.max(0, cur.stock_quantity - 1) } : cur,
+      cur ? { ...cur, stock_quantity: Math.max(0, cur.stock_quantity - quantity) } : cur,
     );
+    setQuantity(1);
   };
 
   if (loading) {
@@ -200,6 +205,33 @@ export default function ProductDetail() {
         <p className="text-xs text-[var(--loboko-text-muted)] mt-1">
           {outOfStock ? 'Épuisé' : `${product.stock_quantity} en stock`}
         </p>
+
+        {!outOfStock && (
+          <div className="flex items-center gap-3 mt-3">
+            <span className="text-xs font-medium text-[var(--loboko-text-secondary)]">
+              Quantité
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                className="w-8 h-8 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] flex items-center justify-center"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="text-sm font-semibold w-6 text-center">{quantity}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuantity((q) => Math.min(product.stock_quantity, q + 1))
+                }
+                className="w-8 h-8 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] flex items-center justify-center"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. Voir la boutique / Favoris / Commenter */}
