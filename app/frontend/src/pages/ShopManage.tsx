@@ -26,6 +26,7 @@ import {
   Trash2,
   ImagePlus,
   X,
+  ClipboardList,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -159,6 +160,14 @@ export default function ShopManage() {
         </div>
         <h1 className="text-2xl font-bold">{shop.name}</h1>
       </div>
+
+      <button
+        onClick={() => navigate('/shop/orders')}
+        className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm font-semibold"
+      >
+        <ClipboardList size={16} />
+        Commandes reçues
+      </button>
 
       <div className="space-y-6">
         <div>
