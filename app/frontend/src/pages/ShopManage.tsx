@@ -13,6 +13,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  addProductImage,
 } from '@/lib/shops';
 import { uploadMediaEx, getMediaUrl } from '@/lib/storage-helpers';
 import {
@@ -347,14 +348,30 @@ function ProductFormDialog({ shopId, product, onClose, onSaved }: ProductFormPro
   const [stock, setStock] = useState(product ? String(product.stock_quantity) : '0');
   const [imagePreview, setImagePreview] = useState<string | null>(product?.image_url || null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const extraFileRef = useRef<HTMLInputElement>(null);
 
   const pickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  };
+
+  const pickExtraImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setExtraFiles((cur) => [...cur, ...files]);
+    setExtraPreviews((cur) => [...cur, ...files.map((f) => URL.createObjectURL(f))]);
+    e.target.value = '';
+  };
+
+  const removeExtraImage = (index: number) => {
+    setExtraFiles((cur) => cur.filter((_, i) => i !== index));
+    setExtraPreviews((cur) => cur.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
@@ -386,6 +403,19 @@ function ProductFormDialog({ shopId, product, onClose, onSaved }: ProductFormPro
       image_key = key;
     }
 
+    // Photos supplémentaires (galerie) — envoyées une par une, dans l'ordre
+    // où elles ont été ajoutées.
+    const uploadExtraImages = async (productId: string) => {
+      for (let i = 0; i < extraFiles.length; i += 1) {
+        const { key, error } = await uploadMediaEx(extraFiles[i], 'posts');
+        if (error || !key) {
+          toast.error(`Une photo n'a pas pu être envoyée (${error || 'erreur'})`);
+          continue;
+        }
+        await addProductImage(productId, key, i);
+      }
+    };
+
     if (product) {
       const { data, error } = await updateProduct(product.id, {
         name: name.trim(),
@@ -394,11 +424,13 @@ function ProductFormDialog({ shopId, product, onClose, onSaved }: ProductFormPro
         stock_quantity: stockNum,
         image_key,
       });
-      setSubmitting(false);
       if (!data) {
+        setSubmitting(false);
         toast.error(error || 'Erreur lors de la mise à jour');
         return;
       }
+      await uploadExtraImages(product.id);
+      setSubmitting(false);
       toast.success('Produit mis à jour');
       onSaved({ ...data, image_url: imagePreview });
     } else {
@@ -410,11 +442,13 @@ function ProductFormDialog({ shopId, product, onClose, onSaved }: ProductFormPro
         stock_quantity: stockNum,
         image_key,
       });
-      setSubmitting(false);
       if (!data) {
+        setSubmitting(false);
         toast.error(error || 'Erreur lors de la création');
         return;
       }
+      await uploadExtraImages(data.id);
+      setSubmitting(false);
       toast.success('Produit ajouté');
       onSaved({ ...data, image_url: imagePreview });
     }
@@ -448,6 +482,40 @@ function ProductFormDialog({ shopId, product, onClose, onSaved }: ProductFormPro
             )}
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickImage} />
+
+          <div>
+            <button
+              type="button"
+              onClick={() => extraFileRef.current?.click()}
+              className="text-xs font-semibold text-[#2563eb] flex items-center gap-1.5"
+            >
+              <ImagePlus size={14} /> Ajouter des photos supplémentaires
+            </button>
+            <input
+              ref={extraFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={pickExtraImages}
+            />
+            {extraPreviews.length > 0 && (
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {extraPreviews.map((src, i) => (
+                  <div key={i} className="relative w-14 h-14">
+                    <img src={src} alt="" className="w-full h-full object-cover rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => removeExtraImage(i)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="block text-xs font-medium mb-1">Nom du produit</label>
