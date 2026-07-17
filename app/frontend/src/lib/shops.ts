@@ -15,7 +15,59 @@ export interface Shop {
 
 export interface ProductWithShop extends ShopProduct {
   image_url?: string | null;
+  gallery?: { id: string; image_url: string }[];
   shop: Pick<Shop, 'id' | 'name' | 'slug' | 'color_key'>;
+}
+
+export interface ProductImage {
+  id: string;
+  product_id: string;
+  image_key: string;
+  position: number;
+  created_at: string;
+}
+
+export async function fetchProductImages(productId: string): Promise<ProductImage[]> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_product_images')
+      .select('*')
+      .eq('product_id', productId)
+      .order('position', { ascending: true });
+    if (error) throw error;
+    return (data as ProductImage[]) || [];
+  } catch (e) {
+    console.error('fetchProductImages', e);
+    return [];
+  }
+}
+
+export async function addProductImage(
+  productId: string,
+  imageKey: string,
+  position: number,
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('shop_product_images')
+      .insert({ product_id: productId, image_key: imageKey, position });
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('addProductImage', e);
+    return false;
+  }
+}
+
+export async function deleteProductImage(imageId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('shop_product_images').delete().eq('id', imageId);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('deleteProductImage', e);
+    return false;
+  }
 }
 
 /** Recherche des produits individuels (pas des boutiques), tous vendeurs
@@ -56,10 +108,20 @@ export async function fetchProduct(productId: string): Promise<ProductWithShop |
     if (error) throw error;
     if (!data) return null;
     const row = data as any;
+
+    const images = await fetchProductImages(productId);
+    const gallery = await Promise.all(
+      images.map(async (img) => ({
+        id: img.id,
+        image_url: (await getMediaUrl(img.image_key)) || '',
+      })),
+    );
+
     return {
       ...row,
       shop: row.shops,
       image_url: row.image_key ? await getMediaUrl(row.image_key) : null,
+      gallery: gallery.filter((g) => g.image_url),
     };
   } catch (e) {
     console.error('fetchProduct', e);
