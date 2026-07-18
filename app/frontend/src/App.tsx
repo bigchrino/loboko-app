@@ -36,6 +36,7 @@ import Entreprise from './pages/Entreprise';
 import CreateCompany from './pages/CreateCompany';
 import CompanyManage from './pages/CompanyManage';
 import CompanyDetail from './pages/CompanyDetail';
+import CompanyJobOffersManage from './pages/CompanyJobOffersManage';
 import EntrepriseOffres from './pages/EntrepriseOffres';
 import EntrepriseMusala from './pages/EntrepriseMusala';
 import Panier from './pages/Panier';
@@ -171,6 +172,7 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/entreprise/create', element: <CreateCompany /> },
   { path: '/entreprise/manage', element: <CompanyManage /> },
   { path: '/entreprise/company/:slug', element: <CompanyDetail /> },
+  { path: '/entreprise/offres/manage', element: <CompanyJobOffersManage /> },
   { path: '/entreprise/offres', element: <EntrepriseOffres /> },
   { path: '/entreprise/musala', element: <EntrepriseMusala /> },
 
