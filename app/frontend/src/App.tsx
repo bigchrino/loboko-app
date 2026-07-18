@@ -33,6 +33,9 @@ import Settings from './pages/Settings';
 import OnboardingProfile from './pages/OnboardingProfile';
 import Suggestion from './pages/Suggestion';
 import Entreprise from './pages/Entreprise';
+import CreateCompany from './pages/CreateCompany';
+import CompanyManage from './pages/CompanyManage';
+import CompanyDetail from './pages/CompanyDetail';
 import EntrepriseOffres from './pages/EntrepriseOffres';
 import EntrepriseMusala from './pages/EntrepriseMusala';
 import Panier from './pages/Panier';
@@ -165,6 +168,9 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/suggestion', element: <Suggestion /> },
 
   { path: '/entreprise', element: <Entreprise /> },
+  { path: '/entreprise/create', element: <CreateCompany /> },
+  { path: '/entreprise/manage', element: <CompanyManage /> },
+  { path: '/entreprise/company/:slug', element: <CompanyDetail /> },
   { path: '/entreprise/offres', element: <EntrepriseOffres /> },
   { path: '/entreprise/musala', element: <EntrepriseMusala /> },
 
