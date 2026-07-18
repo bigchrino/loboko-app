@@ -1,8 +1,30 @@
+import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { Link } from 'react-router-dom';
-import { Building2, ClipboardList, Store, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Building2, ClipboardList, Store, ChevronRight, Settings } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchMyCompany, getCompanyColor, Company } from '@/lib/companies';
 
 export default function Entreprise() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const c = await fetchMyCompany(user.id);
+      setCompany(c);
+      setLoading(false);
+    })();
+  }, [user?.id]);
+
+  const companyColor = company ? getCompanyColor(company.color_key) : null;
+
   return (
     <Layout title="Entreprise">
       <div className="space-y-6">
@@ -12,6 +34,27 @@ export default function Entreprise() {
           </div>
           <h1 className="text-2xl font-bold">Entreprise</h1>
         </div>
+
+        {!loading && (
+          company ? (
+            <button
+              onClick={() => navigate('/entreprise/manage')}
+              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl font-semibold text-sm text-white"
+              style={{ backgroundColor: companyColor?.hex }}
+            >
+              <Settings size={16} />
+              Gérer mon entreprise
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/entreprise/create')}
+              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm"
+            >
+              <Building2 size={16} />
+              Ajouter mon entreprise
+            </button>
+          )
+        )}
 
         <Link
           to="/entreprise/offres"
