@@ -43,7 +43,19 @@ export function ensurePresence(userId: string): RealtimeChannel {
 
   ch.on('presence', { event: 'sync' }, () => {
     const state = ch.presenceState();
-    const ids = new Set<string>(Object.keys(state));
+    const ids = new Set<string>();
+    // On lit à la fois les CLÉS (comportement historique, utilisé par les
+    // clients qui définissent presence.key = userId, comme le web
+    // lui-même) ET le contenu de chaque présence suivie (user_id dans le
+    // payload) — nécessaire pour les clients qui ne peuvent pas définir
+    // cette clé (le SDK Flutter/Dart actuel n'expose pas cette option),
+    // mais qui envoient bien leur user_id dans les données suivies.
+    Object.entries(state).forEach(([key, metas]) => {
+      ids.add(key);
+      (metas as Array<{ user_id?: string }>).forEach((m) => {
+        if (m?.user_id) ids.add(m.user_id);
+      });
+    });
     onlineIds = ids;
     emitOnline();
   });
