@@ -53,7 +53,7 @@ export default function ServiceOrder() {
   const handleUseMyLocation = async () => {
     setLocating(true);
     try {
-      const { coords: position, error } = await getCurrentPosition();
+      const { coords: position, error, accuracyMeters } = await getCurrentPosition();
       if (!position) {
         if (error === 'denied') {
           toast.error('Localisation refusée. Décrivez votre adresse dans le champ ci-dessus.');
@@ -63,7 +63,7 @@ export default function ServiceOrder() {
         return;
       }
       setCoords(position);
-      toast.success('Position ajoutée à la demande.');
+      toast.success(accuracyMeters != null ? `Position ajoutée (précision ≈ ${Math.round(accuracyMeters)} m).` : 'Position ajoutée à la demande.');
     } finally {
       setLocating(false);
     }
