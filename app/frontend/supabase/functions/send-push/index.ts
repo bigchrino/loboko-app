@@ -26,7 +26,7 @@ const CORS_HEADERS: Record<string, string> = {
 
 type Payload = {
   recipient_user_id: string;
-  kind?: 'dm' | 'group' | 'mention';
+  kind?: 'dm' | 'group' | 'mention' | 'urgent_order';
   title: string;
   body: string;
   data?: Record<string, unknown>;
@@ -115,6 +115,8 @@ serve(async (req: Request) => {
   if (kind === 'mention' && !pref.groups_enabled && !pref.dm_enabled) {
     return jsonResponse({ skipped: 'all_off' }, 200);
   }
+  // Urgent service requests are transactional alerts, not chat notifications.
+  // They are intentionally independent from DM/group preference toggles.
 
   const { data: subs, error: subErr } = await admin
     .from('push_subscriptions')
