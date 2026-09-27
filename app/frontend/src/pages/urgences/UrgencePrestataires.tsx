@@ -19,6 +19,7 @@ import {
 } from '@/lib/geo';
 import { LocateFixed, MessageCircle, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { triggerUrgentOrderPush } from '@/lib/push-trigger';
 
 interface UrgenceProvider extends Profile {
   distanceMeters?: number | null;
@@ -200,6 +201,11 @@ export default function UrgencePrestataires() {
       });
 
       if (error) throw error;
+
+      triggerUrgentOrderPush({
+        recipientId: requestFor.user_id,
+        orderId: data.id,
+      });
 
       toast.success('Demande urgente envoyée au prestataire');
       navigate(`/my-orders/${data.id}`);
