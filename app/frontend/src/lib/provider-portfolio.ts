@@ -43,11 +43,15 @@ export async function getPortfolioSignedUrl(
       ? mediaKey.split('::').slice(1).join('::')
       : mediaKey;
 
-    const { data } = supabase.storage
+    const { data, error } = await supabase.storage
       .from(PORTFOLIO_BUCKET)
-      .getPublicUrl(cleanKey);
+      .createSignedUrl(cleanKey, _expiresInSeconds);
 
-    return data?.publicUrl || null;
+    if (error) {
+      console.error('getPortfolioSignedUrl error', error);
+      return null;
+    }
+    return data?.signedUrl || null;
   } catch (e) {
     console.error('getPortfolioSignedUrl exception', e);
     return null;
