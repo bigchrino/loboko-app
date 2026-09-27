@@ -5,6 +5,7 @@ import { ArrowLeft, LocateFixed } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { isValidCoordinates } from '@/lib/geo';
 
 interface ServiceOrder {
   id: string;
@@ -327,7 +328,7 @@ export default function ServiceOrderDetail() {
           </div>
         )}
 
-        {order.latitude != null && order.longitude != null && (
+        {isValidCoordinates(order.latitude != null && order.longitude != null ? { latitude: order.latitude, longitude: order.longitude } : null) && (
           <a
             href={`https://www.google.com/maps?q=${order.latitude},${order.longitude}`}
             target="_blank"
