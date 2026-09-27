@@ -192,6 +192,8 @@ export async function fetchCategoriesWithCounts(): Promise<ServiceCategoryWithCo
       .from('profiles')
       .select('service_id')
       .eq('role', 'prestataire')
+      .eq('banned', false)
+      .eq('suspended', false)
       .is('deactivated_at', null)
       .is('deleted_at', null)
       .not('service_id', 'is', null);
