@@ -31,6 +31,7 @@ import {
   distanceInMeters,
   formatDistance,
   getCurrentPosition,
+  isValidCoordinates,
 } from '@/lib/geo';
 import {
   getProvinceNames,
@@ -171,8 +172,10 @@ export default function ProvidersByCategory() {
     const q = query.trim().toLowerCase();
 
     const withDistance: ProviderCardState[] = providers.map((p) => {
-      const hasBoth =
-        clientCoords && p.latitude != null && p.longitude != null;
+      const providerCoords = p.latitude != null && p.longitude != null
+        ? { latitude: p.latitude as number, longitude: p.longitude as number }
+        : null;
+      const hasBoth = !!clientCoords && isValidCoordinates(providerCoords);
       return {
         ...p,
         distanceMeters: hasBoth
