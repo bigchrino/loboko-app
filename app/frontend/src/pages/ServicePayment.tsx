@@ -82,9 +82,6 @@ export default function ServicePayment() {
     try {
       const payment = await createPaymentForOrder({
         orderId: order.id,
-        clientId: order.client_id,
-        providerId: order.provider_id,
-        amount,
         currency,
       });
 
@@ -92,16 +89,6 @@ export default function ServicePayment() {
         toast.error('Paiement impossible');
         return;
       }
-
-      await supabase
-        .from('service_orders')
-        .update({
-          payment_id: payment.id,
-          payment_status: 'held',
-          is_paid: true,
-          paid_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
 
       toast.success('Paiement préparé');
 
