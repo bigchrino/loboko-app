@@ -51,6 +51,7 @@ type TriggerArgs = {
   title: string;
   body: string;
   conversationId: string;
+  data?: Record<string, unknown>;
 };
 
 /**
@@ -75,7 +76,7 @@ export function notificationPreview(raw: string | null | undefined, fallback: st
  *   state here. (Recipient-side suppression happens in the service worker.)
  */
 export function triggerPushNotification(args: TriggerArgs): void {
-  const { recipientId, kind, title, body, conversationId } = args;
+  const { recipientId, kind, title, body, conversationId, data } = args;
   if (!recipientId || !title) return;
 
   void (async () => {
@@ -103,6 +104,7 @@ export function triggerPushNotification(args: TriggerArgs): void {
           data: {
             type: kind === 'mention' ? 'group' : kind,
             conversation_id: conversationId,
+            ...(data ?? {}),
           },
         },
       });
@@ -211,5 +213,6 @@ export function triggerUrgentOrderPush(args: {
       ? `${clientName.trim()} a besoin de votre intervention rapidement.`
       : 'Un client a besoin de votre intervention rapidement.',
     conversationId: orderId,
+    data: { order_id: orderId },
   });
 }
