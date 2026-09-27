@@ -28,9 +28,11 @@ interface ServiceOrder {
 
   payment_status:
     | 'pending'
+    | 'held'
     | 'paid'
     | 'failed'
-    | 'refunded';
+    | 'refunded'
+    | 'disputed';
 
   decline_reason: string | null;
   decline_is_budget_related: boolean | null;
@@ -130,139 +132,76 @@ export default function ServiceOrderDetail() {
 
   const confirmMissionCompleted = async () => {
     if (!order) return;
-  
+
     try {
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .update({
-          status: 'released',
-          provider_confirmed: true,
-          provider_confirmed_at: new Date().toISOString(),
-          released_at: new Date().toISOString(),
-        })
-        .eq('id', order.payment_id);
-  
-      if (paymentError) throw paymentError;
-  
-      const { error: orderError } = await supabase
-        .from('service_orders')
-        .update({
-          status: 'completed',
-          payment_status: 'paid',
-          mission_counted: true,
-        })
-        .eq('id', order.id);
-  
-      if (orderError) throw orderError;
-      const { error: availabilityError } = await supabase
-        .from('profiles')
-        .update({
-          availability_status: 'available',
-        })
-        .eq('user_id', order.provider_id);
-      
-      if (availabilityError) throw availabilityError;
-      if (!order.mission_counted) {
-        await supabase.rpc('increment_completed_jobs', {
-          provider_user_id: order.provider_id,
-        });
-      }
-  
-      setOrder({
-        ...order,
-        status: 'completed',
-        payment_status: 'paid',
-        mission_counted: true,
+      const { data, error } = await supabase.rpc('complete_service_order', {
+        p_order_id: order.id,
       });
-  
-      toast.success('Mission confirmée');
+
+      if (error) throw error;
+
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
+
+      toast.success('Mission terminée et paiement libéré');
     } catch (e: any) {
       console.error(e);
-      toast.error(
-        e?.message || 'Impossible de confirmer'
-      );
+      toast.error(e?.message || 'Impossible de confirmer');
     }
   };
+
   const acceptOrder = async () => {
     if (!order) return;
-  
+
     try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({
-          status: 'accepted',
-        })
-        .eq('id', order.id);
-  
-      if (error) throw error;
-      const { error: availabilityError } = await supabase
-        .from('profiles')
-        .update({
-          availability_status: 'busy',
-        })
-        .eq('user_id', order.provider_id);
-      
-      if (availabilityError) throw availabilityError;
-  
-      setOrder({
-        ...order,
-        status: 'accepted',
+      const { data, error } = await supabase.rpc('accept_service_order', {
+        p_order_id: order.id,
       });
-  
+
+      if (error) throw error;
+
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
+
       toast.success('Commande acceptée');
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Action impossible');
     }
   };
-  
+
   const refuseOrder = async () => {
     if (!order) return;
-  
+
     if (!refusalReason.trim()) {
       toast.error('Ajoutez une raison');
       return;
     }
-  
+
     if (isBudgetIssue && !requestedBudget.trim()) {
       toast.error('Ajoutez le budget demandé');
       return;
     }
 
-    // Une contre-proposition de prix reste une commande "ouverte" — le
-    // client peut encore l'accepter — contrairement à un refus classique,
-    // qui est définitif.
-    const newStatus = isBudgetIssue ? 'counter_price' : 'refused';
-  
+    const budgetValue = isBudgetIssue ? Number(requestedBudget) : null;
+    if (isBudgetIssue && (!Number.isFinite(budgetValue) || (budgetValue ?? 0) <= 0)) {
+      toast.error('Ajoutez un budget valide');
+      return;
+    }
+
     try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({
-          status: newStatus,
-          decline_reason: refusalReason.trim(),
-          decline_is_budget_related: isBudgetIssue,
-          provider_requested_budget: isBudgetIssue
-            ? Number(requestedBudget)
-            : null,
-          declined_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-  
-      if (error) throw error;
-  
-      setOrder({
-        ...order,
-        status: newStatus,
-        decline_reason: refusalReason.trim(),
-        decline_is_budget_related: isBudgetIssue,
-        provider_requested_budget: isBudgetIssue
-          ? Number(requestedBudget)
-          : null,
+      const { data, error } = await supabase.rpc('respond_service_order', {
+        p_order_id: order.id,
+        p_reason: refusalReason.trim(),
+        p_requested_budget: budgetValue,
       });
-  
-      toast.success(
-        isBudgetIssue ? 'Contre-proposition envoyée' : 'Commande refusée',
-      );
+
+      if (error) throw error;
+
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
+
+      toast.success(isBudgetIssue ? 'Contre-proposition envoyée' : 'Commande refusée');
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Action impossible');
@@ -271,31 +210,17 @@ export default function ServiceOrderDetail() {
 
   /** Le client accepte le nouveau prix proposé par le prestataire. */
   const acceptCounterPrice = async () => {
-    if (!order || order.provider_requested_budget == null) return;
+    if (!order) return;
 
     try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({
-          status: 'accepted',
-          proposed_budget: order.provider_requested_budget,
-        })
-        .eq('id', order.id);
+      const { data, error } = await supabase.rpc('accept_service_counter_price', {
+        p_order_id: order.id,
+      });
 
       if (error) throw error;
 
-      const { error: availabilityError } = await supabase
-        .from('profiles')
-        .update({ availability_status: 'busy' })
-        .eq('user_id', order.provider_id);
-
-      if (availabilityError) throw availabilityError;
-
-      setOrder({
-        ...order,
-        status: 'accepted',
-        proposed_budget: order.provider_requested_budget,
-      });
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
 
       toast.success('Nouveau prix accepté, commande confirmée');
     } catch (e: any) {
@@ -309,14 +234,15 @@ export default function ServiceOrderDetail() {
     if (!order) return;
 
     try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', order.id);
+      const { data, error } = await supabase.rpc('cancel_service_order', {
+        p_order_id: order.id,
+      });
 
       if (error) throw error;
 
-      setOrder({ ...order, status: 'cancelled' });
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
+
       toast.success('Commande annulée');
     } catch (e: any) {
       console.error(e);
@@ -329,53 +255,16 @@ export default function ServiceOrderDetail() {
     if (!order) return;
 
     try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({ status: 'cancelled' })
-        .eq('id', order.id);
+      const { data, error } = await supabase.rpc('cancel_service_order', {
+        p_order_id: order.id,
+      });
 
       if (error) throw error;
 
-      setOrder({ ...order, status: 'cancelled' });
+      const updated = data as ServiceOrder | null;
+      if (updated) setOrder(updated);
+
       toast.success('Demande annulée');
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'Action impossible');
-    }
-  };
-
-  const completeOrder = async () => {
-    if (!order) return;
-  
-    try {
-      const { error } = await supabase
-        .from('service_orders')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-  
-      if (error) throw error;
-      const { error: availabilityError } = await supabase
-        .from('profiles')
-        .update({
-          availability_status: 'available',
-        })
-        .eq('user_id', order.provider_id);
-      
-      if (availabilityError) throw availabilityError;
-  
-      await supabase.rpc('increment_completed_jobs', {
-        provider_user_id: order.provider_id,
-      });
-  
-      setOrder({
-        ...order,
-        status: 'completed',
-      });
-  
-      toast.success('Mission terminée');
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Action impossible');
@@ -516,14 +405,14 @@ export default function ServiceOrderDetail() {
           </button>
         )}
 
-        {isProvider &&
+        {isClient &&
           order.status === 'accepted' &&
           order.payment_status === 'held' && (
             <button
               onClick={confirmMissionCompleted}
               className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold"
             >
-              Confirmer la mission terminée
+              Confirmer la mission terminée et libérer le paiement
             </button>
           )}
         {isClient &&
@@ -536,14 +425,6 @@ export default function ServiceOrderDetail() {
               Payer le prestataire
             </button>
           )}
-        {isClient && order.status === 'accepted' && (
-          <button
-            onClick={completeOrder}
-            className="w-full py-3 rounded-xl bg-[#2563eb] text-white font-semibold"
-          >
-            Marquer la mission comme terminée
-          </button>
-        )}
         {isProvider && order.status === 'requested' && (
           <div className="space-y-4">
         
