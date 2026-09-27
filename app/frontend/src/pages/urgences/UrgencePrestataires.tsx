@@ -188,27 +188,16 @@ export default function UrgencePrestataires() {
 
     setSubmittingRequest(true);
     try {
-      const { data, error } = await supabase
-        .from('service_orders')
-        .insert({
-          client_id: user.id,
-          prestataire_id: requestFor.user_id,
-          provider_id: requestFor.user_id,
-          service_id: serviceId,
-          title: requestDescription.trim().slice(0, 80),
-          description: requestDescription.trim(),
-          proposed_budget: requestBudget ? Number(requestBudget) : null,
-          address_text: requestAddress.trim() || null,
-          // Réutilise la position GPS déjà connue pour la recherche —
-          // pas besoin de la redemander pour une urgence.
-          latitude: clientCoords?.latitude ?? null,
-          longitude: clientCoords?.longitude ?? null,
-          urgency_level: 'urgent',
-          status: 'requested',
-          payment_status: 'pending',
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('place_service_order', {
+        p_provider_id: requestFor.user_id,
+        p_service_id: serviceId,
+        p_description: requestDescription.trim(),
+        p_proposed_budget: requestBudget ? Number(requestBudget) : null,
+        p_address_text: requestAddress.trim() || null,
+        p_latitude: clientCoords?.latitude ?? null,
+        p_longitude: clientCoords?.longitude ?? null,
+        p_urgency_level: 'urgent',
+      });
 
       if (error) throw error;
 
