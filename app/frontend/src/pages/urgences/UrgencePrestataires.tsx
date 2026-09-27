@@ -99,7 +99,7 @@ export default function UrgencePrestataires() {
     try {
       let q = supabase
         .from('profiles')
-        .select('*')
+        .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
         .eq('role', 'prestataire')
         .eq('service_id', serviceId)
         // Les indisponibles ne sont JAMAIS affichés en urgence — on ne
