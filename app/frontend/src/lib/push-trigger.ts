@@ -9,7 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { isConversationActive } from '@/lib/active-conversation';
 
-type PushKind = 'dm' | 'group' | 'mention';
+type PushKind = 'dm' | 'group' | 'mention' | 'urgent_order';
 
 /**
  * Fan-out a group push notification to every member of the group except
@@ -193,4 +193,23 @@ export function triggerMentionPush(args: {
       console.warn('[push-trigger] mention push unexpected error', e);
     }
   })();
+}
+
+/** Best-effort push for a newly created urgent service order. */
+export function triggerUrgentOrderPush(args: {
+  recipientId: string;
+  orderId: string;
+  clientName?: string | null;
+}): void {
+  const { recipientId, orderId, clientName } = args;
+  if (!recipientId || !orderId) return;
+  triggerPushNotification({
+    recipientId,
+    kind: 'urgent_order',
+    title: '🔴 Nouvelle demande urgente',
+    body: clientName?.trim()
+      ? `${clientName.trim()} a besoin de votre intervention rapidement.`
+      : 'Un client a besoin de votre intervention rapidement.',
+    conversationId: orderId,
+  });
 }
