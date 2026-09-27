@@ -70,6 +70,7 @@ export type GeolocationErrorReason =
 export interface GeolocationResult {
   coords: Coordinates | null;
   error: GeolocationErrorReason | null;
+  accuracyMeters: number | null;
 }
 
 /**
@@ -83,7 +84,7 @@ export function getCurrentPosition(
 ): Promise<GeolocationResult> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      resolve({ coords: null, error: 'unsupported' });
+      resolve({ coords: null, error: 'unsupported', accuracyMeters: null });
       return;
     }
 
@@ -94,16 +95,16 @@ export function getCurrentPosition(
           longitude: position.coords.longitude,
         };
         if (!isValidCoordinates(coords)) {
-          resolve({ coords: null, error: 'unavailable' });
+          resolve({ coords: null, error: 'unavailable', accuracyMeters: null });
           return;
         }
-        resolve({ coords, error: null });
+        resolve({ coords, error: null, accuracyMeters: position.coords.accuracy });
       },
       (err) => {
         let reason: GeolocationErrorReason = 'unavailable';
         if (err.code === err.PERMISSION_DENIED) reason = 'denied';
         else if (err.code === err.TIMEOUT) reason = 'timeout';
-        resolve({ coords: null, error: reason });
+        resolve({ coords: null, error: reason, accuracyMeters: null });
       },
       {
         enableHighAccuracy: true,
