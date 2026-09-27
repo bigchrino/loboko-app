@@ -562,12 +562,12 @@ export default function ProvidersByCategory() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate(`/messages/contact/${p.user_id}`)}
+                  onClick={() => navigate(`/order/${p.user_id}`)}
                   className="p-2 rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] transition-colors flex-shrink-0"
-                  aria-label="Contacter"
-                  title="Contacter"
+                  aria-label="Commander ce service"
+                  title="Commander ce service"
                 >
-                  <MessageCircle size={16} />
+                  <Briefcase size={16} />
                 </button>
               </li>
             );
