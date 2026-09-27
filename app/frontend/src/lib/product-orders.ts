@@ -80,12 +80,9 @@ export async function completeProductOrder(
   orderId: string,
 ): Promise<{ data: ProductOrder | null; error: string | null }> {
   try {
-    const { data, error } = await supabase
-      .from('product_orders')
-      .update({ status: 'completed', updated_at: new Date().toISOString() })
-      .eq('id', orderId)
-      .select()
-      .single();
+    const { data, error } = await supabase.rpc('complete_product_order', {
+      p_order_id: orderId,
+    });
     if (error) throw error;
     return { data: data as ProductOrder, error: null };
   } catch (e) {
