@@ -143,7 +143,11 @@ export async function uploadMediaEx(
  * `getSignedStorageUrl` instead and only at the moment of actual use
  * (typically on click, not at render time).
  */
-const PRIVATE_BUCKETS: ReadonlySet<string> = new Set(['message-documents']);
+const PRIVATE_BUCKETS: ReadonlySet<string> = new Set([
+  'message-documents',
+  'message-media',
+  'voice-notes',
+]);
 
 /** Split a storage key "bucket::path" into its parts. */
 function parseStorageKey(storageKey: string): { bucket: string; path: string } {
@@ -160,14 +164,13 @@ function parseStorageKey(storageKey: string): { bucket: string; path: string } {
 /**
  * Resolve a storage key produced by `uploadMedia` into a browser-usable URL.
  *
- * For **public** buckets (`avatars`, `posts`, `message-media`, `voice-notes`,
- * `statuses`), this returns a standard public URL that can be placed in an
- * `<img>`/`<video>` tag.
+ * Public buckets such as `avatars`, `posts` and `statuses` return a
+ * standard public URL.
  *
- * For **private** buckets (`message-documents`), this returns `null` — the
- * caller must use `getSignedStorageUrl` on demand instead. This prevents
- * rendering a dead public URL and forces the caller to generate a short-
- * lived signed URL only when the user explicitly asks for the file.
+ * Private chat buckets (`message-documents`, `message-media`,
+ * `voice-notes`) never return a public URL. Callers must use
+ * `getSignedStorageUrl`, whose RLS check ensures the current user is
+ * allowed to access the object.
  */
 export async function getMediaUrl(storageKey?: string | null): Promise<string | null> {
   if (!storageKey) return null;
