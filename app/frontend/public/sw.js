@@ -94,6 +94,9 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const targetPath = (() => {
+    if (data.type === 'urgent_order' && (data.order_id || data.conversation_id)) {
+      return `/my-orders/${data.order_id || data.conversation_id}`;
+    }
     if (data.type === 'group' && data.conversation_id) {
       return `/groups/${data.conversation_id}`;
     }
