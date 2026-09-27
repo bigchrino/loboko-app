@@ -1,7 +1,7 @@
 /* LOBOKO Service Worker — Web Push + notification click routing */
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'loboko-sw-v1';
+const CACHE_NAME = 'loboko-sw-v2';
 
 // Currently-focused conversation, broadcast from the app via postMessage.
 // Shape: { type: 'dm'|'group', id: string } | null
