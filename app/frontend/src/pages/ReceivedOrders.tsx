@@ -3,6 +3,7 @@ import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface ServiceOrder {
   id: string;
@@ -55,7 +56,9 @@ export default function ReceivedOrders() {
   };
 
   useEffect(() => {
-    const loadOrders = async () => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const loadOrders = async (notifyUrgent = false) => {
       if (!user?.id) return;
 
       try {
@@ -83,6 +86,11 @@ export default function ReceivedOrders() {
         );
 
         setOrders(list);
+
+        if (notifyUrgent) {
+          const newestUrgent = list.find((o) => o.urgency_level === 'urgent' && o.status === 'requested');
+          if (newestUrgent) toast.warning('Nouvelle demande urgente reçue');
+        }
 
         const clientIds = Array.from(
           new Set(
@@ -120,6 +128,24 @@ export default function ReceivedOrders() {
     };
 
     loadOrders();
+
+    if (user?.id) {
+      channel = supabase
+        .channel(`urgent-orders-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'service_orders', filter: `provider_id=eq.${user.id}` },
+          (payload) => {
+            const next = payload.new as ServiceOrder;
+            loadOrders(next.urgency_level === 'urgent');
+          },
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [user?.id, location.key]);
 
   return (
