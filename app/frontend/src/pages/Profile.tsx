@@ -90,7 +90,7 @@ export default function Profile() {
   const handleUseMyLocation = async () => {
     setLocating(true);
     try {
-      const { coords, error } = await getCurrentPosition();
+      const { coords, error, accuracyMeters } = await getCurrentPosition();
       if (!coords) {
         if (error === 'denied') {
           toast.error(
@@ -105,7 +105,7 @@ export default function Profile() {
       }
       setLatitude(coords.latitude);
       setLongitude(coords.longitude);
-      toast.success('Position capturée — pensez à Enregistrer pour la sauvegarder.');
+      toast.success(accuracyMeters != null ? `Position capturée (précision ≈ ${Math.round(accuracyMeters)} m) — pensez à Enregistrer.` : 'Position capturée — pensez à Enregistrer pour la sauvegarder.');
     } finally {
       setLocating(false);
     }
