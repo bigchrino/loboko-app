@@ -213,6 +213,6 @@ export function triggerUrgentOrderPush(args: {
       ? `${clientName.trim()} a besoin de votre intervention rapidement.`
       : 'Un client a besoin de votre intervention rapidement.',
     conversationId: orderId,
-    data: { order_id: orderId },
+    data: { order_id: orderId, urgency: 'urgent' },
   });
 }
