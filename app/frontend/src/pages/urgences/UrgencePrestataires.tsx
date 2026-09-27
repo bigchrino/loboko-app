@@ -42,6 +42,12 @@ export default function UrgencePrestataires() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
+  const clearStaleResults = () => {
+    setProviders([]);
+    setSearched(false);
+    setRequestFor(null);
+  };
+
   // Formulaire "demande urgente" (Phase 3 point 6) : remplace le simple
   // message par une vraie commande structurée, créée directement depuis
   // cette page — sans repasser par tous les champs déjà connus (service,
@@ -77,6 +83,7 @@ export default function UrgencePrestataires() {
         return;
       }
       setClientCoords(coords);
+      clearStaleResults();
       if (accuracyMeters != null && accuracyMeters > 1000) toast.warning(`Position approximative (±${Math.round(accuracyMeters)} m).`);
     } finally {
       setLocating(false);
@@ -234,7 +241,7 @@ export default function UrgencePrestataires() {
 
             <ServiceCategorySelect
               value={serviceId}
-              onChange={(id) => setServiceId(id)}
+              onChange={(id) => { setServiceId(id); clearStaleResults(); }}
               placeholder="Choisissez un service urgent..."
             />
           </div>
@@ -246,7 +253,7 @@ export default function UrgencePrestataires() {
               </span>
               <button
                 type="button"
-                onClick={() => setClientCoords(null)}
+                onClick={() => { setClientCoords(null); clearStaleResults(); }}
                 className="text-xs text-[var(--loboko-text-muted)] hover:text-[var(--loboko-text)] underline flex-shrink-0"
               >
                 Modifier
@@ -281,6 +288,7 @@ export default function UrgencePrestataires() {
                     setProvince(e.target.value);
                     setCity('');
                     setCommune('');
+                    clearStaleResults();
                   }}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm"
                 >
@@ -304,6 +312,7 @@ export default function UrgencePrestataires() {
                   onChange={(e) => {
                     setCity(e.target.value);
                     setCommune('');
+                    clearStaleResults();
                   }}
                   disabled={!province}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm disabled:opacity-50"
@@ -325,7 +334,7 @@ export default function UrgencePrestataires() {
 
                 <select
                   value={commune}
-                  onChange={(e) => setCommune(e.target.value)}
+                  onChange={(e) => { setCommune(e.target.value); clearStaleResults(); }}
                   disabled={!city}
                   className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm disabled:opacity-50"
                 >
