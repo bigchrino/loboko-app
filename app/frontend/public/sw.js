@@ -85,7 +85,7 @@ self.addEventListener('push', (event) => {
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       data,
-      requireInteraction: false,
+      requireInteraction: data.type === 'urgent_order',
     });
   })());
 });
