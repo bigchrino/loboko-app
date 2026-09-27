@@ -225,3 +225,41 @@ GRANT EXECUTE ON FUNCTION public.complete_service_order(uuid) TO authenticated;
 DROP POLICY IF EXISTS "Service orders update by client or provider" ON public.service_orders;
 DROP POLICY IF EXISTS "Clients can update pending payments" ON public.payments;
 DROP POLICY IF EXISTS "Clients can create payments" ON public.payments;
+
+
+-- Explicitly keep anonymous users out of these SECURITY DEFINER RPCs.
+REVOKE EXECUTE ON FUNCTION public.accept_service_order(uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.respond_service_order(uuid,text,numeric) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.accept_service_counter_price(uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.cancel_service_order(uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.prepare_service_payment(uuid,text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.complete_service_order(uuid) FROM anon;
+
+-- The legacy counter RPC must not let providers forge completed-job totals.
+REVOKE EXECUTE ON FUNCTION public.increment_completed_jobs(uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.increment_completed_jobs(uuid) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.increment_completed_jobs(uuid) FROM authenticated;
+
+CREATE OR REPLACE FUNCTION public.prevent_self_completed_jobs_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF auth.uid() = OLD.user_id
+     AND NEW.completed_jobs_count IS DISTINCT FROM OLD.completed_jobs_count THEN
+    RAISE EXCEPTION 'completed_jobs_count is managed by LOBOKO';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_prevent_self_completed_jobs_change ON public.profiles;
+CREATE TRIGGER trg_prevent_self_completed_jobs_change
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW
+EXECUTE FUNCTION public.prevent_self_completed_jobs_change();
+
+REVOKE EXECUTE ON FUNCTION public.prevent_self_completed_jobs_change() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.prevent_self_completed_jobs_change() FROM anon;
+REVOKE EXECUTE ON FUNCTION public.prevent_self_completed_jobs_change() FROM authenticated;
