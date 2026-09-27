@@ -277,8 +277,10 @@ export async function fetchProvidersByCategory(
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
+      .eq('banned', false)
+      .eq('suspended', false)
       .is('deactivated_at', null)
       .is('deleted_at', null)
       .in('service_id', serviceIds)
@@ -301,8 +303,10 @@ export async function fetchProvidersByService(
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
+      .eq('banned', false)
+      .eq('suspended', false)
       .is('deactivated_at', null)
       .is('deleted_at', null)
       .eq('service_id', serviceId)
@@ -336,8 +340,10 @@ export async function fetchProviders(
   try {
     let q = supabase
       .from('profiles')
-      .select('*')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
+      .eq('banned', false)
+      .eq('suspended', false)
       .is('deactivated_at', null)
       .is('deleted_at', null);
     if (filters.serviceId) q = q.eq('service_id', filters.serviceId);
