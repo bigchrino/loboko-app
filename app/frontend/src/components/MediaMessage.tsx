@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getMediaUrl } from '@/lib/storage-helpers';
+import { getSignedStorageUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
 import LazyMedia from '@/components/LazyMedia';
 
@@ -20,7 +20,7 @@ function MediaInner({ kind, objectKey, duration }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    getMediaUrl(objectKey).then((u) => {
+    getSignedStorageUrl(objectKey, 3600).then(({ url: u }) => {
       if (!cancelled) setUrl(u);
     });
     return () => {
