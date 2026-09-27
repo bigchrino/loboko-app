@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { Play, Pause, RotateCcw, AlertCircle } from 'lucide-react';
-import { getMediaUrl } from '@/lib/storage-helpers';
+import { getSignedStorageUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
 import { VOICE_PLAYBACK_SPEEDS } from '@/lib/voice-config';
 
@@ -101,8 +101,8 @@ export default function VoiceMessage({ objectKey, duration, mine }: Props) {
     setUrl(null);
     setCurrentTime(0);
     setLoadedDuration(0);
-    getMediaUrl(objectKey)
-      .then((u) => {
+    getSignedStorageUrl(objectKey, 3600)
+      .then(({ url: u }) => {
         if (cancelled) return;
         if (!u) {
           setState('error');
