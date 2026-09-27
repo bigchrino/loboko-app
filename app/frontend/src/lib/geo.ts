@@ -14,6 +14,10 @@ export interface Coordinates {
   longitude: number;
 }
 
+export function isValidCoordinates(coords: Coordinates | null | undefined): coords is Coordinates {
+  return !!coords && Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude) && coords.latitude >= -90 && coords.latitude <= 90 && coords.longitude >= -180 && coords.longitude <= 180;
+}
+
 /**
  * Distance à vol d'oiseau entre deux points GPS, en mètres.
  * Formule de Haversine — largement suffisante pour trier/afficher des
@@ -85,13 +89,15 @@ export function getCurrentPosition(
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve({
-          coords: {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          },
-          error: null,
-        });
+        const coords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        if (!isValidCoordinates(coords)) {
+          resolve({ coords: null, error: 'unavailable' });
+          return;
+        }
+        resolve({ coords, error: null });
       },
       (err) => {
         let reason: GeolocationErrorReason = 'unavailable';
