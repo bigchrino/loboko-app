@@ -230,10 +230,10 @@ export default function ProvidersByCategory() {
       });
     }
     // 'recent' keeps the server order (created_at DESC).
-    // Finally, premium providers are always surfaced first (within each
-    // sort mode). This is a stable sort in modern JS engines so ties
-    // preserve the ordering chosen above.
-    sorted.sort(premiumFirst);
+    // Premium may boost normal discovery, but it must never override an
+    // explicit proximity sort: when the user asks for the closest provider,
+    // physical distance stays the primary ranking signal.
+    if (sort !== 'distance') sorted.sort(premiumFirst);
     return sorted;
   }, [
     providers,
