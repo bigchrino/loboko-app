@@ -82,6 +82,8 @@ export default function ServiceOrderDetail() {
   };
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const loadOrder = async () => {
       if (!orderId) return;
 
@@ -103,6 +105,21 @@ export default function ServiceOrderDetail() {
     };
 
     loadOrder();
+
+    if (orderId) {
+      channel = supabase
+        .channel(`service-order-${orderId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'service_orders', filter: `id=eq.${orderId}` },
+          (payload) => setOrder(payload.new as ServiceOrder),
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [orderId]);
 
   if (loading) {
