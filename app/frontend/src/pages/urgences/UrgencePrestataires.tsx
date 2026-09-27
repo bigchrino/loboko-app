@@ -62,7 +62,7 @@ export default function UrgencePrestataires() {
   const handleUseMyLocation = async () => {
     setLocating(true);
     try {
-      const { coords, error } = await getCurrentPosition();
+      const { coords, error, accuracyMeters } = await getCurrentPosition();
       if (!coords) {
         if (error === 'denied') {
           toast.error(
@@ -76,6 +76,7 @@ export default function UrgencePrestataires() {
         return;
       }
       setClientCoords(coords);
+      if (accuracyMeters != null && accuracyMeters > 1000) toast.warning(`Position approximative (±${Math.round(accuracyMeters)} m).`);
     } finally {
       setLocating(false);
     }
