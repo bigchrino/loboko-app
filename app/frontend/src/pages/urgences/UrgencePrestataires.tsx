@@ -15,6 +15,7 @@ import {
   distanceInMeters,
   formatDistance,
   getCurrentPosition,
+  isValidCoordinates,
 } from '@/lib/geo';
 import { LocateFixed, MessageCircle, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -119,8 +120,10 @@ export default function UrgencePrestataires() {
       if (error) throw error;
 
       const list = ((data as Profile[]) || []).map((p) => {
-        const hasBoth =
-          clientCoords && p.latitude != null && p.longitude != null;
+        const providerCoords = p.latitude != null && p.longitude != null
+          ? { latitude: p.latitude as number, longitude: p.longitude as number }
+          : null;
+        const hasBoth = !!clientCoords && isValidCoordinates(providerCoords);
         return {
           ...p,
           distanceMeters: hasBoth
