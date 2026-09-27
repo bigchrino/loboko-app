@@ -562,7 +562,7 @@ export default function ProvidersByCategory() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate(`/order/${p.user_id}`)}
+                  onClick={() => navigate(`/services/order/${p.user_id}`)}
                   className="p-2 rounded-full bg-[#2563eb] text-white hover:bg-[#1d4ed8] transition-colors flex-shrink-0"
                   aria-label="Commander ce service"
                   title="Commander ce service"
