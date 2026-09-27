@@ -50,32 +50,17 @@ export function calculateTotalPayment(amount: number): {
 
 export async function createPaymentForOrder(params: {
   orderId: string;
-  clientId: string;
-  providerId: string;
-  amount: number;
   currency: PaymentCurrency;
 }): Promise<PaymentRow | null> {
-  const { commission, total } = calculateTotalPayment(params.amount);
-
-  const { data, error } = await supabase
-    .from('payments')
-    .insert({
-      order_id: params.orderId,
-      client_id: params.clientId,
-      provider_id: params.providerId,
-      amount: params.amount,
-      commission_amount: commission,
-      total_amount: total,
-      currency: params.currency,
-      status: 'pending',
-    })
-    .select('*')
-    .single();
+  const { data, error } = await supabase.rpc('prepare_service_payment', {
+    p_order_id: params.orderId,
+    p_currency: params.currency,
+  });
 
   if (error) {
-    console.error('[payments] create failed', error);
+    console.error('[payments] prepare failed', error);
     throw error;
   }
 
-  return data as PaymentRow;
+  return (data as PaymentRow | null) ?? null;
 }
