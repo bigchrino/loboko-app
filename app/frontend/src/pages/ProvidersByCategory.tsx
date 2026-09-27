@@ -100,7 +100,7 @@ export default function ProvidersByCategory() {
   const handleUseMyLocation = async () => {
     setLocating(true);
     try {
-      const { coords, error } = await getCurrentPosition();
+      const { coords, error, accuracyMeters } = await getCurrentPosition();
       if (!coords) {
         if (error === 'denied') {
           toast.error(
@@ -115,6 +115,7 @@ export default function ProvidersByCategory() {
       }
       setClientCoords(coords);
       setSort('distance');
+      if (accuracyMeters != null && accuracyMeters > 1000) toast.warning(`Position approximative (±${Math.round(accuracyMeters)} m).`);
     } finally {
       setLocating(false);
     }
