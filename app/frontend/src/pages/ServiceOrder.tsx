@@ -88,20 +88,15 @@ export default function ServiceOrder() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('service_orders').insert({
-        client_id: user.id,
-        prestataire_id: userId,
-        provider_id: userId,
-        service_id: provider?.service_id || null,
-        title: description.trim().slice(0, 80),
-        description: description.trim(),
-        proposed_budget: budget ? Number(budget) : null,
-        address_text: addressText.trim() || null,
-        latitude: coords?.latitude ?? null,
-        longitude: coords?.longitude ?? null,
-        urgency_level: urgencyLevel,
-        status: 'requested',
-        payment_status: 'pending',
+      const { error } = await supabase.rpc('place_service_order', {
+        p_provider_id: userId,
+        p_service_id: provider?.service_id || null,
+        p_description: description.trim(),
+        p_proposed_budget: budget ? Number(budget) : null,
+        p_address_text: addressText.trim() || null,
+        p_latitude: coords?.latitude ?? null,
+        p_longitude: coords?.longitude ?? null,
+        p_urgency_level: urgencyLevel,
       });
 
       if (error) throw error;
