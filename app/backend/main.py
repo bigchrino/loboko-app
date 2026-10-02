@@ -79,8 +79,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="FastAPI Modular Template",
-    description="A best-practice FastAPI template with modular architecture",
+    title="LOBOKO API",
+    description="Backend API for LOBOKO",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -187,7 +187,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 def root():
-    return {"message": "FastAPI Modular Template is running"}
+    return {"message": "LOBOKO API is running"}
 
 
 @app.get("/health")
@@ -214,7 +214,6 @@ def run_in_debug_mode(app: FastAPI):
     from dotenv import load_dotenv
 
     # Load environment variables from ../.env in debug mode
-    # If `LOCAL_DEBUG=true` is set, then MetaGPT's `ProjectBuilder.build()` will generate the `.env` file
     env_path = Path(__file__).parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path, override=True)
