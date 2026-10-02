@@ -7,9 +7,8 @@ let runtimeConfig: {
 let configLoading = true;
 
 // Default fallback configuration
-// Priority: VITE_ATOMS_API_URL > VITE_API_BASE_URL > localhost dev fallback
+// Priority: VITE_API_BASE_URL > localhost dev fallback
 const ENV_API_URL =
-  (import.meta.env.VITE_ATOMS_API_URL as string | undefined) ||
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
   '';
 
@@ -68,7 +67,6 @@ export function getConfig() {
 
   // Then try Vite environment variables (for local development / Vercel)
   const envUrl =
-    (import.meta.env.VITE_ATOMS_API_URL as string | undefined) ||
     (import.meta.env.VITE_API_BASE_URL as string | undefined);
   if (envUrl) {
     const viteConfig = {
