@@ -21,9 +21,6 @@ from services.auth import initialize_admin_user
 
 def setup_logging():
     """Configure the logging system."""
-    if os.environ.get("IS_LAMBDA") == "true":
-        return
-
     # Create the logs directory
     log_dir = "logs"
     if not os.path.exists(log_dir):
