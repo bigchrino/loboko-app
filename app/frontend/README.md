@@ -1,65 +1,31 @@
-# Shadcn-UI Template Usage Instructions
+# LOBOKO Frontend
 
-## technology stack
+Frontend web de LOBOKO, construit avec React, TypeScript, Vite, Tailwind CSS et shadcn/ui.
 
-This project is built with:
+## Développement
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-All shadcn/ui components have been downloaded under `@/components/ui`.
-
-## File Structure
-
-- `index.html` - HTML entry point
-- `vite.config.ts` - Vite configuration file
-- `tailwind.config.ts` - Tailwind CSS configuration file
-- `package.json` - NPM dependencies and scripts
-- `src/main.tsx` - Project entry point
-- `src/App.tsx` - Router shell (imports pages and sets up routes)
-- `src/pages/Index.tsx` - Main page entry point for `/` by default; replace the placeholder page here unless you explicitly reroute `/` elsewhere
-- `src/index.css` - Existing CSS configuration
-
-## Components
-
-- All shadcn/ui components are pre-downloaded and available at `@/components/ui`
-
-## Styling
-
-- Add global styles to `src/index.css` or create new CSS files as needed
-- Use Tailwind classes for styling components
-
-## Development
-
-- Import components from `@/components/ui` in your React components
-- Customize the UI by modifying the Tailwind configuration
-- Do not stop after editing isolated components or only `src/App.tsx`. The default template homepage lives in `src/pages/Index.tsx`, and leaving `Welcome to Atoms` there means the app is still unfinished.
-- Completion check: either replace `src/pages/Index.tsx` with your real homepage, or update the `/` route in `src/App.tsx` so the live homepage no longer renders the default placeholder page.
-
-## Note
-
-- The `@/` path alias points to the `src/` directory
-- Do NOT modify `index.html` — the title, description, and logo use environment variable placeholders (`%VITE_APP_TITLE%`, etc.) that are configured at deployment time.
-
-# Commands
-
-**Install Dependencies**
-
-```shell
-pnpm i
+```bash
+npm install
+npm run dev
 ```
 
-**Start Preview**
+## Build
 
-```shell
-pnpm run dev
+```bash
+npm run build
+npm run preview
 ```
 
-**To build**
+## Structure principale
 
-```shell
-pnpm run build
-```
+- `src/main.tsx` : point d'entrée React
+- `src/App.tsx` : routes principales
+- `src/pages/` : pages de l'application
+- `src/components/` : composants réutilisables
+- `src/lib/` : services et utilitaires
+- `public/` : ressources statiques
+- `supabase/` : migrations et fonctions Supabase
+
+## Configuration
+
+Les variables publiques du frontend utilisent le préfixe `VITE_`. Les secrets serveur, notamment les clés de service Supabase, ne doivent jamais être ajoutés au bundle frontend.
