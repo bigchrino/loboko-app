@@ -66,14 +66,9 @@ export default defineConfig(({ command }) => {
             'react-vendor': ['react', 'react-dom'],
             'router-vendor': ['react-router-dom'],
             'ui-vendor': [
-              '@radix-ui/react-dialog',
-              '@radix-ui/react-label',
-              '@radix-ui/react-popover',
-              '@radix-ui/react-separator',
               '@radix-ui/react-slot',
               '@radix-ui/react-tooltip',
             ],
-            'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
             'utils-vendor': [
               'axios',
               'clsx',
