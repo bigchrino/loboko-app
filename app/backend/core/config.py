@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     # Application
-    app_name: str = "FastAPI Modular Template"
+    app_name: str = "LOBOKO API"
     debug: bool = False
     version: str = "1.0.0"
 
@@ -17,23 +17,12 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # AWS Lambda Configuration
-    is_lambda: bool = False
-    lambda_function_name: str = "fastapi-backend"
-    aws_region: str = "us-east-1"
 
     @property
     def backend_url(self) -> str:
         """Generate backend URL from host and port."""
-        if self.is_lambda:
-            # In Lambda environment, return the API Gateway URL
-            return os.environ.get(
-                "PYTHON_BACKEND_URL", f"https://{self.lambda_function_name}.execute-api.{self.aws_region}.amazonaws.com"
-            )
-        else:
-            # Use localhost for external callbacks instead of 0.0.0.0
-            display_host = "127.0.0.1" if self.host == "0.0.0.0" else self.host
-            return os.environ.get("PYTHON_BACKEND_URL", f"http://{display_host}:{self.port}")
+        display_host = "127.0.0.1" if self.host == "0.0.0.0" else self.host
+        return os.environ.get("PYTHON_BACKEND_URL", f"http://{display_host}:{self.port}")
 
     class Config:
         case_sensitive = False
