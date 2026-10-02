@@ -106,7 +106,7 @@ class AuthService:
 
 async def initialize_admin_user():
     """Initialize admin user if not exists"""
-    if "MGX_IGNORE_INIT_ADMIN" in os.environ:
+    if "LOBOKO_IGNORE_INIT_ADMIN" in os.environ:
         logger.info("Ignore initialize admin")
         return
 
