@@ -33,7 +33,7 @@ dynamic_routes_initialized = False
 seo_paths = set()
 
 # SEO domain placeholder - will be replaced with actual request domain at runtime
-SEO_DOMAIN_PLACEHOLDER = "https://atoms.template.com"
+SEO_DOMAIN_PLACEHOLDER = "https://loboko-app.vercel.app"
 
 
 def format_traceback() -> str:
