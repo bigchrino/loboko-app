@@ -15,7 +15,6 @@ Le point d'entrée principal est `main.py`. L'API expose également un endpoint 
 - `schemas/` : schémas de validation
 - `services/` : logique métier et intégrations
 - `alembic/` : migrations du backend historique
-- `lambda_handler.py` : compatibilité avec le déploiement AWS Lambda
 
 ## Architecture actuelle
 
