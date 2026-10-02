@@ -126,7 +126,7 @@ export default function ComposePost({ onPosted }: Props) {
           : null,
       };
 
-      let res = await supabase
+      const res = await supabase
         .from('posts')
         .insert(basePayload)
         .select('id')
