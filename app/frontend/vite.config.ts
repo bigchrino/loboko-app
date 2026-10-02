@@ -70,11 +70,9 @@ export default defineConfig(({ command }) => {
               '@radix-ui/react-tooltip',
             ],
             'utils-vendor': [
-              'axios',
               'clsx',
               'tailwind-merge',
               'class-variance-authority',
-              'date-fns',
               'lucide-react',
             ],
             'query-vendor': ['@tanstack/react-query'],
