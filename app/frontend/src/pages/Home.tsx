@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import ComposePost from '@/components/ComposePost';
@@ -8,37 +8,33 @@ import AdsCarousel from '@/components/AdsCarousel';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Clé générique : la position de scroll exacte de la page d'accueil, mise à
-// jour en continu pendant qu'on y est. Contrairement à `home-post-id` (posé
-// uniquement quand on clique sur un post précis), celle-ci couvre TOUS les
-// cas où on quitte l'accueil (changement d'onglet, retour depuis Favoris,
-// Menu, etc.) pour qu'on retrouve exactement la même position au retour.
-const HOME_SCROLL_KEY = 'home-scroll-y';
+// Keep the loaded pages for this tab's current account. A return from a
+// publication must not replace a long feed with only its first ten posts.
+interface FeedSnapshot {
+  userId: string;
+  posts: PostItem[];
+  hasMore: boolean;
+  y: number;
+  heights: Record<string, number>;
+}
+let feedSnapshot: FeedSnapshot | null = null;
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') feedSnapshot = null;
+});
 
 export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [posts, setPosts] = useState<PostItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const PAGE_SIZE = 10;
-  
-
-  // Si on revient d'un post consulté OU simplement d'une autre page, on sait
-  // déjà dès le premier rendu s'il y a une position à restaurer (lecture
-  // synchrone du sessionStorage) — ça permet de garder le fil invisible dès
-  // le départ, sans jamais l'afficher au mauvais endroit avant de sauter à
-  // la bonne position.
-  const [restoring, setRestoring] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      (!!sessionStorage.getItem('home-post-id') ||
-        !!sessionStorage.getItem(HOME_SCROLL_KEY))
-  );
-
   const userId = user?.id || '';
-  
+  const [initial] = useState(() =>
+    feedSnapshot?.userId === userId ? feedSnapshot : null
+  );
+  const [posts, setPosts] = useState<PostItem[]>(initial?.posts ?? []);
+  const [loading, setLoading] = useState(!initial);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initial?.hasMore ?? true);
+  const PAGE_SIZE = 10;
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -95,99 +91,75 @@ export default function Home() {
     
 
   useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
+    if (!initial) void loadPosts();
+  }, [initial, loadPosts]);
 
-  // Mémorise en continu la position de scroll pendant qu'on est sur
-  // l'accueil (limité à une fois par frame pour ne pas surcharger). On ne
-  // fait volontairement RIEN au démontage : au moment où le composant se
-  // démonte (ex: on vient de cliquer sur un post), la page suivante a déjà
-  // commencé à remplacer le contenu, et si elle est plus courte, le
-  // navigateur réduit automatiquement `window.scrollY` — écrire cette
-  // valeur-là écraserait la bonne position, déjà enregistrée par le dernier
-  // événement de scroll avant le clic.
+  // Reconcile edits/deletions without replacing the cached order or hiding
+  // the feed. Newly published items are loaded on an explicit page refresh.
   useEffect(() => {
-    let frame: number | null = null;
-    const saveScroll = () => {
-      if (frame !== null) return;
-      frame = requestAnimationFrame(() => {
-        sessionStorage.setItem(HOME_SCROLL_KEY, String(window.scrollY));
-        frame = null;
-      });
-    };
-    window.addEventListener('scroll', saveScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', saveScroll);
-      if (frame !== null) cancelAnimationFrame(frame);
-    };
-  }, []);
+    if (!initial?.posts.length) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .in('id', initial.posts.map((post) => post.id))
+        .eq('hidden_by_moderation', false);
+      if (cancelled || error || !data) return;
+      const updated = new Map((data as PostItem[]).map((post) => [post.id, post]));
+      const cachedIds = new Set(initial.posts.map((post) => post.id));
+      setPosts((current) => current.flatMap((post) => {
+        if (!cachedIds.has(post.id)) return [post];
+        const fresh = updated.get(post.id);
+        return fresh ? [fresh] : [];
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [initial]);
 
-  // Ne restaurer la position qu'une seule fois par visite de la page (au
-  // premier chargement), jamais lors des changements ultérieurs de
-  // `posts.length` (ex: "Voir plus", nouvelle publication, suppression...).
-  // Sans ce garde-fou, le fil "remontait" sans arrêt vers l'ancienne position
-  // à chaque mise à jour de la liste.
-  const hasRestoredScrollRef = useRef(false);
+  // Restore before paint. Reserved card heights keep late-loading media
+  // from shortening the page and clamping a deep scroll position to the top.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: initial?.y ?? 0, behavior: 'instant' });
+  }, [initial]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (loading) return;
-    if (posts.length === 0) {
-      setRestoring(false);
-      return;
-    }
-    if (hasRestoredScrollRef.current) return;
-  
-    const postId = sessionStorage.getItem('home-post-id');
-    const savedY = sessionStorage.getItem(HOME_SCROLL_KEY);
-    if (!postId && !savedY) {
-      setRestoring(false);
-      return;
-    }
-  
-    hasRestoredScrollRef.current = true;
-  
-    // Deux frames suffisent pour que le fil (encore invisible) ait fini de
-    // se mettre en page avant qu'on calcule où scroller — inutile d'attendre
-    // un délai arbitraire pendant lequel l'utilisateur voyait le fil non
-    // positionné.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // On privilégie la position EXACTE mémorisée en continu (c'est
-        // littéralement "l'endroit où on était", peu importe où se trouvait
-        // le post visible à l'écran à ce moment-là). L'alignement sur le
-        // post précis ne sert que de filet si, pour une raison quelconque,
-        // on n'a pas de position brute valable.
-        const targetY = savedY !== null ? parseInt(savedY, 10) || 0 : null;
-
-        if (targetY !== null) {
-          window.scrollTo(0, targetY);
-        } else if (postId) {
-          const el = document.getElementById(`post-card-${postId}`);
-          el?.scrollIntoView({ block: 'start', behavior: 'auto' });
-        }
-
-        // On efface les traces pour que la restauration ne se reproduise pas
-        // lors d'une prochaine visite non liée.
-        sessionStorage.removeItem('home-post-id');
-        sessionStorage.removeItem('home-scroll');
-        sessionStorage.removeItem(HOME_SCROLL_KEY);
-        setRestoring(false);
-
-        // Filet de sécurité : certaines images du fil se chargent en
-        // différé et peuvent légèrement décaler la mise en page juste après
-        // qu'on ait repositionné le scroll. On revérifie une fois, un peu
-        // plus tard, et on ne corrige que si l'écart est net — pour ne
-        // jamais interrompre un scroll volontaire de l'utilisateur.
-        if (targetY !== null) {
-          setTimeout(() => {
-            if (Math.abs(window.scrollY - targetY) > 40) {
-              window.scrollTo(0, targetY);
-            }
-          }, 600);
-        }
-      });
+    const snapshot: FeedSnapshot = {
+      userId,
+      posts,
+      hasMore,
+      y: initial?.y ?? 0,
+      heights: { ...initial?.heights },
+    };
+    const save = () => {
+      snapshot.y = window.scrollY;
+      feedSnapshot = snapshot;
+    };
+    const cards = document.querySelectorAll<HTMLElement>('[data-home-post]');
+    const sizes = new ResizeObserver((entries) => {
+      for (const { target } of entries) {
+        const card = target as HTMLElement;
+        snapshot.heights[card.dataset.homePost!] = card.getBoundingClientRect().height;
+      }
     });
-  }, [loading, posts.length]);
+    cards.forEach((card) => {
+      snapshot.heights[card.dataset.homePost!] = card.getBoundingClientRect().height;
+      sizes.observe(card);
+    });
+    save();
+    // Capture clicks/keyboard navigation before the next route replaces
+    // the DOM. Never sample scrollY during unmount: the page may be shorter.
+    window.addEventListener('scroll', save, { passive: true });
+    document.addEventListener('click', save, true);
+    document.addEventListener('keydown', save, true);
+    return () => {
+      sizes.disconnect();
+      window.removeEventListener('scroll', save);
+      document.removeEventListener('click', save, true);
+      document.removeEventListener('keydown', save, true);
+    };
+  }, [loading, posts, hasMore, userId, initial]);
 
   return (
     <Layout title="Accueil">
@@ -249,7 +221,7 @@ export default function Home() {
       </div>
 
       <div id="loboko-feed" className="grid">
-        {(loading || restoring) && (
+        {loading && (
           <div className="col-start-1 row-start-1 text-center py-10 text-sm text-[var(--loboko-text-muted)]">
             Chargement des publications...
           </div>
@@ -257,7 +229,7 @@ export default function Home() {
 
         {!loading && (
           <div
-            className={`col-start-1 row-start-1 ${restoring ? 'invisible pointer-events-none' : ''}`}
+            className="col-start-1 row-start-1"
           >
             {posts.length === 0 ? (
               <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
@@ -275,12 +247,18 @@ export default function Home() {
               </div>
             ) : (
               posts.map((p) => (
-                <PostCard
+                <div
                   key={p.id}
-                  post={p}
-                  currentUserId={userId}
-                  onDeleted={loadPosts}
-                />
+                  className="flow-root"
+                  data-home-post={p.id}
+                  style={{ minHeight: initial?.heights[p.id] }}
+                >
+                  <PostCard
+                    post={p}
+                    currentUserId={userId}
+                    onDeleted={() => setPosts((current) => current.filter((post) => post.id !== p.id))}
+                  />
+                </div>
               ))
             )}
 
