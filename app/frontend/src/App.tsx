@@ -207,14 +207,6 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/services/order/:userId', element: <ServiceOrder /> },
 
   {
-    path: '/admin',
-    element: (
-      <AdminRoute>
-        <AdminDashboard />
-      </AdminRoute>
-    ),
-  },
-  {
     path: '/admin/reports',
     element: (
       <AdminRoute>
@@ -229,14 +221,6 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
         <AdminVerifications />
       </AdminRoute>
     ),
-  },
-  {
-    path: '/admin/reports',
-    element: (
-       <AdminRoute>
-        <AdminReports />
-      </AdminRoute>
-     ),
   },
 
   /* Marketplace */
@@ -254,7 +238,6 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 
   { path: '/favorites', element: <Favorites /> },
   { path: '/verification', element: <Verification /> },
-  { path: '/admin/verifications', element: <AdminVerifications /> },
 ];
 
 const AppRoutes = () => (

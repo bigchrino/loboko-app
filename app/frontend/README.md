@@ -5,15 +5,23 @@ Frontend web de LOBOKO, construit avec React, TypeScript, Vite, Tailwind CSS et 
 ## Développement
 
 ```bash
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
+```
+
+Le fichier `pnpm-lock.yaml` versionné fixe les versions des dépendances. Utiliser pnpm pour conserver des installations reproductibles.
+
+## Vérification
+
+```bash
+pnpm run lint
 ```
 
 ## Build
 
 ```bash
-npm run build
-npm run preview
+pnpm run build
+pnpm run preview
 ```
 
 ## Structure principale
