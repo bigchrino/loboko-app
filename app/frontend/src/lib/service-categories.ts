@@ -238,6 +238,7 @@ export interface ProviderProfile {
   availability_status?: 'available' | 'busy' | 'unavailable';
   completed_jobs_count?: number;
   is_verified?: boolean;
+  verification_status?: 'not_submitted' | 'pending' | 'approved' | 'rejected' | null;
   subscription_type?: 'free' | 'premium';
   subscription_expires_at?: string | null;
 }
@@ -277,7 +278,7 @@ export async function fetchProvidersByCategory(
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)
       .eq('suspended', false)
@@ -303,7 +304,7 @@ export async function fetchProvidersByService(
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)
       .eq('suspended', false)
@@ -340,7 +341,7 @@ export async function fetchProviders(
   try {
     let q = supabase
       .from('profiles')
-      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
+      .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)
       .eq('suspended', false)

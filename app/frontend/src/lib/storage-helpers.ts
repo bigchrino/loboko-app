@@ -18,6 +18,7 @@ const MAX_VIDEO_SIZE = 15 * 1024 * 1024; // 15 MB
 
 const MAX_SIZES: Record<string, number> = {
   avatars: MAX_IMAGE_SIZE, // images only
+  'group-avatars': MAX_IMAGE_SIZE,
   posts: MAX_VIDEO_SIZE, // mixed, tighter per-type check below
   'voice-notes': 10 * 1024 * 1024,
   'message-media': MAX_VIDEO_SIZE, // mixed, tighter per-type check below
@@ -34,6 +35,7 @@ const MIXED_BUCKETS: ReadonlySet<string> = new Set([
 
 export type UploadFolder =
   | 'avatars'
+  | 'group-avatars'
   | 'posts'
   | 'voice-notes'
   | 'message-media'

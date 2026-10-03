@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
+  type LucideIcon,
   Reply,
   Forward,
   Copy,
@@ -76,7 +77,7 @@ export default function MessageActionsMenu({
   const items: Array<{
     key: MessageAction;
     label: string;
-    icon: React.ComponentType<{ size?: number }>;
+    icon: LucideIcon;
     danger?: boolean;
     hidden?: boolean;
   }> = [

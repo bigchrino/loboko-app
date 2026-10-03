@@ -260,10 +260,12 @@ export default function Messages() {
     useEffect(() => {
       const handleError = (event: ErrorEvent) => {
         logger.error('[Messages Global Error]', {
-          message: event.message,
-          source: event.filename,
-          line: event.lineno,
-          column: event.colno,
+          data: {
+            message: event.message,
+            source: event.filename,
+            line: event.lineno,
+            column: event.colno,
+          },
           error: event.error,
         });
       };
@@ -288,7 +290,7 @@ export default function Messages() {
         );
       };
     }, []);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { changeTick, refresh: refreshMessagesBadge } = useMessages();
   const { startCall } = useCall();
   const { isOnline } = usePresence();
@@ -1022,7 +1024,7 @@ export default function Messages() {
       const preview = (() => {
         if (!decoded) return notificationPreview(payload.content, 'Nouveau message');
         switch (decoded.kind) {
-          case 'voice':
+          case 'audio':
             return '🎤 Note vocale';
           case 'image':
             return '📷 Photo';
@@ -1030,11 +1032,12 @@ export default function Messages() {
             return '🎬 Vidéo';
           case 'file':
             return '📎 Document';
-          case 'call':
+          case 'call_event':
             return '📞 Appel';
           case 'text':
+            return notificationPreview(decoded.text, 'Nouveau message');
           default:
-            return notificationPreview(decoded.text ?? payload.content, 'Nouveau message');
+            return 'Nouveau message';
         }
       })();
       triggerPushNotification({

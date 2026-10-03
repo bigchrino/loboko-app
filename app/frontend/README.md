@@ -14,6 +14,7 @@ Le fichier `pnpm-lock.yaml` versionné fixe les versions des dépendances. Utili
 ## Vérification
 
 ```bash
+pnpm run typecheck
 pnpm run lint
 ```
 

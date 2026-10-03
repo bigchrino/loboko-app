@@ -71,7 +71,7 @@ export default function PushNotificationSettings() {
     setErrorMsg(null);
     try {
       const res = await subscribeCurrentUser();
-      if (res.ok) {
+      if (res.ok === true) {
         setStatus('idle-on');
       } else {
         if (res.reason === 'denied') setStatus('denied');

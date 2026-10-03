@@ -941,7 +941,7 @@ export default function GroupChat() {
       // Insert a non-editable system message visible to every member. Best-
       // effort — do not block on failure.
       insertEphemeralSystemMessageGroup({
-        actorUserId: myId,
+        fromUserId: myId,
         groupId,
         durationSeconds,
       })

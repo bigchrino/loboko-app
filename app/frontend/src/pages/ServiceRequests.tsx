@@ -334,7 +334,7 @@ function CreateRequestDialog({
 
     setSubmitting(false);
 
-    if (!result.ok) {
+    if (result.ok === false) {
       toast.error(result.error);
       return;
     }

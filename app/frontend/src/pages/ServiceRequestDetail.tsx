@@ -37,10 +37,12 @@ interface ResponderProfile {
   display_name?: string | null;
   avatar_key?: string | null;
   avatar_url?: string | null;
+  is_verified?: boolean;
+  verification_status?: 'not_submitted' | 'pending' | 'approved' | 'rejected' | null;
 }
 
 export default function ServiceRequestDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { requestId: id } = useParams<{ requestId: string }>();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const goBack = useBackNavigation('/requests');
@@ -75,7 +77,7 @@ export default function ServiceRequestDetail() {
 
       const { data: ownerData } = await supabase
         .from('profiles')
-        .select('user_id, username, display_name, avatar_key')
+        .select('user_id, username, display_name, avatar_key, is_verified, verification_status')
         .eq('user_id', req.user_id)
         .maybeSingle();
 
@@ -92,7 +94,7 @@ export default function ServiceRequestDetail() {
 
         const { data } = await supabase
           .from('profiles')
-          .select('user_id, username, display_name, avatar_key')
+          .select('user_id, username, display_name, avatar_key, is_verified, verification_status')
           .in('user_id', providerIds);
 
         const entries = await Promise.all(

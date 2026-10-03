@@ -32,6 +32,7 @@ export interface ReportRow {
   reported_user_id: string | null;
   reported_message_id: string | null;
   reported_post_id: string | null;
+  reported_comment_id?: string | null;
   reason: ReportReason;
   description: string | null;
   status: ReportStatus;

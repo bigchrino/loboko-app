@@ -154,7 +154,7 @@ function safePlay(
   }
 }
 
-interface SinkCapableMedia extends HTMLMediaElement {
+interface SinkCapableMedia extends Omit<HTMLMediaElement, 'setSinkId'> {
   setSinkId?: (id: string) => Promise<void>;
 }
 

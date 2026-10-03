@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  type LucideIcon,
   MoreVertical,
   Archive,
   Trash2,
@@ -53,7 +54,7 @@ export default function ConversationMenu({
   const items: Array<{
     key: ConversationMenuAction;
     label: string;
-    icon: React.ComponentType<{ size?: number }>;
+    icon: LucideIcon;
     danger?: boolean;
     hidden?: boolean;
     hint?: string;
