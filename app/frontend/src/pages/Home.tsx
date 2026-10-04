@@ -5,6 +5,7 @@ import ComposePost from '@/components/ComposePost';
 import PostCard, { PostItem } from '@/components/PostCard';
 import HeroBanner from '@/components/HeroBanner';
 import AdsCarousel from '@/components/AdsCarousel';
+import RecommendedServices from '@/components/RecommendedServices';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -232,6 +233,8 @@ export default function Home() {
             className="col-start-1 row-start-1"
           >
             {posts.length === 0 ? (
+              <>
+              <RecommendedServices key={userId} userId={userId} />
               <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
                 <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
                   <span className="text-2xl">✨</span>
@@ -245,6 +248,7 @@ export default function Home() {
                   Soyez le premier à publier sur LOBOKO !
                 </p>
               </div>
+              </>
             ) : (
               posts.map((p) => (
                 <div
@@ -258,6 +262,9 @@ export default function Home() {
                     currentUserId={userId}
                     onDeleted={() => setPosts((current) => current.filter((post) => post.id !== p.id))}
                   />
+                  {p.id === posts[Math.min(2, posts.length - 1)]?.id && (
+                    <RecommendedServices key={userId} userId={userId} />
+                  )}
                 </div>
               ))
             )}

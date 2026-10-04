@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import { useAuth } from '@/contexts/AuthContext';
+import { matchesServiceSearch, recordServiceInterest } from '@/lib/service-recommendations';
 import { Search, Briefcase, Wrench, ArrowRight } from 'lucide-react';
 import {
   fetchCategoriesWithCounts,
@@ -26,7 +28,8 @@ import {
  * page. This is what the "Voir" buttons on the home ads carousel use.
  */
 
-export default function FindProviders() {
+export default function FindProviders({ title = "Trouver un prestataire" }: { title?: string }) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [cats, setCats] = useState<ServiceCategoryWithCount[]>([]);
@@ -70,9 +73,7 @@ export default function FindProviders() {
     if (!q) return cats;
     return cats.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        (c.description || '').toLowerCase().includes(q),
+        matchesServiceSearch(q, c.name, c.slug, c.description || ''),
     );
   }, [cats, query]);
 
@@ -83,14 +84,23 @@ export default function FindProviders() {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return services.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q),
+      (s) => matchesServiceSearch(q, s.name, s.slug),
     );
   }, [services, query]);
 
+  useEffect(() => {
+    if (!user?.id || loading || query.trim().length < 3) return;
+    const ids = services.filter((service) =>
+      matchesServiceSearch(query, service.name, service.slug) || cats.some((cat) => cat.id === service.category_id && matchesServiceSearch(query, cat.name, cat.slug))
+    ).map((service) => service.id);
+    const timer = window.setTimeout(() => { void recordServiceInterest(user.id, ids, 'search'); }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [query, services, cats, loading, user?.id]);
+
   return (
-    <Layout title="Trouver un prestataire">
+    <Layout title={title}>
       <div className="mb-5">
-        <h1 className="text-2xl font-bold mb-1">Trouver un prestataire</h1>
+        <h1 className="text-2xl font-bold mb-1">{title}</h1>
         <p className="text-sm text-[var(--loboko-text-muted)]">
           Choisissez un service pour voir les professionnels disponibles.
         </p>
@@ -134,13 +144,14 @@ export default function FindProviders() {
                     <button
                       key={s.id}
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        if (user?.id) void recordServiceInterest(user.id, [s.id], 'service');
                         navigate(
                           cat
                             ? `/services/${cat.slug}?service=${s.id}`
                             : `/services/${s.slug}?service=${s.id}`,
-                        )
-                      }
+                        );
+                      }}
                       className="w-full flex items-center gap-3 p-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition-colors text-left"
                     >
                       <div className="w-9 h-9 rounded-xl bg-[rgba(37,99,235,0.15)] text-[#60a5fa] flex items-center justify-center flex-shrink-0">

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
+import { useAuth } from '@/contexts/AuthContext';
+import { recordServiceInterest } from '@/lib/service-recommendations';
 import {
   ArrowLeft,
   Search,
@@ -18,6 +20,7 @@ import {
   fetchProvidersByCategory,
   fetchProvidersByService,
   fetchServiceById,
+  fetchServicesByCategory,
   ProviderProfile,
   Service,
   ServiceCategory,
@@ -68,6 +71,7 @@ const MIN_RATING_OPTIONS: Array<{ label: string; value: number }> = [
 ];
 
 export default function ProvidersByCategory() {
+  const { user } = useAuth();
   const { slug } = useParams<{ slug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const serviceId = searchParams.get('service');
@@ -167,6 +171,20 @@ export default function ProvidersByCategory() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!user?.id || !category || loading || categoryLoading || category.slug !== slug) return;
+    if (serviceId && (!service || service.id !== serviceId || service.category_id !== category.id)) return;
+    if (service) {
+      void recordServiceInterest(user.id, [service.id], 'service');
+      return;
+    }
+    let cancelled = false;
+    void fetchServicesByCategory(category.id).then((list) => {
+      if (!cancelled) void recordServiceInterest(user.id, list.slice(0, 8).map((item) => item.id), 'category');
+    });
+    return () => { cancelled = true; };
+  }, [user?.id, category, service, serviceId, slug, loading, categoryLoading]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
