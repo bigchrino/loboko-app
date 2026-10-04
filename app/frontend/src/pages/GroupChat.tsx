@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
+import { CHAT_PANEL_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
@@ -23,6 +24,7 @@ import EmojiPicker from '@/components/EmojiPicker';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
+import ChatLoadingSkeleton from '@/components/ChatLoadingSkeleton';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
@@ -84,6 +86,22 @@ import { logger } from '@/lib/logger';
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
+interface GroupSnapshot {
+  group: Group;
+  members: GroupMember[];
+  profilesMap: Record<string, Profile>;
+  messages: GroupMessage[];
+  hasMore: boolean;
+  starred: Set<string>;
+  deletedForMe: Set<string>;
+  expires: number;
+}
+const recentGroups = new Map<string, GroupSnapshot>();
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') recentGroups.clear();
+});
+
+
 function formatTime(iso?: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -135,19 +153,29 @@ export default function GroupChat() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const { user } = useAuth();
   const myId = user?.id || '';
+  const scopeKey = `${myId}:${groupId ?? ''}`;
+  const [initialGroup] = useState(() => {
+    const cached = recentGroups.get(scopeKey);
+    return cached && cached.expires > Date.now() ? cached : null;
+  });
+  const scopeRef = useRef(scopeKey);
+  const groupRequestRef = useRef(0);
+  const initialLoadingRef = useRef(false);
+  const loadedScopeRef = useRef(initialGroup ? scopeKey : '');
+  const chatViewport = useChatViewport(!!groupId);
 
-  const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
-  const [messages, setMessages] = useState<GroupMessage[]>([]);
+  const [group, setGroup] = useState<Group | null>(initialGroup?.group ?? null);
+  const [members, setMembers] = useState<GroupMember[]>(initialGroup?.members ?? []);
+  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>(initialGroup?.profilesMap ?? {});
+  const [messages, setMessages] = useState<GroupMessage[]>(initialGroup?.messages ?? []);
   // Pagination bookkeeping: whether another older page exists, and whether
   // we are currently fetching one.
-  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(initialGroup?.hasMore ?? false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [starred, setStarred] = useState<Set<string>>(new Set());
-  const [deletedForMe, setDeletedForMe] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [starred, setStarred] = useState<Set<string>>(initialGroup?.starred ?? new Set());
+  const [deletedForMe, setDeletedForMe] = useState<Set<string>>(initialGroup?.deletedForMe ?? new Set());
+  const [loading, setLoading] = useState(!initialGroup);
   const [draft, setDraft] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
@@ -180,7 +208,7 @@ export default function GroupChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Preserve scroll position when an older page is prepended on scroll-up.
-  const preserveScrollRef = useRef<{ prevHeight: number } | null>(null);
+  const preserveScrollRef = useRef<{ prevHeight: number; prevTop: number } | null>(null);
   // Tracks the id of the last rendered message to distinguish "new message
   // at the bottom" from "older page prepended at the top".
   const lastMessageIdRef = useRef<string | null>(null);
@@ -206,73 +234,73 @@ export default function GroupChat() {
 
   const loadAll = useCallback(async () => {
     if (!groupId || !myId) return;
+    const request = groupRequestRef.current;
+    initialLoadingRef.current = true;
     try {
-      const { data: g, error } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .maybeSingle();
-      if (error) throw error;
-      if (!g || (g as Group).deleted_at) {
-        setGroup(null);
-        setLoading(false);
-        return;
-      }
-      setGroup(g as Group);
-
-      const { data: mems } = await supabase
-        .from('group_members')
-        .select('*')
-        .eq('group_id', groupId);
-      const memberList = (mems as GroupMember[]) || [];
-      setMembers(memberList);
-
-      const userIds = Array.from(new Set(memberList.map((m) => m.user_id)));
-      if (userIds.length) {
-        const { data: profs } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('user_id', userIds);
+      const memberDetails = async () => {
+        const { data, error } = await supabase.from('group_members').select('*').eq('group_id', groupId);
+        if (error) throw error;
+        const list = (data as GroupMember[]) || [];
+        const ids = [...new Set(list.map((member) => member.user_id))];
         const map: Record<string, Profile> = {};
-        ((profs as Profile[]) || []).forEach((p) => (map[p.user_id] = p));
-        setProfilesMap(map);
+        if (ids.length) {
+          const { data: profiles, error: profileError } = await supabase.from('profiles').select('*').in('user_id', ids);
+          if (profileError) throw profileError;
+          ((profiles as Profile[]) || []).forEach((profile) => { map[profile.user_id] = profile; });
+        }
+        return { list, map };
+      };
+      const [groupResult, details, firstPage, starResult, deleteResult] = await Promise.all([
+        supabase.from('groups').select('*').eq('id', groupId).maybeSingle(),
+        memberDetails(), loadLatestGroupPage(groupId, GROUP_PAGE_SIZE),
+        supabase.from('group_starred_messages').select('message_id').eq('user_id', myId),
+        supabase.from('group_message_deletions').select('message_id').eq('user_id', myId),
+      ]);
+      if (groupRequestRef.current !== request || scopeRef.current !== scopeKey) return;
+      if (groupResult.error) throw groupResult.error;
+      const nextGroup = groupResult.data as Group | null;
+      if (!nextGroup || nextGroup.deleted_at) {
+        recentGroups.delete(scopeKey);
+        setGroup(null); setMessages([]); return;
       }
-
-      // Load only the most recent page to keep memory / bandwidth low on
-      // mobile. Older pages are fetched on scroll-up via LoadOlderTrigger.
-      const firstPage = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
-      setMessages(firstPage.messages as GroupMessage[]);
-      setHasMoreOlder(firstPage.hasMore);
-      lastMessageIdRef.current = null;
-
-      // Starred / deleted for me (group-scoped tables)
-      const { data: starRows } = await supabase
-        .from('group_starred_messages')
-        .select('message_id')
-        .eq('user_id', myId);
-      setStarred(new Set(((starRows as { message_id: string }[]) || []).map((r) => r.message_id)));
-
-      const { data: delRows } = await supabase
-        .from('group_message_deletions')
-        .select('message_id')
-        .eq('user_id', myId);
-      setDeletedForMe(
-        new Set(((delRows as { message_id: string }[]) || []).map((r) => r.message_id)),
-      );
+      setGroup(nextGroup); setMembers(details.list); setProfilesMap(details.map);
+      setMessages(firstPage.messages as GroupMessage[]); setHasMoreOlder(firstPage.hasMore);
+      setStarred(new Set(((starResult.data as { message_id: string }[]) || []).map((row) => row.message_id)));
+      setDeletedForMe(new Set(((deleteResult.data as { message_id: string }[]) || []).map((row) => row.message_id)));
+      loadedScopeRef.current = scopeKey;
     } catch (e) {
-      logger.error('group chat load failed', {
-        context: 'GroupChat.loadAll',
-        error: e,
-      });
+      logger.error('group chat load failed', { context: 'GroupChat.loadAll', error: e });
     } finally {
-      setLoading(false);
+      if (groupRequestRef.current === request) { initialLoadingRef.current = false; setLoading(false); }
     }
-  }, [groupId, myId]);
+  }, [groupId, myId, scopeKey]);
+
+  useLayoutEffect(() => {
+    groupRequestRef.current += 1;
+    scopeRef.current = scopeKey;
+    preserveScrollRef.current = null;
+    lastMessageIdRef.current = null;
+    setLoadingOlder(false);
+    const cached = recentGroups.get(scopeKey);
+    const initial = cached && cached.expires > Date.now() ? cached : null;
+    loadedScopeRef.current = initial ? scopeKey : '';
+    setGroup(initial?.group ?? null); setMembers(initial?.members ?? []);
+    setProfilesMap(initial?.profilesMap ?? {}); setMessages(initial?.messages ?? []);
+    setHasMoreOlder(initial?.hasMore ?? false);
+    setStarred(initial?.starred ?? new Set()); setDeletedForMe(initial?.deletedForMe ?? new Set());
+    setLoading(!initial);
+    void loadAll();
+    return () => { groupRequestRef.current += 1; };
+  }, [scopeKey, loadAll]);
 
   useEffect(() => {
-    setLoading(true);
-    loadAll();
-  }, [loadAll]);
+    if (!group || loading || loadedScopeRef.current !== scopeKey || group.id !== groupId) return;
+    if (messages.some((message) => message.group_id !== groupId)) return;
+    recentGroups.delete(scopeKey);
+    recentGroups.set(scopeKey, { group, members, profilesMap, messages: messages.slice(-GROUP_PAGE_SIZE),
+      hasMore: hasMoreOlder || messages.length > GROUP_PAGE_SIZE, starred, deletedForMe, expires: Date.now() + 300_000 });
+    if (recentGroups.size > 12) recentGroups.delete(recentGroups.keys().next().value!);
+  }, [scopeKey, groupId, group, loading, members, profilesMap, messages, hasMoreOlder, starred, deletedForMe]);
 
   // Load the user's ephemeral duration setting for this group and listen
   // for realtime updates broadcast by other group members.
@@ -353,30 +381,33 @@ export default function GroupChat() {
   // scroll position. This is the realtime "new messages arrive" path.
   useEffect(() => {
     if (!groupId) return;
+    let cancelled = false;
     const t = setInterval(async () => {
+      const request = groupRequestRef.current;
       const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+      if (cancelled || request !== groupRequestRef.current) return;
       setMessages((prev) =>
         mergeMessagesById(prev, fresh.messages as GroupMessage[]),
       );
     }, 15_000);
-    return () => clearInterval(t);
+    return () => { cancelled = true; clearInterval(t); };
   }, [groupId]);
 
   // Load the next older page (cursor = oldest known created_at). Preserves
   // scroll position by snapshotting the container height before prepending.
   const loadOlder = useCallback(async () => {
     if (!groupId) return;
-    if (loadingOlder || !hasMoreOlder) return;
+    if (initialLoadingRef.current || loading || loadingOlder || !hasMoreOlder) return;
     if (messages.length === 0) return;
     const oldest = messages[0];
     if (!oldest?.created_at) return;
+    const request = groupRequestRef.current;
     setLoadingOlder(true);
-    const container = scrollRef.current;
-    preserveScrollRef.current = container
-      ? { prevHeight: container.scrollHeight }
-      : null;
     try {
       const page = await loadOlderGroupPage(groupId, oldest.created_at);
+      if (groupRequestRef.current !== request || scopeRef.current !== scopeKey) return;
+      const container = scrollRef.current;
+      preserveScrollRef.current = container ? { prevHeight: container.scrollHeight, prevTop: container.scrollTop } : null;
       setHasMoreOlder(page.hasMore);
       if (page.messages.length > 0) {
         setMessages((prev) => {
@@ -389,13 +420,13 @@ export default function GroupChat() {
         });
       }
     } finally {
-      setLoadingOlder(false);
+      if (groupRequestRef.current === request) setLoadingOlder(false);
     }
-  }, [groupId, hasMoreOlder, loadingOlder, messages]);
+  }, [groupId, scopeKey, hasMoreOlder, loading, loadingOlder, messages]);
 
   // Restore scroll position after an older page has been prepended so the
   // currently-visible message does not jump.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const snap = preserveScrollRef.current;
     if (!snap) return;
     const container = scrollRef.current;
@@ -404,17 +435,17 @@ export default function GroupChat() {
       return;
     }
     const diff = container.scrollHeight - snap.prevHeight;
-    if (diff > 0) container.scrollTop = diff;
+    container.scrollTop = snap.prevTop + diff;
     preserveScrollRef.current = null;
-  }, [messages.length]);
+  }, [messages, loadingOlder]);
 
   // Auto-scroll to bottom. Scrolls on first paint, follows new messages
   // only when the user is already near the bottom, and does NOT scroll
   // when an older page is prepended on scroll-up (the last-message id
   // doesn't change in that case and scroll is preserved separately).
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = scrollRef.current;
-    if (!container) return;
+    if (!container || messages.some((message) => message.group_id !== groupId)) return;
     const lastId = messages.length ? messages[messages.length - 1].id : null;
     const prevLast = lastMessageIdRef.current;
     lastMessageIdRef.current = lastId;
@@ -429,7 +460,7 @@ export default function GroupChat() {
         container.scrollTop = container.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages, groupId]);
 
   // Deep-link: scroll to a specific message and highlight it (from Starred Messages, etc.)
   useEffect(() => {
@@ -460,10 +491,10 @@ export default function GroupChat() {
 
   const visibleMessages = useMemo(() => {
     return messages
-      .filter((m) => !deletedForMe.has(m.id))
+      .filter((m) => m.group_id === groupId && !deletedForMe.has(m.id))
       .filter((m) => !isExpired(m.expires_at))
       .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  }, [messages, deletedForMe]);
+  }, [messages, deletedForMe, groupId]);
 
   const messageById = useMemo(() => {
     const map: Record<string, GroupMessage> = {};
@@ -983,9 +1014,16 @@ export default function GroupChat() {
 
   if (loading) {
     return (
-      <Layout title="Groupe">
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-          Chargement…
+      <Layout title="Groupe" hideMobileNav>
+        <div className={CHAT_PANEL_CLASS} style={chatViewport.panelStyle}>
+          <header className="p-3 border-b border-[var(--loboko-border)] flex items-center gap-2">
+            <button type="button" onClick={goBack} aria-label="Retour aux messages" className="p-2 rounded-full"><ArrowLeft size={18} /></button>
+            <span className="text-sm font-semibold">Groupe</span>
+          </header>
+          <div className="flex-1 overflow-hidden p-4"><ChatLoadingSkeleton /></div>
+          <div className={CHAT_COMPOSER_CLASS} style={chatViewport.composerStyle} aria-hidden="true">
+            <div className="h-9 w-full rounded-full bg-[var(--loboko-elevated)] motion-safe:animate-pulse" />
+          </div>
         </div>
       </Layout>
     );
@@ -993,7 +1031,7 @@ export default function GroupChat() {
 
   if (!group) {
     return (
-      <Layout title="Groupe">
+      <Layout title="Groupe" hideMobileNav>
         <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
           Groupe introuvable ou supprimé.
         </div>
@@ -1002,8 +1040,8 @@ export default function GroupChat() {
   }
 
   return (
-    <Layout title={group.name}>
-      <div className="flex flex-col min-h-[calc(100dvh-120px)] max-h-[calc(100dvh-120px)] lg:h-[calc(100vh-160px)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
+    <Layout title={group.name} hideMobileNav>
+      <div className={CHAT_PANEL_CLASS} style={chatViewport.panelStyle}>
         <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
           <button
             onClick={goBack}
@@ -1372,7 +1410,7 @@ export default function GroupChat() {
           </div>
         )}
 
-        <div className="p-2 sm:p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 bg-[var(--loboko-surface)]">
+        <div className={CHAT_COMPOSER_CLASS} style={chatViewport.composerStyle}>
           {showRecorder ? (
             <VoiceRecorder onSend={handleSendVoice} onClose={() => setShowRecorder(false)} />
           ) : (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import { CHAT_PANEL_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
@@ -29,6 +30,7 @@ import EmojiPicker from '@/components/EmojiPicker';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
+import ChatLoadingSkeleton from '@/components/ChatLoadingSkeleton';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
 import MediaPreview from '@/components/MediaPreview';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
@@ -355,7 +357,7 @@ export default function Messages() {
   const [convSearchOpen, setConvSearchOpen] = useState(urlSearch);
   const [convQuery, setConvQuery] = useState('');
   const [convMatchIndex, setConvMatchIndex] = useState(0);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const chatViewport = useChatViewport(!!activeUserId);
 
   // Confirm dialogs
   const [pendingAction, setPendingAction] = useState<{
@@ -1730,38 +1732,6 @@ export default function Messages() {
     return <>{out}</>;
   };
 
-  useEffect(() => {
-    if (!activeUserId) {
-      setKeyboardOffset(0);
-      return;
-    }
-  
-    const updateKeyboardOffset = () => {
-      const vv = window.visualViewport;
-      if (!vv) {
-        setKeyboardOffset(0);
-        return;
-      }
-  
-      const offset = Math.max(
-        0,
-        window.innerHeight - vv.height - vv.offsetTop
-      );
-  
-      setKeyboardOffset(offset);
-    };
-  
-    updateKeyboardOffset();
-  
-    window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
-    window.visualViewport?.addEventListener('scroll', updateKeyboardOffset);
-  
-    return () => {
-      window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
-      window.visualViewport?.removeEventListener('scroll', updateKeyboardOffset);
-      setKeyboardOffset(0);
-    };
-  }, [activeUserId]);
 
   return (
     <Layout title="Messages" hideMobileNav={!!activeUserId}>
@@ -2020,10 +1990,8 @@ export default function Messages() {
         </>
       ) : (
         <div
-          className="fixed inset-x-0 top-[64px] z-30 flex flex-col bg-[var(--loboko-surface)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl"
-          style={{
-            bottom: keyboardOffset,
-          }}
+          className={CHAT_PANEL_CLASS}
+          style={chatViewport.panelStyle}
         >
           <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
             <button
@@ -2191,9 +2159,7 @@ export default function Messages() {
               onLoadMore={loadActiveConvOlder}
             />
             {activeConvLoading && activeMessages.length === 0 ? (
-              <div className="text-center text-xs text-[var(--loboko-text-muted)] py-10">
-                Chargement…
-              </div>
+              <ChatLoadingSkeleton />
             ) : activeMessages.length === 0 ? (
               <div className="text-center text-xs text-[var(--loboko-text-muted)] py-10">
                 Démarrez la conversation
@@ -2521,7 +2487,7 @@ export default function Messages() {
               Vous avez bloqué ce contact. Vous ne pouvez plus lui écrire.
             </div>
           ) : (
-            <div className="p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0">
+            <div className={CHAT_COMPOSER_CLASS} style={chatViewport.composerStyle}>
               {showRecorder ? (
                 <VoiceRecorder onSend={sendVoiceNote} onClose={() => setShowRecorder(false)} />
               ) : (
