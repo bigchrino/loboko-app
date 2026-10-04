@@ -7,6 +7,7 @@ import { getMediaUrl, uploadMedia } from '@/lib/storage-helpers';
 import {
   Camera,
   Edit2,
+  Mail,
   Save,
   X,
   Star,
@@ -54,6 +55,10 @@ export default function Profile() {
   const [availability, setAvailability] =
   useState<'available' | 'busy' | 'unavailable'>('available');
   const [myPosts, setMyPosts] = useState<PostItem[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsError, setPostsError] = useState(false);
+  const [postsOwner, setPostsOwner] = useState('');
+  const [postsReload, setPostsReload] = useState(0);
   const [ratingSummary, setRatingSummary] = useState<RatingSummary>({ average: 0, count: 0 });
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -131,8 +136,13 @@ export default function Profile() {
   }, [profile?.service_id]);
 
   useEffect(() => {
-    (async () => {
-      if (!userId) return;
+    let cancelled = false;
+    setPostsOwner(userId);
+    setMyPosts([]);
+    setPostsError(false);
+    setPostsLoading(!!userId);
+    if (!userId) return;
+    void (async () => {
       try {
         const { data, error } = await supabase
           .from('posts')
@@ -141,12 +151,15 @@ export default function Profile() {
           .order('created_at', { ascending: false })
           .limit(50);
         if (error) throw error;
-        setMyPosts((data as PostItem[]) || []);
-      } catch (e) {
-        console.error(e);
+        if (!cancelled) setMyPosts((data as PostItem[]) || []);
+      } catch (error) {
+        if (!cancelled) { setPostsError(true); console.error(error); }
+      } finally {
+        if (!cancelled) setPostsLoading(false);
       }
     })();
-  }, [userId, profile?.id]);
+    return () => { cancelled = true; };
+  }, [userId, profile?.id, postsReload]);
 
   useEffect(() => {
     if (!userId || profile?.role !== 'prestataire') {
@@ -229,10 +242,10 @@ export default function Profile() {
 
   return (
     <Layout title="Profil">
-      <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-6 mb-4">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-xl">
+      <section className="mb-6">
+        <div className="flex flex-col items-center gap-4 pt-4 pb-6 text-center">
+          <div className="relative shrink-0">
+            <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center text-white font-bold text-3xl">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               ) : (
@@ -240,14 +253,16 @@ export default function Profile() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setAvatarMenuOpen((v) => !v)}
-              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#2563eb] text-white flex items-center justify-center border-2 border-[var(--loboko-surface)]"
+              aria-expanded={avatarMenuOpen}
+              className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center border-2 border-[var(--loboko-bg)]"
               aria-label="Modifier la photo"
             >
-              <Camera size={14} />
+              <Camera size={18} />
             </button>
             {avatarMenuOpen && (
-              <div className="absolute top-full left-0 mt-2 z-10 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-xl shadow-lg py-1 min-w-[180px]">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-20 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-xl shadow-lg py-1 min-w-[180px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -294,52 +309,40 @@ export default function Profile() {
               }}
             />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl font-bold truncate">
-                {profile.display_name || profile.username}
-              </h2>
+          <div className="w-full min-w-0">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight break-words">{profile.display_name || profile.username}</h1>
+            <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
               {profile.is_admin ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">
-                  💎 Admin
-                </span>
+                <span className="text-xs px-3 py-1 rounded-full bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">💎 Admin</span>
               ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">
-                  {profile.role}
-                </span>
+                <span className="text-xs px-3 py-1 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold capitalize">{profile.role}</span>
               )}
-              {profile.role === 'prestataire' && isPremium(profile) && (
-                <PremiumBadge variant="full" />
-              )}
+              {profile.role === 'prestataire' && isPremium(profile) && <PremiumBadge variant="full" />}
             </div>
-            <div className="text-sm text-[var(--loboko-text-muted)]">@{profile.username}</div>
-            {profile.role === 'prestataire' && premiumExpiry && (
-              <div className="text-[10px] text-[#f59e0b] font-semibold mt-0.5">
-                {premiumExpiry}
-              </div>
-            )}
-            {user?.email && (
-              <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5">{user.email}</div>
-            )}
+            <p className="mt-2 text-base text-[var(--loboko-text-muted)] break-words">@{profile.username}</p>
+            {profile.role === 'prestataire' && premiumExpiry && <p className="text-xs text-[#f59e0b] font-semibold mt-1">{premiumExpiry}</p>}
           </div>
-          {!editing && (
-            <button
-              onClick={() => setEditing(true)}
-              className="p-2 rounded-full text-[var(--loboko-text-secondary)] hover:bg-[var(--loboko-surface-hover)]"
-            >
-              <Edit2 size={16} />
-            </button>
-          )}
         </div>
+        {user?.email && (
+          <div className="mb-3 flex items-center justify-center gap-3 px-4 py-4 rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
+            <Mail size={20} className="shrink-0 text-[var(--loboko-text-muted)]" aria-hidden="true" />
+            <span className="text-sm sm:text-base break-all text-[var(--loboko-text-secondary)]">{user.email}</span>
+          </div>
+        )}
+        {!editing && (
+          <button type="button" onClick={() => setEditing(true)} className="w-full flex items-center justify-center gap-3 px-4 py-4 mb-5 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold hover:brightness-110 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]">
+            <Edit2 size={20} aria-hidden="true" />Modifier mon profil
+          </button>
+        )}
 
         {editing ? (
-          <div className="space-y-3">
+          <div className="space-y-4 p-4 sm:p-5 rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
             <div>
               <label className="block text-xs font-semibold mb-1 text-[var(--loboko-text-secondary)]">Nom complet</label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb]"
               />
             </div>
             {profile.role === 'prestataire' && (
@@ -370,7 +373,7 @@ export default function Profile() {
                     setCity('');
                     setCommune('');
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb]"
                 >
                   <option value="">Choisir une province</option>
             
@@ -395,7 +398,7 @@ export default function Profile() {
                     setCommune('');
                   }}
                   disabled={!province}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb]"
                 >
                   <option value="">Choisir une ville</option>
               
@@ -417,7 +420,7 @@ export default function Profile() {
                   value={commune}
                   onChange={(e) => setCommune(e.target.value)}
                   disabled={!city}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb]"
                 >
                   <option value="">Choisir une commune</option>
               
@@ -482,7 +485,7 @@ export default function Profile() {
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb] resize-none"
+                className="w-full px-4 py-2.5 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb] resize-none"
               />
             </div>
             <div className="flex gap-2">
@@ -506,7 +509,7 @@ export default function Profile() {
         ) : (
           <>
             {profile.role === 'prestataire' && (service?.name || profile.metier) && (
-              <div className="text-sm text-[#2563eb] font-medium mb-2">
+              <div className="text-sm text-[#2563eb] font-medium mb-2 text-center">
                 {service?.name || profile.metier}
                 {!service && profile.metier && (
                   <span className="ml-2 text-[10px] text-[var(--loboko-text-muted)] font-normal">
@@ -516,12 +519,12 @@ export default function Profile() {
               </div>
             )}
             {profile.bio && (
-              <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap mb-3">
+              <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap mb-3 text-center break-words">
                 {profile.bio}
               </p>
             )}
             {profile.role === 'prestataire' && (
-              <div className="flex flex-wrap items-center gap-2 mb-1">
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-1">
                 <div className="flex items-center gap-2 py-2 px-3 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)]">
                   <Star size={16} fill="#f59e0b" color="#f59e0b" />
                   {ratingSummary.count > 0 ? (
@@ -581,7 +584,7 @@ export default function Profile() {
             )}
           </>
         )}
-      </div>
+      </section>
 
       {profile.role === 'prestataire' && userId && (
         <>
@@ -598,14 +601,27 @@ export default function Profile() {
         </>
       )}
 
-      <h3 className="text-lg font-bold mb-3">Mes publications</h3>
-      {myPosts.length === 0 ? (
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)] bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl">
-          Aucune publication pour l'instant
-        </div>
-      ) : (
-        myPosts.map((p) => <PostCard key={p.id} post={p} currentUserId={userId} />)
-      )}
+      <section className="border-t border-[var(--loboko-border)] pt-5" aria-labelledby="profile-posts-title">
+        <h2 id="profile-posts-title" className="text-2xl font-bold mb-4">Mes publications</h2>
+        {postsLoading || postsOwner !== userId ? (
+          <div role="status" aria-label="Chargement de vos publications" className="space-y-3">
+            {[0, 1].map((row) => <div key={row} aria-hidden="true" className="h-40 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] motion-safe:animate-pulse" />)}
+          </div>
+        ) : postsError ? (
+          <div className="text-center py-10 px-4" role="alert">
+            <p className="mb-3 text-sm text-[var(--loboko-text-muted)]">Impossible de charger vos publications.</p>
+            <button type="button" onClick={() => setPostsReload((value) => value + 1)} className="rounded-full bg-[#2563eb] text-white px-5 py-2.5 text-sm font-semibold">Réessayer</button>
+          </div>
+        ) : myPosts.length === 0 ? (
+          <div className="text-center py-10 sm:py-14 px-4">
+            <ImageIcon size={44} className="mx-auto mb-5 text-[#2563eb]" aria-hidden="true" />
+            <h3 className="font-semibold text-lg">Aucune publication pour l’instant</h3>
+            <p className="mt-2 text-sm text-[var(--loboko-text-muted)]">Vos publications apparaîtront ici.</p>
+          </div>
+        ) : (
+          myPosts.map((post) => <PostCard key={post.id} post={post} currentUserId={userId} />)
+        )}
+      </section>
     </Layout>
   );
 }
