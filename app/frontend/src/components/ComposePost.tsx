@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import MediaPicker, { MediaSelection } from './MediaPicker';
 import MediaPreview from './MediaPreview';
+import MediaEditor from './MediaEditor';
 import MentionSuggestions from './MentionSuggestions';
 import {
   applyMention,
@@ -28,6 +29,8 @@ export default function ComposePost({ onPosted }: Props) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [media, setMedia] = useState<MediaSelection[]>([]);
+  const [editingMedia, setEditingMedia] = useState<{ selection: MediaSelection; index?: number } | null>(null);
+  const mediaRef = useRef(media);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [mentionState, setMentionState] = useState<{
     open: boolean;
@@ -43,12 +46,9 @@ export default function ComposePost({ onPosted }: Props) {
     });
   };
 
-  useEffect(() => {
-    return () => {
-      media.forEach((m) => URL.revokeObjectURL(m.previewUrl));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { mediaRef.current = media; }, [media]);
+  useEffect(() => () => { mediaRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl)); }, []);
+  useEffect(() => () => { if (editingMedia) URL.revokeObjectURL(editingMedia.selection.previewUrl); }, [editingMedia]);
 
   const handleContentChange = (value: string, caret: number) => {
     setContent(value);
@@ -94,7 +94,7 @@ export default function ComposePost({ onPosted }: Props) {
         type: 'image' | 'video';
       }[] = [];
       for (const item of media) {
-        const { key, error } = await uploadMediaEx(item.file, 'posts');
+        const { key, error } = await uploadMediaEx(item.file, 'posts', { skipImageCompression: item.prepared });
       
         if (error || !key) {
           toast.error(error || "Échec de l'upload");
@@ -219,8 +219,8 @@ export default function ComposePost({ onPosted }: Props) {
       {media.length > 0 && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           {media.map((m, index) => (
+            <div key={index}>
             <MediaPreview
-              key={index}
               media={m}
               onRemove={() => {
                 setMedia((current) => {
@@ -231,32 +231,38 @@ export default function ComposePost({ onPosted }: Props) {
                 });
               }}
             />
+            <button type="button" disabled={loading} className="text-sm text-blue-500 py-2" onClick={() => setEditingMedia({ selection: { ...m, previewUrl: URL.createObjectURL(m.file) }, index })}>Modifier</button>
+            </div>
           ))}
         </div>
       )}
       <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 mt-3 pt-3 pb-1 border-t border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
         <MediaPicker
           maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
+          prepareForEditing
           onSelect={(m) => {
             const hasVideo = media.some((x) => x.kind === 'video');
             const hasImage = media.some((x) => x.kind === 'image');
           
             if (m.kind === 'video' && media.length > 0) {
+              URL.revokeObjectURL(m.previewUrl);
               toast.error('Publiez la vidéo seule pour éviter les bugs.');
               return;
             }
           
             if (m.kind === 'image' && hasVideo) {
+              URL.revokeObjectURL(m.previewUrl);
               toast.error('Impossible d’ajouter une photo avec une vidéo.');
               return;
             }
           
             if (hasImage && m.kind === 'image' && media.length >= 6) {
+              URL.revokeObjectURL(m.previewUrl);
               toast.error('Maximum 6 photos');
               return;
             }
           
-            setMedia((current) => [...current, m]);
+            setEditingMedia({ selection: m });
           }}
           
           disabled={loading}
@@ -270,6 +276,22 @@ export default function ComposePost({ onPosted }: Props) {
           {loading ? 'Envoi...' : 'Publier'}
         </button>
       </div>
+      {editingMedia && <MediaEditor
+        key={editingMedia.selection.previewUrl}
+        media={editingMedia.selection}
+        initialCaption={content}
+        confirmLabel="Ajouter à la publication"
+        destination="Fil d’actualité"
+        onClose={() => setEditingMedia(null)}
+        onConfirm={async (file, caption, duration) => {
+          const item = { ...editingMedia.selection, file, duration, prepared: true, previewUrl: URL.createObjectURL(file) };
+          setMedia(current => {
+            if (editingMedia.index === undefined) return [...current, item];
+            const copy = [...current]; URL.revokeObjectURL(copy[editingMedia.index].previewUrl); copy[editingMedia.index] = item; return copy;
+          });
+          setContent(caption); setEditingMedia(null);
+        }}
+      />}
       <p className="text-[10px] text-[var(--loboko-text-muted)] mt-2">
         Vidéo : 90 secondes max · Formats : jpg, png, webp, mp4, webm, mov · @ pour mentionner
       </p>

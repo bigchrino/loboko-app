@@ -32,7 +32,7 @@ import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
 import ChatLoadingSkeleton from '@/components/ChatLoadingSkeleton';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
-import MediaPreview from '@/components/MediaPreview';
+import MediaEditor from '@/components/MediaEditor';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
 import FileMessage from '@/components/FileMessage';
 import SharedPostMessage from '@/components/SharedPostMessage';
@@ -342,7 +342,6 @@ export default function Messages() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
-  const [sendingMedia, setSendingMedia] = useState(false);
   const [pendingFile, setPendingFile] = useState<FileSelection | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [peerTyping, setPeerTyping] = useState<'typing' | 'recording' | null>(
@@ -1242,35 +1241,31 @@ export default function Messages() {
     });
   }, []);
 
-  const sendPendingMedia = async () => {
+  const sendPendingMedia = async (file: File, caption: string, duration?: number) => {
     if (!activeUserId || !pendingMedia) return;
     if (blocked.has(activeUserId)) {
-      toast.error('Vous avez bloqué ce contact.');
-      return;
+      throw new Error('Vous avez bloqué ce contact.');
     }
-    setSendingMedia(true);
     try {
-      const { key, error } = await uploadMediaEx(pendingMedia.file, 'message-media');
+      const { key, error } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
       if (error || !key) {
-        toast.error(error || "Échec de l'upload du média");
-        return;
+        throw new Error(error || "Échec de l'upload du média");
       }
       const content =
         pendingMedia.kind === 'image'
-          ? encodePayload({ kind: 'image', object_key: key })
+          ? encodePayload({ kind: 'image', object_key: key, caption: caption || undefined })
           : encodePayload({
               kind: 'video',
               object_key: key,
-              duration: pendingMedia.duration,
+              duration,
+              caption: caption || undefined,
             });
       await insertMessage({ receiver_id: activeUserId, content });
       clearPendingMedia();
       await loadMessages();
     } catch (e) {
       logger.error(e);
-      toast.error("Échec de l'envoi du média");
-    } finally {
-      setSendingMedia(false);
+      throw e;
     }
   };
 
@@ -1332,13 +1327,8 @@ export default function Messages() {
     return undefined;
   }, [showRecorder, activeUserId]);
 
-  // Cleanup pending media when unmounting or switching conversation
-  useEffect(() => {
-    return () => {
-      if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUserId]);
+  useEffect(() => () => { if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl); }, [pendingMedia]);
+  useEffect(() => { setPendingMedia(null); setShowMediaPicker(false); }, [activeUserId]);
 
   // ---- Conversation actions ----------------------------------------------
 
@@ -2336,12 +2326,13 @@ export default function Messages() {
                           mine={mine}
                         />
                       ) : payload.kind === 'image' ? (
-                        <MediaMessage kind="image" objectKey={payload.object_key} />
+                        <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
                       ) : payload.kind === 'video' ? (
                         <MediaMessage
                           kind="video"
                           objectKey={payload.object_key}
                           duration={payload.duration}
+                          caption={payload.caption}
                         />
                       ) : payload.kind === 'file' ? (
                         <FileMessage
@@ -2419,27 +2410,13 @@ export default function Messages() {
             )}
           </div>
 
-          {pendingMedia && (
-            <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
-              <MediaPreview media={pendingMedia} onRemove={clearPendingMedia} />
-              <div className="flex items-center justify-between mt-2 gap-2">
-                <div className="text-[11px] text-[var(--loboko-text-muted)]">
-                  {pendingMedia.kind === 'image'
-                    ? 'Photo prête à être envoyée'
-                    : `Vidéo · ${formatDuration(pendingMedia.duration || 0)} (max ${MAX_MESSAGE_VIDEO_SECONDS}s)`}
-                </div>
-                <button
-                  type="button"
-                  onClick={sendPendingMedia}
-                  disabled={sendingMedia}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
-                >
-                  <Send size={14} />
-                  {sendingMedia ? 'Envoi…' : 'Envoyer'}
-                </button>
-              </div>
-            </div>
-          )}
+        {pendingMedia && <MediaEditor
+          key={`${activeUserId}:${pendingMedia.previewUrl}`}
+          media={pendingMedia}
+          destination={profilesMap[activeUserId ?? '']?.display_name || profilesMap[activeUserId ?? '']?.username || 'Message personnel'}
+          onClose={clearPendingMedia}
+          onConfirm={sendPendingMedia}
+        />}
 
           {pendingFile && (
             <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
@@ -2520,6 +2497,7 @@ export default function Messages() {
                         <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
                           <MediaPicker
                             maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
+                            prepareForEditing
                             compact
                             onSelect={(m) => {
                               setShowMediaPicker(false);

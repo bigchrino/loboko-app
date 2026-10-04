@@ -11,6 +11,7 @@ export interface MediaSelection {
   kind: MediaKind;
   previewUrl: string; // object URL, caller must revoke when done
   duration?: number; // seconds, videos only
+  prepared?: boolean; // already processed by the media editor
 }
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
   /** Label for the button group. */
   compact?: boolean;
   disabled?: boolean;
+  prepareForEditing?: boolean;
 }
 
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/jpg';
@@ -41,7 +43,7 @@ function detectKind(file: File): MediaKind | null {
  * size/format/duration and calls `onSelect` with a preview URL. Caller is
  * responsible for revoking the object URL after use.
  */
-export default function MediaPicker({ maxVideoSeconds, onSelect, compact, disabled }: Props) {
+export default function MediaPicker({ maxVideoSeconds, onSelect, compact, disabled, prepareForEditing = false }: Props) {
   const galleryImgRef = useRef<HTMLInputElement>(null);
   const cameraImgRef = useRef<HTMLInputElement>(null);
   const galleryVidRef = useRef<HTMLInputElement>(null);
@@ -83,10 +85,12 @@ export default function MediaPicker({ maxVideoSeconds, onSelect, compact, disabl
         // Compress images client-side before upload. Falls back to the
         // original file if compression cannot run (unsupported format,
         // decode error, …), so behavior stays identical in the worst case.
-        const compressed = await compressImage(file);
+        const compressed = prepareForEditing ? file : await compressImage(file);
         const previewUrl = URL.createObjectURL(compressed);
         onSelect({ file: compressed, kind, previewUrl });
       }
+    } catch {
+      toast.error("Impossible d’ouvrir ce média. Réessayez avec un autre fichier.");
     } finally {
       setBusy(false);
     }

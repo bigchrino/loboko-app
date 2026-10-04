@@ -63,6 +63,7 @@ export async function uploadMedia(
 export async function uploadMediaEx(
   file: File,
   folder: UploadFolder,
+  options: { skipImageCompression?: boolean } = {},
 ): Promise<UploadResult> {
   try {
     const bucket = folder;
@@ -73,7 +74,7 @@ export async function uploadMediaEx(
     // that are already small, animated, or not compressible — so behavior
     // stays identical in the worst case.
     let uploadFile = file;
-    if ((file.type || '').startsWith('image/')) {
+    if (!options.skipImageCompression && (file.type || '').startsWith('image/')) {
       try {
         uploadFile = await compressImage(file);
       } catch {

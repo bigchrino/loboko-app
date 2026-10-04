@@ -9,6 +9,7 @@ interface Props {
   kind: 'image' | 'video';
   objectKey: string;
   duration?: number;
+  caption?: string;
 }
 
 // Memory only, scoped to the current account and shorter than the signed TTL.
@@ -82,8 +83,11 @@ export default function MediaMessage(props: Props) {
   // Identical geometry before/after download: tall screenshots cannot move
   // the messages being read. The original remains accessible on image tap.
   return (
-    <LazyMedia className="relative w-56 max-w-full h-60" placeholder={<Placeholder />}>
-      <MediaInner key={`${props.kind}:${props.objectKey}`} {...props} />
-    </LazyMedia>
+    <div className="w-56 max-w-full">
+      <LazyMedia className="relative w-full h-60" placeholder={<Placeholder />}>
+        <MediaInner key={`${props.kind}:${props.objectKey}`} {...props} />
+      </LazyMedia>
+      {props.caption && <p className="px-2 py-1.5 text-sm whitespace-pre-wrap break-words">{props.caption}</p>}
+    </div>
   );
 }

@@ -26,7 +26,7 @@ import VoiceMessage from '@/components/VoiceMessage';
 import MediaMessage from '@/components/MediaMessage';
 import ChatLoadingSkeleton from '@/components/ChatLoadingSkeleton';
 import MediaPicker, { MediaSelection } from '@/components/MediaPicker';
-import MediaPreview from '@/components/MediaPreview';
+import MediaEditor from '@/components/MediaEditor';
 import FilePicker, { FileSelection } from '@/components/FilePicker';
 import FileMessage from '@/components/FileMessage';
 import SharedPostMessage from '@/components/SharedPostMessage';
@@ -187,7 +187,6 @@ export default function GroupChat() {
   }>({ open: false, query: '', start: 0, end: 0 });
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pendingMedia, setPendingMedia] = useState<MediaSelection | null>(null);
-  const [sendingMedia, setSendingMedia] = useState(false);
   const [pendingFile, setPendingFile] = useState<FileSelection | null>(null);
   const [sendingFile, setSendingFile] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupMessage | null>(null);
@@ -517,6 +516,9 @@ export default function GroupChat() {
     return p?.display_name || p?.username || 'Utilisateur';
   };
 
+  useEffect(() => () => { if (pendingMedia) URL.revokeObjectURL(pendingMedia.previewUrl); }, [pendingMedia]);
+  useEffect(() => { setPendingMedia(null); setShowMediaPicker(false); }, [groupId]);
+
   // ---------- Send ---------------------------------------------------------
 
   const clearPendingMedia = useCallback(() => {
@@ -662,54 +664,46 @@ export default function GroupChat() {
     }
   };
 
-  const handleSendMedia = async () => {
+  const handleSendMedia = async (file: File, caption: string, duration?: number) => {
     if (!groupId || !myId || !pendingMedia) return;
-    setSendingMedia(true);
+    const { key, error } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
+    if (error || !key) {
+      throw new Error(error || "Échec de l'upload");
+    }
+    const content =
+      pendingMedia.kind === 'image'
+        ? encodePayload({ kind: 'image', object_key: key, caption: caption || undefined })
+        : encodePayload({
+            kind: 'video',
+            object_key: key,
+            duration,
+            caption: caption || undefined,
+          });
+    await sendGroupMessage({
+      groupId,
+      userId: myId,
+      content,
+      expiresAt: computeExpiresAt(ephemeralDuration),
+    });
+    const mediaKind = pendingMedia.kind;
+    clearPendingMedia();
+    const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
+    setMessages((prev) =>
+      mergeMessagesById(prev, fresh.messages as GroupMessage[]),
+    );
     try {
-      const { key, error } = await uploadMediaEx(pendingMedia.file, 'message-media');
-      if (error || !key) {
-        toast.error(error || "Échec de l'upload");
-        return;
-      }
-      const content =
-        pendingMedia.kind === 'image'
-          ? encodePayload({ kind: 'image', object_key: key })
-          : encodePayload({
-              kind: 'video',
-              object_key: key,
-              duration: pendingMedia.duration,
-            });
-      await sendGroupMessage({
+      const senderName =
+        profilesMap[myId]?.display_name || profilesMap[myId]?.username || 'Nouveau message';
+      const title = group?.name ? `${senderName} • ${group.name}` : senderName;
+      triggerGroupPushFanout({
         groupId,
-        userId: myId,
-        content,
-        expiresAt: computeExpiresAt(ephemeralDuration),
+        senderId: myId,
+        memberIds: members.map((m) => m.user_id),
+        title,
+        body: mediaKind === 'image' ? '📷 Photo' : '🎬 Vidéo',
       });
-      const mediaKind = pendingMedia.kind;
-      clearPendingMedia();
-      const fresh = await loadLatestGroupPage(groupId, GROUP_PAGE_SIZE);
-      setMessages((prev) =>
-        mergeMessagesById(prev, fresh.messages as GroupMessage[]),
-      );
-      try {
-        const senderName =
-          profilesMap[myId]?.display_name || profilesMap[myId]?.username || 'Nouveau message';
-        const title = group?.name ? `${senderName} • ${group.name}` : senderName;
-        triggerGroupPushFanout({
-          groupId,
-          senderId: myId,
-          memberIds: members.map((m) => m.user_id),
-          title,
-          body: mediaKind === 'image' ? '📷 Photo' : '🎬 Vidéo',
-        });
-      } catch (pErr) {
-        console.warn('[group-chat] push fan-out failed', pErr);
-      }
-    } catch (e) {
-      const err = e as { message?: string };
-      toast.error(err?.message || "Échec de l'envoi");
-    } finally {
-      setSendingMedia(false);
+    } catch (pErr) {
+      console.warn('[group-chat] push fan-out failed', pErr);
     }
   };
 
@@ -1275,12 +1269,13 @@ export default function GroupChat() {
                           mine={mine}
                         />
                       ) : payload.kind === 'image' ? (
-                        <MediaMessage kind="image" objectKey={payload.object_key} />
+                        <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
                       ) : payload.kind === 'video' ? (
                         <MediaMessage
                           kind="video"
                           objectKey={payload.object_key}
                           duration={payload.duration}
+                          caption={payload.caption}
                         />
                       ) : payload.kind === 'file' ? (
                         <FileMessage
@@ -1346,27 +1341,13 @@ export default function GroupChat() {
           )}
         </div>
 
-        {pendingMedia && (
-          <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
-            <MediaPreview media={pendingMedia} onRemove={clearPendingMedia} />
-            <div className="flex items-center justify-between mt-2 gap-2">
-              <div className="text-[11px] text-[var(--loboko-text-muted)]">
-                {pendingMedia.kind === 'image'
-                  ? 'Photo prête à être envoyée'
-                  : `Vidéo · ${formatDuration(pendingMedia.duration || 0)}`}
-              </div>
-              <button
-                type="button"
-                onClick={handleSendMedia}
-                disabled={sendingMedia}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
-              >
-                <Send size={14} />
-                {sendingMedia ? 'Envoi…' : 'Envoyer'}
-              </button>
-            </div>
-          </div>
-        )}
+        {pendingMedia && <MediaEditor
+          key={`${groupId}:${pendingMedia.previewUrl}`}
+          media={pendingMedia}
+          destination={group?.name || 'Groupe'}
+          onClose={clearPendingMedia}
+          onConfirm={handleSendMedia}
+        />}
 
         {pendingFile && (
           <div className="p-3 border-t border-[var(--loboko-border)] bg-[var(--loboko-elevated)]">
@@ -1443,6 +1424,7 @@ export default function GroupChat() {
                     <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
                       <MediaPicker
                         maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
+                        prepareForEditing
                         compact
                         onSelect={(sel) => {
                           setShowMediaPicker(false);
