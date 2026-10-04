@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyProductOrders, cancelProductOrder, ProductOrder } from '@/lib/product-orders';
 import { fetchProduct, ProductWithShop } from '@/lib/shops';
 import { ArrowLeft, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { openProductPayment, verifyProductPayment } from '@/lib/product-payments';
+import { PAYMENT_UNAVAILABLE_MESSAGE } from '@/lib/payment-system';
 import ProductShipmentPanel from '@/components/ProductShipmentPanel';
 
 interface OrderWithProduct extends ProductOrder {
@@ -27,12 +27,10 @@ const paymentFr: Record<string, string> = {
 
 export default function MyProductOrders() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderWithProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const load = async () => {
     if (!user?.id) return;
@@ -46,43 +44,9 @@ export default function MyProductOrders() {
   };
 
   useEffect(() => {
-    if (!user?.id) return;
-    const params = new URLSearchParams(location.search);
-    const orderId = params.get('order_id');
-    void (async () => {
-      if (params.get('payment') === 'return' && orderId) {
-        try {
-          const status = await verifyProductPayment(orderId);
-          if (status === 'paid') toast.success('Paiement confirmé');
-          else toast.info('Paiement en attente de confirmation. Vous pouvez le vérifier ci-dessous.');
-        } catch (reason) { toast.error(reason instanceof Error ? reason.message : 'Vérification indisponible.'); }
-        navigate('/my-product-orders', { replace: true });
-      }
-      await load();
-    })();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, location.search]);
-
-  const pay = async (orderId: string) => {
-    setPaymentId(orderId);
-    try { await openProductPayment(orderId); }
-    catch (reason) {
-      toast.error(reason instanceof Error ? reason.message : 'Paiement indisponible.');
-      await load();
-    } finally { setPaymentId(null); }
-  };
-
-  const verify = async (orderId: string) => {
-    setPaymentId(orderId);
-    try {
-      const status = await verifyProductPayment(orderId);
-      if (status === 'paid') toast.success('Paiement confirmé');
-      else if (status === 'failed' || status === 'expired') toast.info('Paiement refusé ou expiré. Vous pouvez réessayer ou annuler.');
-      else toast.info('Le paiement n’est pas encore confirmé.');
-      await load();
-    } catch (reason) { toast.error(reason instanceof Error ? reason.message : 'Vérification indisponible.'); }
-    finally { setPaymentId(null); }
-  };
+  }, [user?.id]);
 
   const handleCancel = async (order: OrderWithProduct) => {
     if (!confirm('Annuler cette commande ? Le stock sera remis à disposition.')) return;
@@ -107,7 +71,7 @@ export default function MyProductOrders() {
       </button>
 
       <h1 className="text-2xl font-bold mb-4">Mes commandes produits</h1>
-      <p className="mb-4 text-xs leading-relaxed text-[var(--loboko-text-muted)]">Les paiements Mobile Money s’ouvrent sur CinetPay en francs congolais. Le montant et la devise sont affichés avant validation. Convenez du mode, de l’adresse et des frais de livraison avec le vendeur ; ils ne sont pas inclus dans le prix des articles.</p>
+      <p className="mb-4 text-xs leading-relaxed text-[var(--loboko-text-muted)]">{PAYMENT_UNAVAILABLE_MESSAGE} Vous pouvez conserver et gérer vos commandes en attendant.</p>
 
       {loading ? (
         <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
@@ -157,11 +121,7 @@ export default function MyProductOrders() {
                     Paiement : {paymentFr[o.payment_status] || o.payment_status}
                   </span>
                 </div>
-                {o.payment_status === 'pending' && o.status === 'pending' && <div className="mt-3 flex flex-wrap gap-2">
-                  <button onClick={() => pay(o.id)} disabled={paymentId !== null} className="rounded-xl bg-[#2563eb] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{paymentId === o.id ? 'Vérification…' : 'Payer par Mobile Money'}</button>
-                  {o.payment_intents?.some((intent) => intent.status === 'pending') && <button onClick={() => verify(o.id)} disabled={paymentId !== null} className="rounded-xl border border-[var(--loboko-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50">Vérifier le paiement</button>}
-                </div>}
-                {o.payment_intents?.find((intent) => intent.status === 'pending' || intent.status === 'paid') && <p className="mt-2 text-xs text-[var(--loboko-text-muted)]">Montant du paiement : {Number(o.payment_intents.find((intent) => intent.status === 'pending' || intent.status === 'paid')?.amount).toLocaleString('fr-FR')} CDF</p>}
+                {o.payment_status === 'pending' && o.status === 'pending' && <button type="button" disabled className="mt-3 rounded-xl bg-[var(--loboko-elevated)] px-3 py-2 text-xs font-semibold text-[var(--loboko-text-muted)] disabled:cursor-not-allowed">Paiement bientôt disponible</button>}
                 {o.payment_status === 'paid' && <ProductShipmentPanel orderId={o.id} />}
                 {o.status === 'pending' && o.payment_status === 'pending' && !o.payment_intents?.some((intent) => intent.status === 'pending') && (
                   <button

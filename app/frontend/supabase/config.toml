@@ -1,11 +1,16 @@
 project_id = "loboko-app"
 
+[functions.payment-checkout]
+verify_jwt = true
+
+[functions.payment-status]
+verify_jwt = true
+
 [functions.cinetpay-checkout]
 verify_jwt = true
 
 [functions.cinetpay-status]
 verify_jwt = true
 
-# Public provider callback; the body verifies the transaction server-to-server.
 [functions.cinetpay-notify]
-verify_jwt = false
+verify_jwt = true

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { assertPaymentSystemEnabled } from './payment-system';
 
 export type PaymentCurrency = 'USD' | 'CDF';
 
@@ -52,6 +53,7 @@ export async function createPaymentForOrder(params: {
   orderId: string;
   currency: PaymentCurrency;
 }): Promise<PaymentRow | null> {
+  assertPaymentSystemEnabled();
   const { data, error } = await supabase.rpc('prepare_service_payment', {
     p_order_id: params.orderId,
     p_currency: params.currency,

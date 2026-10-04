@@ -1,51 +1,36 @@
-# Paiements produits et suivi de livraison LOBOKO
+# Paiements et livraisons : préparation sans agrégateur
 
-## État
+Aucun agrégateur n’a été choisi pour LOBOKO/CMB. Les encaissements, versements et remboursements restent désactivés dans toute l’application.
 
-Le parcours CinetPay Mobile Money est intégré côté serveur et interface. Son activation commerciale exige un compte marchand CinetPay autorisé en CDF, ses clés et un taux USD/CDF configuré. Aucun encaissement réel ne doit être annoncé avant ces réglages et une validation complète avec le fournisseur.
+## Ce qui est préparé
 
-Les commandes de services gardent leur fonctionnement actuel. Cette intégration concerne les produits du Marketplace.
+- Contrat commun de paiement pour produits, services, abonnements et publicités.
+- Commandes produits avec réservation/annulation du stock.
+- Registres de paiements, identifiants de transaction, montants et devises côté serveur.
+- Confirmation de paiement réservée au serveur, sans accès d’écriture pour le client.
+- Suivi de livraison : préparation, expédition et livraison ; transporteur, numéro/lien de suivi, date prévue et historique.
+- Contrôles d’accès acheteur/vendeur et protection contre les confirmations en double.
 
-## Secrets Supabase Edge Functions
+Le paiement reste indisponible tant qu’un adaptateur serveur n’est pas raccordé. Le navigateur ne redirige vers aucun fournisseur et ne crée aucune tentative de paiement.
 
-Dans le projet Supabase, ouvrir **Edge Functions → Secrets** et ajouter :
+## Raccordement futur
 
-| Nom | Valeur attendue |
-| --- | --- |
-| `CINETPAY_API_KEY` | Clé API privée du compte marchand CinetPay |
-| `CINETPAY_SITE_ID` | Identifiant du site marchand CinetPay |
-| `USD_CDF_RATE` | Taux commercial USD→CDF approuvé, nombre positif avec au plus 4 décimales |
-| `LOBOKO_APP_URL` | `https://loboko-app.vercel.app` ou le futur domaine HTTPS |
+Après le choix du partenaire :
 
-Ne jamais mettre ces clés dans `VITE_*`, le navigateur, GitHub ou une conversation. Les clés Supabase serveur sont fournies automatiquement aux Edge Functions.
+1. Implémenter l’adaptateur serveur d’après sa documentation officielle : initiation, vérification, notifications et erreurs.
+2. Définir les devises, conversions, frais, commissions et le processus de reversement aux vendeurs.
+3. Ajouter ses secrets exclusivement côté serveur.
+4. Vérifier les confirmations réelles, l’idempotence, les échecs, expirations et remboursements.
+5. Valider le parcours en test, puis autoriser les paiements côté serveur et interface.
 
-## Parcours
-
-1. La commande réserve le stock côté base.
-2. « Payer par Mobile Money » ouvre le guichet hébergé CinetPay.
-3. Le montant USD est converti au taux configuré puis arrondi au multiple de 5 CDF supérieur exigé par CinetPay. Le taux et le montant sont enregistrés pour cette tentative.
-4. CinetPay appelle `cinetpay-notify`. Ce point d’entrée est public afin de recevoir ses notifications ; il ignore le statut reçu et demande une vérification serveur au fournisseur.
-5. Un paiement est confirmé uniquement si le fournisseur le déclare accepté et si son montant et sa devise correspondent à la commande. Le retour navigateur et « Vérifier le paiement » ne peuvent pas contourner cette vérification.
-6. La même notification peut être reçue plusieurs fois sans dupliquer paiement ni livraison.
-
-Un checkout en cours bloque l’annulation de la commande. Une erreur réseau ambiguë garde le paiement en attente de vérification, afin d’éviter un double encaissement. En cas d’incident non résolu, réconcilier la transaction avec le tableau de bord CinetPay avant toute annulation ou restitution de stock.
+La configuration serveur `payment_gateway_configuration` est désactivée et son fournisseur est vide. Elle ne contient aucune clé privée. Changer ce seul réglage ne raccorde pas un agrégateur : un adaptateur vérifié est obligatoire.
 
 ## Livraisons
 
-Après paiement confirmé, le vendeur dispose du suivi : préparation → expédition → livraison. Il peut renseigner livreur/transporteur, numéro et lien de suivi, date prévue et information pour le client. Les étapes sont historisées et visibles uniquement par l’acheteur et le vendeur de la commande.
+Le suivi est conservé pour le futur parcours payé. Le vendeur met les étapes à jour manuellement ; la connexion à un transporteur pourra être ajoutée plus tard. Le mode, l’adresse et les frais de livraison restent à définir avec le vendeur.
 
-Le vendeur met ce suivi à jour manuellement. Il ne s’agit pas d’un suivi GPS ni d’une connexion automatique à un transporteur. L’adresse, le mode et les frais de livraison sont convenus avec le vendeur ; les frais de livraison ne sont pas inclus dans ce paiement d’articles.
+## Compatibilité et historique
 
-## Fonds et remboursements
+Les anciens points d’entrée spécifiques au fournisseur provisoire sont rendus inactifs et exigent un JWT. Ils ne font aucun appel externe ni aucune écriture financière, même si une ancienne version du navigateur les appelle. Les migrations historiques sont conservées ; une nouvelle migration retire les anciennes fonctions de paiement spécifiques et prépare les fonctions génériques.
 
-Les fonds sont encaissés par le compte marchand CinetPay configuré pour LOBOKO. La répartition automatique aux vendeurs, la mise sous séquestre et les remboursements automatiques ne sont pas inclus dans ce raccordement. Définir et valider le processus de reversement aux boutiques avec CinetPay avant d’ouvrir les encaissements au public. Tout remboursement doit être effectué par le canal marchand autorisé et réconcilié avec la commande ; aucun bouton ne simule un remboursement.
-
-## Validation avant ouverture commerciale
-
-- Confirmer avec CinetPay l’activation RDC/CDF et les moyens Mobile Money du compte.
-- Vérifier le taux commercial, les frais du compte et le traitement des reversements/remboursements.
-- Tester un paiement accepté, un refus, un abandon et le retour vers LOBOKO.
-- Vérifier les callbacks en double et la réception sans retour du navigateur.
-- Vérifier les étapes de livraison et les accès acheteur/vendeur avec deux comptes distincts.
-
-Le test SQL `supabase/tests/product_payments_delivery.sql` vérifie les gardes de paiement et de livraison dans une transaction entièrement annulée. Il ne déclenche aucun appel ni encaissement auprès de CinetPay.
+Le test SQL `supabase/tests/product_payments_delivery.sql` valide les gardes dans une transaction annulée. Il ne simule aucun encaissement persistant.

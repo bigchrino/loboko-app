@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, CreditCard } from 'lucide-react';
+import { PAYMENT_UNAVAILABLE_MESSAGE } from '@/lib/payment-system';
 
 export default function ServicePayment() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -48,6 +49,7 @@ export default function ServicePayment() {
         <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-5 space-y-4">
           <CreditCard size={28} className="text-[#2563eb]" aria-hidden="true" />
           <h1 className="text-xl font-bold">Paiement en ligne indisponible</h1>
+          <p className="text-sm text-[var(--loboko-text-secondary)]">{PAYMENT_UNAVAILABLE_MESSAGE}</p>
           <p className="text-sm text-[var(--loboko-text-secondary)]">
             Vous pouvez demander un service et convenir du prix avec le prestataire.
             LOBOKO ne collecte, ne conserve et ne verse aucun fonds pour le moment.

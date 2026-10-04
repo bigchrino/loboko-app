@@ -18,7 +18,7 @@ export interface ProductOrder {
 /**
  * Passe une vraie commande produit : réserve le stock et crée la commande
  * en une seule opération sécurisée côté base (fonction place_product_order).
- * Le paiement reste en attente jusqu'à la vérification serveur CinetPay.
+ * Le paiement reste en attente jusqu'au raccordement du futur agrégateur.
  */
 export async function placeProductOrder(
   clientId: string,

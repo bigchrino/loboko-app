@@ -1,21 +1,19 @@
 # Paiements LOBOKO
 
-Le paiement des **services** reste indisponible. Le Marketplace dispose désormais d’un raccordement CinetPay Mobile Money, à activer avec un compte marchand autorisé en CDF, les secrets serveur et un taux de conversion validé. Le détail et les limites sont dans [MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md](./MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md).
+Aucun agrégateur n’a encore été choisi pour LOBOKO/CMB. Les parcours de paiement sont préparés, mais les encaissements, versements, remboursements automatiques et la conservation des fonds restent indisponibles dans toute l’application.
 
-Les versements automatiques aux vendeurs, la conservation des fonds et les remboursements automatiques ne sont pas assurés par cette intégration. Aucun encaissement réel n’a été validé tant que le compte marchand n’est pas configuré.
+Le contrat commun de l’interface couvre produits, services, abonnements et publicités. Les commandes et registres existants sont conservés. Aucun statut enregistré ne constitue à lui seul une preuve d’encaissement réel.
 
-La page de paiement des services informe les utilisateurs de cette indisponibilité. Les anciennes RPC `prepare_service_payment` et `complete_service_order` rejettent tout appel sans modifier les données, y compris depuis un ancien client. La seconde RPC associait auparavant la fin de mission à une libération fictive de fonds : ce parcours est donc suspendu. La création, l’acceptation, les contre-propositions et l’annulation des demandes restent disponibles.
+## Produits Marketplace
 
-Les écritures directes des utilisateurs dans `service_orders` sont interdites ; les RPC validées créent et modifient les commandes. Les anciens enregistrements de paiement sont conservés pour examen. Leur statut seul ne constitue pas une preuve de transaction réelle.
+Les montants et devises n’imposent aucun fournisseur ni taux de conversion. Les fonctions de création et confirmation de paiement sont réservées au serveur et bloquées tant que la configuration de paiement est désactivée. Le suivi de livraison est préparé et protégé par les droits acheteur/vendeur.
 
-## Conditions de mise en service
+Voir [MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md](./MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md) pour le raccordement futur.
 
-- Choisir un prestataire et disposer du compte marchand, de sa documentation officielle et des accès de test puis de production. Netikash est mentionné dans l’ancien code, mais aucune intégration active n’est présente.
-- Définir les devises, montants, commissions et règles de conversion côté serveur, ainsi que les fonctions réellement prises en charge par le prestataire.
-- Initier les transactions côté serveur, avec des secrets exclusivement côté serveur, puis vérifier les confirmations du prestataire et traiter les notifications signées avec idempotence.
-- Gérer les échecs, expirations, rapprochements, annulations et remboursements réellement confirmés. Ne proposer une conservation des fonds et leur libération que si ce fonctionnement est effectivement pris en charge.
-- Tester tout le parcours en environnement de test avant d’ouvrir les paiements réels. Adapter l’aide aux garanties effectivement disponibles.
+## Services
 
-## Vérification
+Les RPC `prepare_service_payment` et `complete_service_order` restent bloquées afin d’empêcher les anciennes simulations financières. La création, l’acceptation, les contre-propositions et l’annulation des demandes restent disponibles. Les écritures directes des utilisateurs dans `service_orders` sont interdites.
 
-`supabase/tests/payment_availability.sql` vérifie dans une transaction annulée que les écritures directes sont bloquées, que la création/annulation/acceptation fonctionnent et que les RPC financières rejetées ne marquent aucune commande comme payée.
+## Activation future
+
+Choisir l’agrégateur, implémenter son adaptateur serveur, définir les devises/frais/reversements, configurer les secrets serveur et tester les confirmations réelles avant activation. Les garanties affichées devront correspondre aux fonctions réellement prises en charge par le partenaire.

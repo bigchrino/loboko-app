@@ -41,7 +41,7 @@ const FAQ_ITEMS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Le paiement en ligne est-il disponible ?',
-    a: 'Pas encore. LOBOKO permet de demander un service et de convenir du prix, mais ne collecte, ne conserve et ne verse aucun fonds. Les remboursements automatiques ne sont pas disponibles. Un paiement effectué en dehors de LOBOKO ne bénéficie pas d’une protection des fonds par LOBOKO.',
+    a: 'Pas encore. Les parcours de paiement sont préparés, mais aucun agrégateur n’a été choisi ni raccordé. Vous pouvez créer des commandes de produits, demander un service et convenir du prix. LOBOKO ne collecte, ne conserve et ne verse aucun fonds pour le moment. Les remboursements automatiques ne sont pas disponibles. Un paiement effectué en dehors de LOBOKO ne bénéficie pas d’une protection des fonds par LOBOKO.',
   },
   {
     q: 'Puis-je changer de rôle (client ↔ prestataire) ?',
