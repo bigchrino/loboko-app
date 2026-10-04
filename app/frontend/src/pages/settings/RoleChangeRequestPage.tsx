@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
+import ServiceCategorySelect from '@/components/ServiceCategorySelect';
 import { toast } from 'sonner';
 
 export default function RoleChangeRequestPage() {
@@ -18,16 +19,21 @@ export default function RoleChangeRequestPage() {
   );
 
   const [metier, setMetier] = useState('');
+  const [serviceId, setServiceId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
 
   const submit = async () => {
-    if (!profile) return;
+    if (!profile || loading) return;
+    if (requestedRole === profile.role) {
+      toast.error('Choisissez un rôle différent de votre compte actuel');
+      return;
+    }
 
     if (
       requestedRole === 'prestataire' &&
-      !metier.trim()
+      !serviceId
     ) {
-      toast.error('Précisez votre métier');
+      toast.error('Choisissez un service officiel dans la liste');
       return;
     }
 
@@ -42,6 +48,7 @@ export default function RoleChangeRequestPage() {
           old_role: profile.role,
           new_role: requestedRole,
 
+          requested_service_id: requestedRole === 'prestataire' ? serviceId : null,
           requested_metier:
             requestedRole === 'prestataire'
               ? metier
@@ -58,6 +65,7 @@ export default function RoleChangeRequestPage() {
 
       setReason('');
       setMetier('');
+      setServiceId(null);
     } catch (e) {
       console.error(e);
       toast.error('Erreur');
@@ -100,14 +108,11 @@ export default function RoleChangeRequestPage() {
 
             {requestedRole ===
               'prestataire' && (
-              <input
-                value={metier}
-                onChange={(e) =>
-                  setMetier(e.target.value)
-                }
-                placeholder="Votre métier"
-                className="w-full p-3 rounded-xl bg-[var(--loboko-surface-hover)] border border-[var(--loboko-border)]"
-              />
+              <div>
+                <label className="block text-sm font-medium mb-2">Service officiel *</label>
+                <ServiceCategorySelect value={serviceId} required
+                  onChange={(id, service) => { setServiceId(id); setMetier(service?.name || ''); }} />
+              </div>
             )}
 
             <textarea

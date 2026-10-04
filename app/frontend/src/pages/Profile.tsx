@@ -329,6 +329,15 @@ export default function Profile() {
             <span className="text-sm sm:text-base break-all text-[var(--loboko-text-secondary)]">{user.email}</span>
           </div>
         )}
+        {profile.role === 'prestataire' && !profile.service_id && !editing && (
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 mb-4">
+            <h2 className="font-semibold text-sm mb-2">Complétez votre service officiel</h2>
+            <p className="text-sm text-[var(--loboko-text-secondary)] mb-3">
+              Votre ancien métier est conservé. Choisissez le service qui correspond à votre activité pour apparaître dans les recherches de services et les suggestions.
+            </p>
+            <button type="button" onClick={() => setEditing(true)} className="text-sm font-semibold text-[#2563eb]">Choisir mon service</button>
+          </div>
+        )}
         {!editing && (
           <button type="button" onClick={() => setEditing(true)} className="w-full flex items-center justify-center gap-3 px-4 py-4 mb-5 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold hover:brightness-110 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]">
             <Edit2 size={20} aria-hidden="true" />Modifier mon profil
