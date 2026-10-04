@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, AlertCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   isPushSupported,
@@ -87,6 +88,24 @@ export default function PushNotificationSettings() {
     }
   };
 
+  const handleTest = async () => {
+    if (!user?.id) return;
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-push', {
+        body: { kind: 'test', recipient_user_id: user.id },
+      });
+      if (error || !data?.delivered) {
+        setErrorMsg("La notification de test n'a pas pu être envoyée. Réactivez les notifications sur cet appareil puis réessayez.");
+      }
+    } catch {
+      setErrorMsg('Test indisponible. Vérifiez votre connexion puis réessayez.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDisable = async () => {
     setBusy(true);
     try {
@@ -147,6 +166,14 @@ export default function PushNotificationSettings() {
       {errorMsg && (
         <div className="px-4 py-3 text-xs text-red-400 flex items-center gap-2 border-b border-[var(--loboko-border)]">
           <AlertCircle size={14} /> {errorMsg}
+        </div>
+      )}
+
+      {status === 'idle-on' && (
+        <div className="px-4 py-3 border-b border-[var(--loboko-border)]">
+          <button type="button" onClick={handleTest} disabled={busy} className="text-xs font-semibold text-[#2563eb] disabled:opacity-60">
+            {busy ? 'Envoi…' : 'Envoyer une notification de test'}
+          </button>
         </div>
       )}
 

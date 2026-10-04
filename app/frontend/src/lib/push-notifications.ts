@@ -50,7 +50,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   try {
     const existing = await navigator.serviceWorker.getRegistration('/');
     if (existing) return existing;
-    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    return await navigator.serviceWorker.ready;
   } catch (e) {
     console.error('[push] SW registration failed', e);
     return null;
@@ -85,8 +86,13 @@ export async function getCurrentSubscription(): Promise<PushSubscription | null>
 }
 
 export async function isSubscribed(): Promise<boolean> {
-  const s = await getCurrentSubscription();
-  return !!s;
+  const subscription = await getCurrentSubscription();
+  if (!subscription) return false;
+  const { data: userRes } = await supabase.auth.getUser();
+  if (!userRes?.user?.id) return false;
+  const { data, error } = await supabase.from('push_subscriptions')
+    .select('id').eq('endpoint', subscription.endpoint).eq('user_id', userRes.user.id).maybeSingle();
+  return !error && !!data;
 }
 
 /**
@@ -99,13 +105,14 @@ export async function subscribeCurrentUser(): Promise<
   if (!isPushSupported()) return { ok: false, reason: 'unsupported' };
   if (!VAPID_PUBLIC_KEY) return { ok: false, reason: 'no-vapid' };
 
-  const { data: userRes } = await supabase.auth.getUser();
-  const uid = userRes?.user?.id;
-  if (!uid) return { ok: false, reason: 'not-authed' };
-
+  // Safari requires permission to be requested directly from the button gesture.
   let perm = Notification.permission;
   if (perm === 'default') perm = await Notification.requestPermission();
   if (perm !== 'granted') return { ok: false, reason: 'denied' };
+
+  const { data: userRes } = await supabase.auth.getUser();
+  const uid = userRes?.user?.id;
+  if (!uid) return { ok: false, reason: 'not-authed' };
 
   const reg = await registerServiceWorker();
   if (!reg) return { ok: false, reason: 'error' };

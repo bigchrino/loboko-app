@@ -1,12 +1,6 @@
 /* LOBOKO Service Worker — Web Push + notification click routing */
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'loboko-sw-v2';
-
-// Currently-focused conversation, broadcast from the app via postMessage.
-// Shape: { type: 'dm'|'group', id: string } | null
-let activeConversation = null;
-
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -18,20 +12,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   const msg = event.data;
   if (!msg || typeof msg !== 'object') return;
-  if (msg.type === 'active-conversation') {
-    activeConversation = msg.payload ?? null;
-  } else if (msg.type === 'skip-waiting') {
+  if (msg.type === 'skip-waiting') {
     self.skipWaiting();
   }
 });
-
-function isSameAsActive(data) {
-  if (!activeConversation || !data) return false;
-  return (
-    data.type === activeConversation.type &&
-    String(data.conversation_id) === String(activeConversation.id)
-  );
-}
 
 async function anyVisibleClientFocusedOnConversation(data) {
   if (!data) return false;
@@ -44,11 +28,11 @@ async function anyVisibleClientFocusedOnConversation(data) {
     try {
       const url = new URL(c.url);
       if (data.type === 'dm') {
-        return url.pathname.startsWith('/messages') && url.search.includes(`user=${data.conversation_id}`);
+        return url.pathname.startsWith('/messages') && url.searchParams.get('to') === String(data.conversation_id);
       }
       if (data.type === 'group') {
-        return url.pathname === `/groups/${data.conversation_id}` ||
-               url.pathname.startsWith(`/groups/${data.conversation_id}/`);
+        return url.pathname === `/messages/group/${data.conversation_id}` ||
+               url.pathname.startsWith(`/messages/group/${data.conversation_id}/`);
       }
     } catch (_) {
       return false;
@@ -68,7 +52,7 @@ self.addEventListener('push', (event) => {
 
     const data = payload.data || {};
     // If the user is already looking at this conversation, skip the notif.
-    if (isSameAsActive(data) || (await anyVisibleClientFocusedOnConversation(data))) {
+    if (await anyVisibleClientFocusedOnConversation(data)) {
       return;
     }
 
@@ -95,14 +79,16 @@ self.addEventListener('notificationclick', (event) => {
   const data = event.notification.data || {};
   const targetPath = (() => {
     if (data.type === 'urgent_order' && (data.order_id || data.conversation_id)) {
-      return `/my-orders/${data.order_id || data.conversation_id}`;
+      return `/my-orders/${encodeURIComponent(data.order_id || data.conversation_id)}`;
     }
     if (data.type === 'group' && data.conversation_id) {
-      return `/groups/${data.conversation_id}`;
+      return `/messages/group/${encodeURIComponent(data.conversation_id)}`;
     }
     if (data.type === 'dm' && data.conversation_id) {
-      return `/messages?user=${data.conversation_id}`;
+      return `/messages?to=${encodeURIComponent(data.conversation_id)}`;
     }
+    if (data.post_id) return `/post/${encodeURIComponent(data.post_id)}`;
+    if (data.type === 'notification' || data.type === 'test') return '/notifications';
     return '/messages';
   })();
 
