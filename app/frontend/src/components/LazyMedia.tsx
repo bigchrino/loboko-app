@@ -10,6 +10,8 @@ interface Props {
    * visible pop on scroll. */
   rootMargin?: string;
   className?: string;
+  /** Optional nested scroller used for ahead-of-scroll loading. */
+  scrollRootSelector?: string;
 }
 
 /**
@@ -26,6 +28,7 @@ export default function LazyMedia({
   placeholder,
   rootMargin = '200px',
   className,
+  scrollRootSelector,
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
@@ -48,11 +51,11 @@ export default function LazyMedia({
           }
         }
       },
-      { rootMargin },
+      { rootMargin, root: scrollRootSelector ? el.closest(scrollRootSelector) : null },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [visible, rootMargin]);
+  }, [visible, rootMargin, scrollRootSelector]);
 
   return (
     <div ref={ref} className={className}>

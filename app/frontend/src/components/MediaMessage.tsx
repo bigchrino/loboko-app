@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Image as ImageIcon, Video as VideoIcon, LoaderCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSignedStorageUrl } from '@/lib/storage-helpers';
@@ -21,8 +22,14 @@ supabase.auth.onAuthStateChange((event, session) => {
   cacheAccount = account;
 });
 
-function Placeholder() {
-  return <div className="absolute inset-0 rounded-lg bg-black/20 motion-safe:animate-pulse" aria-label="Chargement du média" />;
+function Placeholder({ kind = 'image' }: { kind?: 'image' | 'video' }) {
+  const Icon = kind === 'image' ? ImageIcon : VideoIcon;
+  return (
+    <div className="absolute inset-0 z-10 rounded-lg bg-[#151b25] text-white/65 flex flex-col items-center justify-center gap-2 pointer-events-none" role="status" aria-label="Chargement du média">
+      <Icon size={32} className="text-white/35" aria-hidden="true" />
+      <span className="flex items-center gap-2 text-xs"><LoaderCircle size={14} className="motion-safe:animate-spin" aria-hidden="true" />{kind === 'image' ? 'Chargement de la photo…' : 'Chargement de la vidéo…'}</span>
+    </div>
+  );
 }
 
 function MediaInner({ kind, objectKey, duration }: Props) {
@@ -54,18 +61,29 @@ function MediaInner({ kind, objectKey, duration }: Props) {
     return () => { cancelled = true; };
   }, [objectKey, cacheKey, attempt]);
 
+  // A stalled download must offer a retry instead of an endless blank bubble.
+  useEffect(() => {
+    if (ready || error) return;
+    const timer = window.setTimeout(() => setError(true), 30000);
+    return () => window.clearTimeout(timer);
+  }, [url, ready, error, attempt]);
+
   return (
     <div className="relative w-full h-full" aria-busy={!ready && !error}>
-      {!ready && !error && <Placeholder />}
+      {!ready && !error && <Placeholder kind={kind} />}
       {error ? (
         <button type="button" onClick={() => { mediaLinks.delete(cacheKey); setAttempt((value) => value + 1); }}
-          className="w-full h-full rounded-lg bg-black/20 text-xs p-3">
-          Média indisponible · Réessayer
+          className="w-full h-full rounded-lg bg-[#151b25] text-white/80 text-xs p-3">
+          Chargement impossible · Réessayer
         </button>
       ) : url && (kind === 'image' ? (
         <a href={url} target="_blank" rel="noreferrer" className="block w-full h-full">
-          <img src={url} alt="photo" onLoad={() => setReady(true)} onError={() => setError(true)}
-            className={`rounded-lg w-full h-full object-contain block ${ready ? '' : 'opacity-0'}`}
+          <img src={url} alt="photo" onLoad={() => { setError(false); setReady(true); }} onError={() => setError(true)}
+            ref={(element) => {
+              // Safari may finish a cached image before React receives load.
+              if (element?.complete && element.naturalWidth > 0) setReady(true);
+            }}
+            className="rounded-lg w-full h-full object-contain block bg-[#151b25]"
             decoding="async" />
         </a>
       ) : (
@@ -84,7 +102,7 @@ export default function MediaMessage(props: Props) {
   // the messages being read. The original remains accessible on image tap.
   return (
     <div className="w-56 max-w-full">
-      <LazyMedia className="relative w-full h-60" placeholder={<Placeholder />}>
+      <LazyMedia className="relative w-full h-60" rootMargin="600px" scrollRootSelector="[data-chat-scroll]" placeholder={<Placeholder kind={props.kind} />}>
         <MediaInner key={`${props.kind}:${props.objectKey}`} {...props} />
       </LazyMedia>
       {props.caption && <p className="px-2 py-1.5 text-sm whitespace-pre-wrap break-words">{props.caption}</p>}
