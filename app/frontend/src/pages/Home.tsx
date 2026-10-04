@@ -221,7 +221,7 @@ export default function Home() {
         />
       </div>
 
-      <div id="loboko-feed" className="grid">
+      <div id="loboko-feed" className="grid grid-cols-1 min-w-0">
         {loading && (
           <div className="col-start-1 row-start-1 text-center py-10 text-sm text-[var(--loboko-text-muted)]">
             Chargement des publications...
@@ -230,7 +230,7 @@ export default function Home() {
 
         {!loading && (
           <div
-            className="col-start-1 row-start-1"
+            className="col-start-1 row-start-1 min-w-0"
           >
             {posts.length === 0 ? (
               <>

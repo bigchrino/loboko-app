@@ -49,13 +49,13 @@ export default function RecommendedServices({ userId }: { userId: string }) {
 
   // Fixed height prevents recommendations from shifting a restored feed.
   return (
-    <section aria-label="Suggestions de services" className="h-[244px] my-4 rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] p-4">
+    <section aria-label="Suggestions de services" className="w-full min-w-0 max-w-full h-[244px] my-4 rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] p-4">
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="font-semibold text-sm">Des services pour vous</h2>
         <button type="button" disabled={resetting} onClick={reset}
           className="text-xs text-[var(--loboko-text-muted)] disabled:opacity-50">Réinitialiser</button>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2" aria-busy={loading}>
+      <div className="flex w-full min-w-0 gap-3 overflow-x-auto pb-2" aria-busy={loading}>
         {loading && !items.length ? [0, 1, 2].map((i) => (
           <div key={i} aria-hidden="true" className="h-[174px] w-52 shrink-0 rounded-xl bg-[var(--loboko-elevated)] motion-safe:animate-pulse" />
         )) : items.length ? items.map((item) => (
