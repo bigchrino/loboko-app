@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { readPostView, savePostView, type PostAuthor } from '@/lib/post-view-cache';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
 import LikesModal from './LikesModal';
@@ -25,15 +26,6 @@ export interface PostItem {
   comments_count?: number;
   shares_count?: number;
   created_at?: string;
-}
-
-interface Author {
-  username: string;
-  display_name?: string;
-  metier?: string;
-  avatar_key?: string;
-  role?: string;
-  is_admin?: boolean;
 }
 
 interface Props {
@@ -65,22 +57,30 @@ export default function PostCard({
 }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [author, setAuthor] = useState<Author | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [cached] = useState(() => readPostView(post.id, currentUserId));
+  const [author, setAuthor] = useState<PostAuthor | null>(cached?.author ?? null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(cached?.avatarUrl ?? null);
   const [mediaUrls, setMediaUrls] = useState<
     { url: string; type: 'image' | 'video' }[]
-  >([]);
-  const [liked, setLiked] = useState(false);
-  const [likeId, setLikeId] = useState<string | null>(null);
-  const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-  const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
-  const [sharesCount, setSharesCount] = useState(post.shares_count || 0);
+  >(cached?.mediaUrls ?? []);
+  const [mediaRatios, setMediaRatios] = useState<Record<string, number>>(cached?.mediaRatios ?? {});
+  const [liked, setLiked] = useState(cached?.liked ?? false);
+  const [likeId, setLikeId] = useState<string | null>(cached?.likeId ?? null);
+  const [likesCount, setLikesCount] = useState(cached?.likesCount ?? post.likes_count ?? 0);
+  const [commentsCount, setCommentsCount] = useState(cached?.commentsCount ?? post.comments_count ?? 0);
+  const [sharesCount, setSharesCount] = useState(cached?.sharesCount ?? post.shares_count ?? 0);
   const [showLikes, setShowLikes] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    savePostView({ post, author, avatarUrl, mediaUrls, mediaRatios, liked,
+      likeId, likesCount, commentsCount, sharesCount }, currentUserId);
+  }, [post, author, avatarUrl, mediaUrls, mediaRatios, liked, likeId,
+    likesCount, commentsCount, sharesCount, currentUserId]);
 
   useEffect(() => {
     (async () => {
@@ -91,17 +91,17 @@ export default function PostCard({
           .eq('user_id', post.user_id)
           .maybeSingle();
         if (data) {
-          const authorData = data as Author & {
+          const authorData = data as PostAuthor & {
             banned?: boolean;
             suspended?: boolean;
           };
-        
+
           if (authorData.banned || authorData.suspended) {
             return;
           }
-        
+
           setAuthor(authorData);
-        
+
           if (authorData.avatar_key) {
             const url = await getMediaUrl(authorData.avatar_key);
             setAvatarUrl(url);
@@ -110,53 +110,6 @@ export default function PostCard({
       } catch (e) {
         console.error(e);
       }
-      if (post.media_keys?.length) {
-        const medias = await Promise.all(
-          post.media_keys.map(async (m) => {
-            const key = typeof m === 'string' ? m : m.key;
-            const url = await getMediaUrl(key);
-      
-            if (!url) return null;
-      
-            const lower = key.toLowerCase();
-            const fallbackType =
-              lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')
-                ? 'video'
-                : 'image';
-      
-            return {
-              url,
-              type: typeof m === 'string' ? fallbackType : m.type,
-            };
-          })
-        );
-      
-        setMediaUrls(
-          medias.filter(
-            (m): m is { url: string; type: 'image' | 'video' } => !!m
-          )
-        );
-      } else if (post.image_key) {
-        const url = await getMediaUrl(post.image_key);
-      
-        if (url) {
-          setMediaUrls([{ url, type: 'image' }]);
-        } else {
-          setMediaUrls([]);
-        }
-      } else if (post.video_key) {
-        const url = await getMediaUrl(post.video_key);
-      
-        if (url) {
-          setMediaUrls([{ url, type: 'video' }]);
-        } else {
-          setMediaUrls([]);
-        }
-      } else {
-        setMediaUrls([]);
-      }
-      
-      
       try {
         const { count: lc } = await supabase
           .from('likes')
@@ -193,13 +146,73 @@ export default function PostCard({
           if (data?.id) {
             setLiked(true);
             setLikeId(data.id as string);
+          } else {
+            setLiked(false);
+            setLikeId(null);
           }
         } catch (e) {
           console.error(e);
         }
       }
     })();
-  }, [post.id, post.user_id, post.image_key, post.video_key, post.media_keys, currentUserId]);
+  }, [post.id, post.user_id, currentUserId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const updateMedia = (value: { url: string; type: 'image' | 'video' }[]) => {
+      if (!cancelled) setMediaUrls(value);
+    };
+    void (async () => {
+      if (post.media_keys?.length) {
+        const medias = await Promise.all(
+          post.media_keys.map(async (m) => {
+            const key = typeof m === 'string' ? m : m.key;
+            const url = await getMediaUrl(key);
+
+            if (!url) return null;
+
+            const lower = key.toLowerCase();
+            const fallbackType =
+              lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov')
+                ? 'video'
+                : 'image';
+
+            return {
+              url,
+              type: typeof m === 'string' ? fallbackType : m.type,
+            };
+          })
+        );
+
+        updateMedia(
+          medias.filter(
+            (m): m is { url: string; type: 'image' | 'video' } => !!m
+          )
+        );
+      } else if (post.image_key) {
+        const url = await getMediaUrl(post.image_key);
+
+        if (url) {
+          updateMedia([{ url, type: 'image' }]);
+        } else {
+          updateMedia([]);
+        }
+      } else if (post.video_key) {
+        const url = await getMediaUrl(post.video_key);
+
+        if (url) {
+          updateMedia([{ url, type: 'video' }]);
+        } else {
+          updateMedia([]);
+        }
+      } else {
+        updateMedia([]);
+      }
+
+
+    })().catch(console.error);
+    return () => { cancelled = true; };
+  }, [post.image_key, post.video_key, post.media_keys]);
 
   /**
    * Auto-open the comments modal with a highlighted comment when returning
@@ -411,7 +424,7 @@ export default function PostCard({
       String(feed?.scrollTop || 0)
     );
     sessionStorage.setItem('home-post-id', post.id);
-  
+
     navigate(`/post/${post.id}`, {
       state: {
         from: `${location.pathname}${location.search}${location.hash}`,
@@ -444,7 +457,7 @@ export default function PostCard({
 
   const handleCommentClick = () => {
     setShowComments(false);
-  
+
     navigate(`/post/${post.id}#comments`, {
       replace: false,
       state: {
@@ -460,7 +473,7 @@ export default function PostCard({
   const MAX_CONTENT_LENGTH = 220;
 
   const isLongPost = post.content.length > MAX_CONTENT_LENGTH;
-  
+
   const displayedContent =
     expanded || !isLongPost
       ? post.content
@@ -568,7 +581,7 @@ export default function PostCard({
               returnContext={{ postId: post.id }}
             />
           </p >
-        
+
           {isLongPost && (
             <button
               type="button"
@@ -609,6 +622,13 @@ export default function PostCard({
                     <img
                       src={media.url}
                       alt=""
+                      style={{ aspectRatio: mediaRatios[media.url] }}
+                      onLoad={(event) => {
+                        const img = event.currentTarget;
+                        if (img.naturalHeight) setMediaRatios((current) => ({
+                          ...current, [media.url]: img.naturalWidth / img.naturalHeight,
+                        }));
+                      }}
                       loading="lazy"
                       decoding="async"
                       className={`w-full object-cover ${
@@ -623,13 +643,20 @@ export default function PostCard({
                     controlsList="nodownload"
                     playsInline
                     preload="metadata"
+                    style={{ aspectRatio: mediaRatios[media.url] }}
+                    onLoadedMetadata={(event) => {
+                      const video = event.currentTarget;
+                      if (video.videoHeight) setMediaRatios((current) => ({
+                        ...current, [media.url]: video.videoWidth / video.videoHeight,
+                      }));
+                    }}
                     onClick={(e) => e.stopPropagation()}
                     className={`w-full object-cover bg-black ${
                       mediaUrls.length === 1 ? 'max-h-[480px]' : 'h-44'
                     }`}
                   />
                 )}
-            
+
                 {index === 3 && mediaUrls.length > 4 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xl font-bold pointer-events-none">
                     +{mediaUrls.length - 4}
@@ -640,7 +667,7 @@ export default function PostCard({
           </div>
         )}
 
-        
+
 
         <footer
           className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)]"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
@@ -6,6 +6,7 @@ import PostCard, { PostItem } from '@/components/PostCard';
 import CommentsModal from '@/components/CommentsModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { readPostView, forgetPostView } from '@/lib/post-view-cache';
 import { ArrowLeft } from 'lucide-react';
 
 interface LocationState {
@@ -23,8 +24,10 @@ export default function PostDetail() {
   const location = useLocation();
   const fallbackBack = useBackNavigation('/');
   const { user } = useAuth();
-  const [post, setPost] = useState<PostItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [post, setPost] = useState<PostItem | null>(() =>
+    postId ? readPostView(postId, user?.id)?.post ?? null : null
+  );
+  const [loading, setLoading] = useState(!post);
   const [notFound, setNotFound] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
@@ -40,7 +43,7 @@ export default function PostDetail() {
   const activeReturnCtx = returnCtx || consumedReturnCtx;
   const highlightCommentId = activeReturnCtx?.commentId || undefined;
   const shouldFocusComments =
-    !!highlightCommentId || location.hash === '#comments';
+    !!highlightCommentId;
 
   /**
    * Once we've captured the `returnContext` on mount, strip it from
@@ -61,33 +64,41 @@ export default function PostDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [returnCtx]);
 
-  const loadPost = useCallback(async () => {
-    if (!postId) return;
-    setLoading(true);
-    setNotFound(false);
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('id', postId)
-        .maybeSingle();
-      if (error || !data) {
-        setNotFound(true);
-        setPost(null);
-      } else {
-        setPost(data as PostItem);
-      }
-    } catch (e) {
-      console.error(e);
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, [postId]);
 
   useEffect(() => {
-    loadPost();
-  }, [loadPost]);
+    if (!postId) return;
+    let cancelled = false;
+    const seed = readPostView(postId, user?.id)?.post ?? null;
+    setPost(seed);
+    setLoading(!seed);
+    setNotFound(false);
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('posts').select('*')
+          .eq('id', postId).maybeSingle();
+        if (cancelled) return;
+        if (error || !data) {
+          forgetPostView(postId, user?.id);
+          setNotFound(true);
+          setPost(null);
+        } else {
+          setPost(data as PostItem);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(error);
+          setNotFound(true);
+          setPost(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [postId, user?.id]);
 
   // If the user arrived with #comments or a highlighted comment, scroll to
   // the comments section once the post is loaded.
@@ -134,8 +145,15 @@ export default function PostDetail() {
       </button>
 
       {loading ? (
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-          Chargement...
+        <div role="status" aria-label="Chargement de la publication" className="p-4 rounded-2xl border border-[var(--loboko-border)]">
+          <div aria-hidden="true" className="space-y-4 motion-safe:animate-pulse">
+            <div className="flex gap-3 items-center">
+              <div className="w-11 h-11 rounded-full bg-[var(--loboko-elevated)]" />
+              <div className="h-4 w-36 rounded bg-[var(--loboko-elevated)]" />
+            </div>
+            <div className="h-4 w-3/4 rounded bg-[var(--loboko-elevated)]" />
+            <div className="aspect-video rounded-xl bg-[var(--loboko-elevated)]" />
+          </div>
         </div>
       ) : notFound || !post ? (
         <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
@@ -151,9 +169,10 @@ export default function PostDetail() {
         <>
           <div ref={cardRef}>
             <PostCard
+              key={post.id}
               post={post}
               currentUserId={user?.id || ''}
-              onDeleted={() => navigate('/home')}
+              onDeleted={() => { forgetPostView(post.id, user?.id); navigate('/home'); }}
               variant="detail"
             />
           </div>

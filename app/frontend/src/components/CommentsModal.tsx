@@ -67,7 +67,7 @@ export default function CommentsModal({
 }: Props) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [authors, setAuthors] = useState<Record<string, Author>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyTarget | null>(null);
@@ -791,8 +791,13 @@ export default function CommentsModal({
       }
     >
       {loading ? (
-        <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
-          Chargement...
+        <div role="status" aria-label="Chargement des commentaires" className="space-y-3 py-3">
+          {[0, 1].map((row) => (
+            <div key={row} aria-hidden="true" className="flex gap-3 motion-safe:animate-pulse">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-[var(--loboko-elevated)]" />
+              <div className="h-12 w-3/4 rounded-xl bg-[var(--loboko-elevated)]" />
+            </div>
+          ))}
         </div>
       ) : topLevel.length === 0 ? (
         <div className="py-10 text-center text-sm text-[var(--loboko-text-muted)]">
