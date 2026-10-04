@@ -89,6 +89,6 @@ WITH viewer AS (
 )
 SELECT id,name,chosen.category_id,cat_name,cat_slug,providers,available,why
 FROM chosen ORDER BY lane,rank_score DESC,id;
-$function$
+$function$;
 
 notify pgrst,'reload schema';

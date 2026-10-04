@@ -21,6 +21,11 @@ do $$ declare changed integer; begin
   get diagnostics changed=row_count;
   if changed<>1 then raise exception 'Owner cannot update own profile'; end if;
   if not exists(select 1 from public.profile_directory where user_id=auth.uid() and bio='LOBOKO privacy test: rolled back') then raise exception 'Directory synchronization failed'; end if;
+  update public.profiles set latitude=-4.345678,longitude=15.123456,location_visibility=false where user_id=auth.uid();
+  if exists(select 1 from public.profile_directory where user_id=auth.uid() and (latitude is not null or longitude is not null)) then raise exception 'Hidden GPS exposed'; end if;
+  update public.profiles set location_visibility=true where user_id=auth.uid();
+  if not exists(select 1 from public.profile_directory where user_id=auth.uid() and latitude=-4.35 and longitude=15.12) then raise exception 'Exact GPS copied to directory'; end if;
+  if not exists(select 1 from public.profiles where user_id=auth.uid() and latitude=-4.345678 and longitude=15.123456) then raise exception 'Owner lost exact GPS'; end if;
   update public.profiles set bio='Unexpected cross-account write' where user_id=current_setting('loboko.test.admin')::uuid;
   get diagnostics changed=row_count;
   if changed<>0 then raise exception 'Member updated another profile'; end if;
