@@ -1628,10 +1628,7 @@ export default function Messages() {
   const startLongPress = (peerId: string) => {
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     longPressTimerRef.current = setTimeout(() => {
-      // Open a simple menu via confirm ask: archive / delete / block / block+report
-      // We reuse ConversationMenu logic by opening via a toast prompt-less flow:
-      // trigger the first action (archive) would be wrong; instead prompt user to use header menu.
-      // Better: directly offer archive/unarchive via long-press as the quick action.
+      // Long-press offers archive/unarchive with confirmation.
       const currentArchived = states[peerId]?.archived;
       askAction(currentArchived ? 'unarchive' : 'archive', peerId);
     }, 600);

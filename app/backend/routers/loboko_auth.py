@@ -1,7 +1,5 @@
-# @File: backend/routers/loboko_auth.py
-# @Desc: LOBOKO custom email/password authentication + profile management,
-#        decoupled from Atoms identity so multiple LOBOKO accounts can coexist
-#        under a single browser-level Atoms session.
+# LOBOKO account authentication and profile management.
+# Account credentials are independent of the authenticated API session.
 
 import hashlib
 import hmac
@@ -124,7 +122,7 @@ async def register(
     current_user: UserResponse = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Register a new LOBOKO account bound to the current Atoms session."""
+    """Register a LOBOKO account associated with the authenticated API user."""
     if data.role not in ("client", "prestataire"):
         raise HTTPException(status_code=400, detail="Invalid role")
     if len(data.password) < 6:
@@ -169,7 +167,7 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify LOBOKO email/password and return the account info."""
-    _ = current_user  # Atoms session required but not tied to the account
+    _ = current_user  # API authentication is required; account credentials are checked separately
     email = data.email.lower().strip()
     result = await db.execute(
         select(Loboko_accounts).where(Loboko_accounts.email == email)

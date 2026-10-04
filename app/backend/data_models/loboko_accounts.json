@@ -24,7 +24,7 @@
         },
         "atoms_user_id": {
             "type": "string",
-            "description": "Linked Atoms user id (owner for DB writes)"
+            "description": "Authenticated API user ID associated with the account"
         }
     },
     "required": [

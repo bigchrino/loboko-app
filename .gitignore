@@ -5,3 +5,11 @@ build/
 __pycache__
 dist
 vite.config.ts.timestamp-*
+
+# Local development files
+.env
+.env.*
+!.env.example
+.venv/
+.supabase/
+supabase/.temp/

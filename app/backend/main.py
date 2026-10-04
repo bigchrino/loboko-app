@@ -12,11 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
-# MODULE_IMPORTS_START
 from services.database import initialize_database, close_database
 from services.mock_data import initialize_mock_data
 from services.auth import initialize_admin_user
-# MODULE_IMPORTS_END
 
 
 def setup_logging():
@@ -62,17 +60,13 @@ async def lifespan(app: FastAPI):
     logger = logging.getLogger(__name__)
     logger.info("=== Application startup initiated ===")
 
-    # MODULE_STARTUP_START
     await initialize_database()
     await initialize_mock_data()
     await initialize_admin_user()
-    # MODULE_STARTUP_END
 
     logger.info("=== Application startup completed successfully ===")
     yield
-    # MODULE_SHUTDOWN_START
     await close_database()
-    # MODULE_SHUTDOWN_END
 
 
 app = FastAPI(
@@ -83,7 +77,6 @@ app = FastAPI(
 )
 
 
-# MODULE_MIDDLEWARE_START
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r".*",
@@ -92,7 +85,6 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-# MODULE_MIDDLEWARE_END
 
 
 # Auto-discover and include all routers from the local `routers` package
