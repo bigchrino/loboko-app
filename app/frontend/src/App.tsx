@@ -248,9 +248,19 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/verification', element: <Verification /> },
 ];
 
+function RoutePending() {
+  const { loading } = useAuth();
+  if (loading) return <SplashScreen />;
+  return (
+    <div role="status" className="min-h-[50dvh] flex items-center justify-center text-sm text-[var(--loboko-text-muted)]">
+      Chargement de la page…
+    </div>
+  );
+}
+
 const AppRoutes = () => (
   <RouteLoadBoundary>
-  <Suspense fallback={<SplashScreen />}>
+  <Suspense fallback={<RoutePending />}>
   <Routes>
     <Route path="/" element={<Index />} />
     <Route path="/contact" element={<PublicContact />} />
@@ -286,7 +296,7 @@ const App = () => (
                   <TooltipProvider>
                     <Toaster />
 
-                    <BrowserRouter>
+                    <BrowserRouter future={{ v7_startTransition: true }}>
                       <AppRoutes />
                     </BrowserRouter>
                   </TooltipProvider>
