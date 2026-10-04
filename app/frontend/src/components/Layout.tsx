@@ -168,7 +168,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--loboko-bg)] text-[var(--loboko-text)] overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-[var(--loboko-bg)] text-[var(--loboko-text)]">
       <DevNoticeDialog />
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-60 flex-col border-r border-[var(--loboko-border)] bg-[var(--loboko-elevated)] z-40">
@@ -284,10 +284,9 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
 
       {/* Main content */}
       <main
-        className={`lg:ml-60 min-h-[100dvh] overflow-x-hidden lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-[calc(6rem+env(safe-area-inset-bottom,0px))]'}`}
+        className={`lg:ml-60 min-h-[100dvh] lg:pb-8 ${hideMobileNav ? 'pb-0' : 'pb-[calc(6rem+env(safe-area-inset-bottom,0px))]'}`}
         style={{
           overflowAnchor: 'none',
-          WebkitOverflowScrolling: 'touch',
         }}
       >
         <div className={`max-w-2xl mx-auto lg:px-8 lg:py-8 ${hideMobileNav ? 'px-0 py-0' : 'px-4 py-4'}`}>

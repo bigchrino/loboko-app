@@ -1,13 +1,9 @@
 import { useLayoutEffect, useState, type CSSProperties } from 'react';
+import { lockPageScroll } from './page-scroll-lock';
 
 export const CHAT_PANEL_CLASS = 'fixed inset-x-0 top-[var(--chat-top)] h-[var(--chat-height)] z-30 flex flex-col bg-[var(--loboko-bg)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl';
 export const CHAT_HEADER_CLASS = 'shrink-0 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] lg:pt-3 border-b border-[var(--loboko-border)]';
 export const CHAT_COMPOSER_CLASS = 'shrink-0 p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 bg-[var(--loboko-bg)]';
-
-// Conversations and the editor can be mounted together. Reference-count the
-// scroll lock so closing either one cannot leave the page locked on exit.
-let scrollLocks = 0;
-let savedOverflow = '';
 
 // Keep the complete conversation inside the visible viewport, including
 // when Safari pans the page to reveal a focused field.
@@ -29,16 +25,12 @@ export function useChatViewport(active: boolean, lockOnDesktop = false) {
     vv?.addEventListener('scroll', update);
     // Only the message list scrolls on mobile; restore the page on exit.
     const lock = lockOnDesktop || window.matchMedia('(max-width: 1023px)').matches;
-    if (lock) {
-      if (scrollLocks === 0) savedOverflow = document.body.style.overflow;
-      scrollLocks += 1;
-      document.body.style.overflow = 'hidden';
-    }
+    const releaseScroll = lock ? lockPageScroll() : undefined;
     return () => {
       window.removeEventListener('resize', update);
       vv?.removeEventListener('resize', update);
       vv?.removeEventListener('scroll', update);
-      if (lock && --scrollLocks === 0) document.body.style.overflow = savedOverflow;
+      releaseScroll?.();
     };
   }, [active, lockOnDesktop]);
   return {
