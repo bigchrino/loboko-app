@@ -1,107 +1,16 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
-import { Trash2 } from 'lucide-react';
+import { applyAdminAction } from '@/lib/admin-controls';
+import { AdminHeader, AdminPagination, AdminError } from '@/components/AdminTools';
 import { toast } from 'sonner';
-
-interface PostRow {
-  id: string;
-  content?: string | null;
-  user_id: string;
-  created_at: string;
-}
-
-export default function AdminPosts() {
-  const [posts, setPosts] = useState<PostRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = async () => {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error) {
-      setPosts((data as PostRow[]) || []);
-    }
-
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const removePost = async (id: string) => {
-    const ok = confirm('Supprimer cette publication ?');
-
-    if (!ok) return;
-
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error('Erreur suppression');
-      return;
-    }
-
-    setPosts((prev) => prev.filter((p) => p.id !== id));
-
-    toast.success('Publication supprimée');
-  };
-
-  return (
-    <Layout title="Publications">
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold">
-          📰 Publications
-        </h1>
-
-        <p className="text-sm text-[var(--loboko-text-muted)] mt-1">
-          Gestion des contenus publiés
-        </p >
-      </div>
-
-      {loading ? (
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-          Chargement...
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-          Aucune publication
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className="p-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]"
-            >
-              <div className="text-sm whitespace-pre-wrap mb-3">
-                {post.content || 'Publication média'}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-[var(--loboko-text-muted)]">
-                  {new Date(post.created_at).toLocaleString('fr-FR')}
-                </div>
-
-                <button
-                  onClick={() => removePost(post.id)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[rgba(239,68,68,0.15)] text-[#ef4444] text-sm font-semibold"
-                >
-                  <Trash2 size={14} />
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Layout>
-  );
+interface Row {id:string;content:string|null;user_id:string;created_at:string;hidden_by_moderation:boolean;moderation_reason:string|null;post_id?:string;}
+export default function AdminPosts(){
+ const [type,setType]=useState<'post'|'comment'>('post'),[status,setStatus]=useState('all'),[query,setQuery]=useState(''),[rows,setRows]=useState<Row[]>([]),[page,setPage]=useState(0),[total,setTotal]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState(false),[tick,setTick]=useState(0),[busy,setBusy]=useState<string|null>(null);
+ useEffect(()=>{let cancelled=false;setLoading(true);const timer=setTimeout(()=>{void(async()=>{try{let request=supabase.from(type==='post'?'posts':'comments').select(`id,content,user_id,created_at,hidden_by_moderation,moderation_reason${type==='comment'?',post_id':''}`,{count:'exact'});if(status!=='all')request=request.eq('hidden_by_moderation',status==='hidden');if(query.trim())request=request.ilike('content',`%${query.trim().slice(0,100)}%`);const result=await request.order('created_at',{ascending:false}).order('id').range(page*50,page*50+49);if(result.error)throw result.error;if(cancelled)return;setRows((result.data??[]) as unknown as Row[]);setTotal(result.count??0);setError(false);}catch{if(!cancelled)setError(true);}finally{if(!cancelled)setLoading(false);}})();},250);return()=>{cancelled=true;clearTimeout(timer);};},[type,status,query,page,tick]);
+ const act=async(row:Row,remove=false)=>{if(busy)return;const reason=!remove&&!row.hidden_by_moderation?prompt('Motif du masquage (obligatoire) :'):'';if(reason===null)return;if(!remove&&!row.hidden_by_moderation&&reason.trim().length<3){toast.error('Indiquez un motif.');return;}if(!confirm(remove?'Supprimer définitivement ce contenu ? Cette action est irréversible.':row.hidden_by_moderation?'Rétablir ce contenu ?':'Masquer ce contenu pour les autres utilisateurs ?'))return;setBusy(row.id);try{if(remove)await applyAdminAction(type==='post'?'delete_post':'delete_comment',row.id);else {const result=await supabase.rpc('admin_set_content_visibility',{p_type:type,p_target:row.id,p_hidden:!row.hidden_by_moderation,p_reason:reason});if(result.error)throw result.error;}toast.success('Décision enregistrée');setTick(v=>v+1);}catch{toast.error('Décision impossible. Actualisez et réessayez.');}finally{setBusy(null);}};
+ const input='min-h-11 rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] px-3 text-base';
+ return <Layout title="Modération des contenus"><div className="mx-auto max-w-3xl"><AdminHeader title="Publications et commentaires" description="Consulter, masquer, rétablir ou supprimer les contenus publics" busy={loading} refresh={()=>setTick(v=>v+1)} /><div className="mb-4 grid gap-2 sm:grid-cols-3"><select aria-label="Type de contenu" className={input} value={type} onChange={e=>{setType(e.target.value as 'post'|'comment');setPage(0);}}><option value="post">Publications</option><option value="comment">Commentaires</option></select><select aria-label="Visibilité" className={input} value={status} onChange={e=>{setStatus(e.target.value);setPage(0);}}><option value="all">Tous les contenus</option><option value="hidden">Masqués</option><option value="visible">Visibles</option></select><input aria-label="Rechercher dans les contenus" className={input} value={query} placeholder="Rechercher un texte" onChange={e=>{setQuery(e.target.value);setPage(0);}} /></div>
+ {error?<AdminError retry={()=>setTick(v=>v+1)} />:loading?<p role="status">Chargement…</p>:<div className="space-y-3">{!rows.length&&<p>Aucun contenu pour ces filtres.</p>}{rows.map(row=><article key={row.id} className="rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] p-4"><div className="mb-2 flex justify-between gap-2 text-xs"><Link className="text-[#60a5fa]" to={`/u/${row.user_id}`}>Voir l’auteur</Link><span>{new Date(row.created_at).toLocaleString('fr-FR')}</span></div><p className="whitespace-pre-wrap break-words text-sm">{row.content||'Publication média'}</p><p className="mt-2 text-xs text-[var(--loboko-text-secondary)]">{row.hidden_by_moderation?'Masqué':'Visible'}{row.moderation_reason?` · ${row.moderation_reason}`:''}</p><div className="mt-3 flex flex-wrap gap-2"><Link to={`/post/${row.post_id??row.id}`} className="rounded-lg border border-[var(--loboko-border)] px-3 py-2 text-xs">Ouvrir la publication</Link><button type="button" disabled={!!busy} onClick={()=>act(row)} className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-500 disabled:opacity-50">{row.hidden_by_moderation?'Rétablir':'Masquer'}</button><button type="button" disabled={!!busy} onClick={()=>act(row,true)} className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-500 disabled:opacity-50">Supprimer</button></div></article>)}</div>}<AdminPagination page={page} total={total} busy={loading||error} onChange={setPage} /></div></Layout>;
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react';
 
@@ -9,10 +10,10 @@ import { ChevronLeft, ChevronRight, Megaphone } from 'lucide-react';
  *
  * Design goals:
  *  - Mobile-first: native horizontal scroll with snap, no dependencies.
- *  - Stable: purely presentational, hardcoded sponsored content for now.
+ *  - Stable: cached campaign summaries while the server refreshes them.
  *  - Non-intrusive: does NOT touch auth, messages, calls, posts, notifications.
  *
- * Data is hardcoded on purpose — no Supabase table is created at this stage.
+ * Campaign visibility and schedules are evaluated by the server.
  */
 
 interface AdItem {
@@ -25,41 +26,30 @@ interface AdItem {
   badge?: string;
 }
 
-const ADS: AdItem[] = [
-  {
-    id: 'ad-renovation',
-    title: 'Rénovation de maison',
-    description:
-      'Des artisans vérifiés pour donner un coup de neuf à votre intérieur.',
-    image:
-      'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusj2yaafmq/ad-home-renovation.png',
-    categorySlug: 'macon',
-    badge: 'Sponsorisé',
-  },
-  {
-    id: 'ad-cleaning',
-    title: 'Ménage & nettoyage pro',
-    description:
-      'Un logement impeccable en quelques heures. Prestataires de confiance.',
-    image:
-      'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusmcyaafna/ad-cleaning-service.png',
-    categorySlug: 'nettoyage-menage',
-    badge: 'Sponsorisé',
-  },
-  {
-    id: 'ad-mechanic',
-    title: 'Mécanicien à domicile',
-    description:
-      "Réparation rapide de votre voiture chez vous, sans stress et sans remorquage.",
-    image:
-      'https://mgx-backend-cdn.metadl.com/generate/images/1045026/2026-04-29/nrusk2qaafnq/ad-mobile-mechanic.png',
-    categorySlug: 'mecanicien',
-    badge: 'Sponsorisé',
-  },
-];
+let cachedAds: AdItem[] | null = null;
 
 export default function AdsCarousel() {
   const navigate = useNavigate();
+  const [ads, setAds] = useState<AdItem[]>(() => cachedAds ?? []);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+      const result = await supabase.rpc('list_active_ad_campaigns');
+      if (cancelled || result.error || !result.data) return;
+      const list = (result.data as {id:string;title:string;description:string;image_url:string;category_slug:string}[]).map(row=>({
+        id:row.id,title:row.title,description:row.description,image:row.image_url,categorySlug:row.category_slug,badge:'Sponsorisé',
+      }));
+      cachedAds = list;
+      setAds(list);
+      } catch { /* Keep the last successful campaigns during a connection failure. */ }
+    };
+    void load();
+    const refresh = () => { if (!document.hidden) void load(); };
+    const timer = setInterval(refresh, 60_000);
+    document.addEventListener('visibilitychange',refresh);
+    return () => {cancelled=true;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  }, []);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -88,7 +78,7 @@ export default function AdsCarousel() {
     if (!scroller) return;
     scroller.addEventListener('scroll', handleScroll, { passive: true });
     return () => scroller.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
+  }, [handleScroll, ads.length]);
 
   const scrollByDir = (dir: 'left' | 'right') => {
     const scroller = scrollerRef.current;
@@ -111,6 +101,7 @@ export default function AdsCarousel() {
     });
   };
 
+  if (!ads.length) return null;
   return (
     <section
       aria-label="Publicités sponsorisées"
@@ -146,7 +137,7 @@ export default function AdsCarousel() {
         className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1"
         style={{ scrollbarWidth: 'none' }}
       >
-        {ADS.map((ad) => (
+        {ads.map((ad) => (
           <article
             key={ad.id}
             className="snap-start shrink-0 w-[85%] sm:w-[60%] md:w-[48%] lg:w-[46%] rounded-2xl overflow-hidden border border-[var(--loboko-border)] bg-[var(--loboko-surface)] shadow-sm"
@@ -165,7 +156,7 @@ export default function AdsCarousel() {
               )}
             </div>
             <div className="p-3 sm:p-4">
-              <h3 className="text-[15px] sm:text-base font-semibold text-white mb-1 leading-snug">
+              <h3 className="text-[15px] sm:text-base font-semibold text-[var(--loboko-text)] mb-1 leading-snug">
                 {ad.title}
               </h3>
               <p className="text-xs sm:text-sm text-[var(--loboko-text-muted)] leading-relaxed mb-3 line-clamp-2">
@@ -185,7 +176,7 @@ export default function AdsCarousel() {
 
       {/* Dot indicator — helpful on mobile where side arrows are hidden. */}
       <div className="flex justify-center gap-1.5 mt-2 sm:hidden">
-        {ADS.map((ad, idx) => (
+        {ads.map((ad, idx) => (
           <button
             key={ad.id}
             type="button"

@@ -1,3 +1,4 @@
+import { applyAdminAction, type AdminAction } from '@/lib/admin-controls';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -32,7 +33,8 @@ export interface ReportRow {
   reported_user_id: string | null;
   reported_message_id: string | null;
   reported_post_id: string | null;
-  reported_comment_id?: string | null;
+  target_type?: string | null;
+  target_id?: string | null;
   reason: ReportReason;
   description: string | null;
   status: ReportStatus;
@@ -119,219 +121,24 @@ export async function createReport(
   }
 }
 
-/** Admin — fetch every report, newest first. */
-export async function fetchAllReports(
-  status?: ReportStatus,
-): Promise<ReportRow[]> {
-  try {
-    let q = supabase.from('reports').select('*');
-    if (status) q = q.eq('status', status);
-    const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) {
-      console.error('fetchAllReports error', error);
-      return [];
-    }
-    return (data as ReportRow[]) || [];
-  } catch (e) {
-    console.error('fetchAllReports exception', e);
-    return [];
-  }
+/** Admin report queue, bounded to the newest page. */
+export async function fetchAllReports(status?: ReportStatus, page = 0): Promise<{ rows: ReportRow[]; total: number }> {
+  let query = supabase.from('reports').select('*', { count: 'exact' });
+  if (status) query = query.eq('status', status);
+  const { data, error, count } = await query.order('created_at', { ascending: false }).order('id').range(page * 50, page * 50 + 49);
+  if (error) throw error;
+  return { rows: (data ?? []) as ReportRow[], total: count ?? 0 };
 }
 
-/** Admin — update a report's status. */
-export async function updateReportStatus(
-  reportId: string,
-  status: ReportStatus,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('reports')
-      .update({
-        status,
-        reviewed_at: status === 'pending' ? null : new Date().toISOString(),
-      })
-      .eq('id', reportId);
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  } catch (e) {
-    console.error('updateReportStatus exception', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
+/** All decisions are checked and committed with their audit entry on the server. */
+async function moderate(action: AdminAction, target: string, reason = '', days = 1): Promise<{ ok: boolean; error?: string }> {
+  try { await applyAdminAction(action, target, reason, days); return { ok: true }; }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'Action impossible. Actualisez et réessayez.' }; }
 }
-
-export async function suspendUser(
-  targetUserId: string,
-  adminId: string,
-  days: number,
-  reason: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const until = new Date(
-      Date.now() + days * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        suspended: true,
-        suspended_until: until,
-        suspended_reason: reason,
-      })
-      .eq('user_id', targetUserId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      target_user_id: targetUserId,
-      action_type: `suspend_${days}_days`,
-      reason,
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('suspendUser error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
-
-export async function unsuspendUser(
-  targetUserId: string,
-  adminId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        suspended: false,
-        suspended_until: null,
-        suspended_reason: null,
-      })
-      .eq('user_id', targetUserId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      target_user_id: targetUserId,
-      action_type: 'unsuspend',
-      reason: 'Suspension annulée',
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('unsuspendUser error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
-
-export async function banUser(
-  targetUserId: string,
-  adminId: string,
-  reason: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        banned: true,
-        banned_reason: reason,
-      })
-      .eq('user_id', targetUserId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      target_user_id: targetUserId,
-      action_type: 'ban',
-      reason,
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('banUser error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
-
-export async function unbanUser(
-  targetUserId: string,
-  adminId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        banned: false,
-        banned_reason: null,
-      })
-      .eq('user_id', targetUserId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      target_user_id: targetUserId,
-      action_type: 'unban',
-      reason: 'Compte réactivé',
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('unbanUser error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
-
-export async function deleteReportedPost(
-  postId: string,
-  adminId: string,
-  reason: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      action_type: 'delete_post',
-      reason,
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('deleteReportedPost error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
-
-export async function deleteReportedComment(
-  commentId: string,
-  adminId: string,
-  reason: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const { error } = await supabase
-      .from('comments')
-      .delete()
-      .eq('id', commentId);
-
-    if (error) return { ok: false, error: error.message };
-
-    await supabase.from('admin_actions').insert({
-      admin_id: adminId,
-      action_type: 'delete_comment',
-      reason,
-    });
-
-    return { ok: true };
-  } catch (e) {
-    console.error('deleteReportedComment error', e);
-    return { ok: false, error: 'Erreur réseau' };
-  }
-}
+export const updateReportStatus = (id: string, status: ReportStatus) => moderate(`report_${status}`, id);
+export const suspendUser = (id: string, _adminId: string, days: number, reason: string) => moderate('suspend', id, reason, days);
+export const unsuspendUser = (id: string, _adminId: string) => moderate('unsuspend', id);
+export const banUser = (id: string, _adminId: string, reason: string) => moderate('ban', id, reason);
+export const unbanUser = (id: string, _adminId: string) => moderate('unban', id);
+export const deleteReportedPost = (id: string, _adminId: string, reason: string) => moderate('delete_post', id, reason);
+export const deleteReportedComment = (id: string, _adminId: string, reason: string) => moderate('delete_comment', id, reason);

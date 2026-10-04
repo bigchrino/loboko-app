@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AdminHeader, AdminPagination, AdminError } from '@/components/AdminTools';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   approveVerification,
   fetchPendingVerifications,
-  getKycSignedUrl,
+  getKycSignedUrls,
   ProviderVerification,
   rejectVerification,
 } from '@/lib/kyc';
@@ -24,35 +25,36 @@ export default function AdminVerifications() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const load = async () => {
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const generation = useRef(0);
+  const load = useCallback(async () => {
+    if (!profile?.is_admin) return;
+    const request = ++generation.current;
     setLoading(true);
 
     try {
-      const data = await fetchPendingVerifications();
-
-      const withUrls = await Promise.all(
-        data.map(async (item) => ({
-          ...item,
-          frontUrl: await getKycSignedUrl(item.document_front_key),
-          backUrl: item.document_back_key
-            ? await getKycSignedUrl(item.document_back_key)
-            : undefined,
-          selfieUrl: await getKycSignedUrl(item.selfie_key),
-        })),
-      );
-
-      setItems(withUrls);
+      const result = await fetchPendingVerifications(page);
+      const keys = result.items.flatMap(item => [item.document_front_key, item.document_back_key, item.selfie_key].filter((key): key is string => !!key));
+      const urls = await getKycSignedUrls(keys);
+      if (generation.current !== request) return;
+      setItems(result.items.map(item => ({...item, frontUrl: urls[item.document_front_key], backUrl: item.document_back_key ? urls[item.document_back_key] : undefined, selfieUrl: urls[item.selfie_key]})));
+      setTotal(result.total);
+      setFailed(false);
     } catch (e) {
-      console.error(e);
+      if (generation.current !== request) return;
+      setFailed(true);
       toast.error('Impossible de charger les vérifications');
     } finally {
-      setLoading(false);
+      if (generation.current === request) setLoading(false);
     }
-  };
+  }, [page, profile?.is_admin]);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+    return () => { generation.current += 1; };
+  }, [load]);
 
   if (!user || !profile?.is_admin) {
     return (
@@ -65,6 +67,10 @@ export default function AdminVerifications() {
   }
 
   const handleApprove = async (item: ProviderVerification) => {
+    if (processingId) return;
+    const documents = items.find(value => value.id === item.id);
+    if (!documents?.frontUrl || !documents.selfieUrl) { toast.error('Chargez les documents avant de décider.'); return; }
+    if (!confirm('Approuver la vérification de ce prestataire ?')) return;
     setProcessingId(item.id);
 
     try {
@@ -84,7 +90,8 @@ export default function AdminVerifications() {
   const handleReject = async (item: ProviderVerification) => {
     const note = prompt('Raison du refus :');
 
-    if (note === null) return;
+    if (processingId || note === null) return;
+    if (note.trim().length < 3) { toast.error('Un motif de refus est obligatoire.'); return; }
 
     setProcessingId(item.id);
 
@@ -105,17 +112,8 @@ export default function AdminVerifications() {
   return (
     <Layout title="Admin vérifications">
       <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Vérifications prestataires
-          </h1>
-
-          <p className="text-sm text-[var(--loboko-text-muted)] mt-1">
-            Gérez les demandes KYC des prestataires.
-          </p >
-        </div>
-
-        {loading ? (
+        <AdminHeader title="Vérifications prestataires" description="Validation KYC — 25 demandes par page" busy={loading || !!processingId} refresh={load} />
+        {failed ? <AdminError retry={load} /> : loading ? (
           <div className="py-10 flex justify-center">
             <Loader2 className="animate-spin text-[var(--loboko-text-muted)]" />
           </div>
@@ -173,7 +171,7 @@ export default function AdminVerifications() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => handleApprove(item)}
-                      disabled={processing}
+                      disabled={!!processingId}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold"
                     >
                       {processing ? (
@@ -186,7 +184,7 @@ export default function AdminVerifications() {
 
                     <button
                       onClick={() => handleReject(item)}
-                      disabled={processing}
+                      disabled={!!processingId}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold"
                     >
                       <XCircle size={16} />
@@ -198,6 +196,7 @@ export default function AdminVerifications() {
             })}
           </div>
         )}
+        <AdminPagination page={page} total={total} size={25} busy={loading || failed || !!processingId} onChange={setPage} />
       </div>
     </Layout>
   );
@@ -213,7 +212,7 @@ function KycPreview({
   if (!url) {
     return (
       <div className="rounded-xl border border-[var(--loboko-border)] p-3 text-sm text-[var(--loboko-text-muted)]">
-        Aucun fichier
+        {title === 'Document verso' ? 'Aucun fichier' : 'Aperçu indisponible. Actualisez avant de décider.'}
       </div>
     );
   }
@@ -228,6 +227,7 @@ function KycPreview({
       <div className="aspect-video bg-black">
         <img
           src={url}
+          loading="lazy"
           alt={title}
           className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
         />

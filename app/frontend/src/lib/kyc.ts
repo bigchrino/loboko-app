@@ -1,3 +1,4 @@
+import { applyAdminAction } from '@/lib/admin-controls';
 import { supabase } from '@/lib/supabase';
 
 export type VerificationStatus = 'pending' | 'approved' | 'rejected';
@@ -112,78 +113,37 @@ export async function submitProviderVerification(params: {
   return data as ProviderVerification;
 }
 
-export async function fetchPendingVerifications() {
-  const { data, error } = await supabase
+export async function fetchPendingVerifications(page = 0) {
+  const { data, error, count } = await supabase
     .from('provider_verifications')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('status', 'pending')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).order('id')
+    .range(page * 25, page * 25 + 24);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data || []) as ProviderVerification[];
+  return { items: (data || []) as ProviderVerification[], total: count ?? 0 };
 }
 
-export async function approveVerification(verification: ProviderVerification, adminId: string) {
-  const { error: verificationError } = await supabase
-    .from('provider_verifications')
-    .update({
-      status: 'approved',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminId,
-      admin_note: null,
-    })
-    .eq('id', verification.id);
-
-  if (verificationError) {
-    throw new Error(verificationError.message);
-  }
-
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({
-      is_verified: true,
-      verification_status: 'approved',
-      verified_at: new Date().toISOString(),
-    })
-    .eq('user_id', verification.user_id);
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
+export async function approveVerification(verification: ProviderVerification, _adminId: string) {
+  await applyAdminAction('kyc_approve', verification.id);
+}
+export async function rejectVerification(verification: ProviderVerification, _adminId: string, note: string) {
+  await applyAdminAction('kyc_reject', verification.id, note);
 }
 
-export async function rejectVerification(
-  verification: ProviderVerification,
-  adminId: string,
-  note: string,
-) {
-  const { error: verificationError } = await supabase
-    .from('provider_verifications')
-    .update({
-      status: 'rejected',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminId,
-      admin_note: note || null,
-    })
-    .eq('id', verification.id);
-
-  if (verificationError) {
-    throw new Error(verificationError.message);
-  }
-
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({
-      is_verified: false,
-      verification_status: 'rejected',
-      verified_at: null,
-    })
-    .eq('user_id', verification.user_id);
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
+export async function getKycSignedUrls(keys: string[]) {
+  const paths = [...new Set(keys)].map(key => {
+    if (!key.startsWith('kyc-documents::')) throw new Error('Clé KYC invalide');
+    return key.slice('kyc-documents::'.length);
+  });
+  if (!paths.length) return {} as Record<string, string>;
+  const { data, error } = await supabase.storage.from('kyc-documents').createSignedUrls(paths, 300);
+  if (error) throw error;
+  const urls: Record<string, string> = {};
+  for (const item of data ?? []) if (item.path && item.signedUrl) urls[`kyc-documents::${item.path}`] = item.signedUrl;
+  return urls;
 }

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useAdminOverview } from '@/lib/use-admin-overview';
+import { AdminError } from '@/components/AdminTools';
 import Layout from '@/components/Layout';
 import {
   ShieldCheck,
@@ -9,9 +11,12 @@ import {
   Megaphone,
   ChevronRight,
   FileText,
+  History,
+  RefreshCw,
 } from 'lucide-react';
 
 const cards = [
+  {to:'/admin/journal',title:'Journal des actions',desc:'Suivre les décisions et leurs auteurs',icon:History,color:'#60a5fa'},
   {
     to: '/admin/verifications',
     title: 'Vérifications KYC',
@@ -43,14 +48,14 @@ const cards = [
   {
     to: '/admin/payments',
     title: 'Paiements',
-    desc: 'Transactions et remboursements',
+    desc: 'Registre des transactions et litiges',
     icon: CreditCard,
     color: '#10b981',
   },
   {
     to: '/admin/ads',
     title: 'Publicités',
-    desc: 'Boosts et campagnes',
+    desc: 'Créer, planifier et désactiver les campagnes',
     icon: Megaphone,
     color: '#f59e0b',
   },
@@ -64,13 +69,14 @@ const cards = [
   {
     to: '/admin/posts',
     title: 'Publications',
-    desc: 'Modération des contenus',
+    desc: 'Publications et commentaires',
     icon: FileText,
     color: '#ef4444',
   },
 ];
 
 export default function AdminDashboard() {
+  const {data,loading,failed,refresh}=useAdminOverview();
   return (
     <Layout title="Administration">
       <div className="mb-6">
@@ -83,6 +89,10 @@ export default function AdminDashboard() {
         </p >
       </div>
 
+      <div className="mb-5">
+        <div className="mb-2 flex items-center justify-between"><h2 className="text-sm font-semibold">À traiter</h2><button type="button" onClick={refresh} disabled={loading} aria-label="Actualiser les compteurs" className="p-2"><RefreshCw size={16} className={loading?'animate-spin':''} /></button></div>
+        {failed?<AdminError retry={refresh} />:loading?<p role="status" className="text-sm">Chargement des compteurs…</p>:data&&<div className="grid grid-cols-3 gap-2">{[['Signalements',data.pending_reports,'/admin/reports'],['KYC',data.pending_kyc,'/admin/verifications'],['Rôles',data.pending_roles,'/admin/role-requests']].map(([label,count,path])=><Link key={path} to={String(path)} className="rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] p-3"><span className="block text-xl font-bold">{count}</span><span className="text-xs">{label}</span></Link>)}</div>}
+      </div>
       <div className="grid gap-3">
         {cards.map(({ to, title, desc, icon: Icon, color }) => (
           <Link

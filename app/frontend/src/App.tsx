@@ -10,6 +10,9 @@ import AdminRoute from './components/AdminRoute';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminPosts from './pages/admin/AdminPosts';
 import AdminStats from './pages/admin/AdminStats';
+import AdminAds from './pages/admin/AdminAds';
+import AdminPayments from './pages/admin/AdminPayments';
+import AdminJournal from './pages/admin/AdminJournal';
 import MyOrders from './pages/MyOrders';
 import ServiceOrderDetail from './pages/ServiceOrderDetail';
 import ReceivedOrders from './pages/ReceivedOrders';
@@ -109,6 +112,9 @@ function OnboardingGate() {
 }
 
 const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
+  {path:'/admin/ads',element:<AdminRoute><AdminAds /></AdminRoute>},
+  {path:'/admin/payments',element:<AdminRoute><AdminPayments /></AdminRoute>},
+  {path:'/admin/journal',element:<AdminRoute><AdminJournal /></AdminRoute>},
   { path: '/home', element: <Home /> },
   { path: '/discover', element: <Discover /> },
   { path: '/messages', element: <Messages /> },

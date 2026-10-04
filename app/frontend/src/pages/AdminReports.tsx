@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
+import { supabase } from '@/lib/supabase';
+import { AdminPagination, AdminError } from '@/components/AdminTools';
 import Layout from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -44,23 +46,34 @@ const STATUS_TABS: ReportStatus[] = ['pending', 'reviewed', 'resolved'];
 export default function AdminReportsPage() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const goBack = useBackNavigation('/');
+  const goBack = useBackNavigation('/admin');
 
   const [tab, setTab] = useState<ReportStatus>('pending');
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [failed,setFailed]=useState(false);
+  const [page,setPage]=useState(0);
+  const [total,setTotal]=useState(0);
+  const [counts,setCounts]=useState<Record<ReportStatus,number>>({pending:0,reviewed:0,resolved:0});
+  const generation=useRef(0);
   const isAdmin = profile?.is_admin === true;
 
   const load = useCallback(
     async (status: ReportStatus) => {
       if (!isAdmin) return;
+      const request=++generation.current;
       setLoading(true);
-      const data = await fetchAllReports(status);
-      setRows(data);
-      setLoading(false);
+      try {
+        const [result, ...counters] = await Promise.all([fetchAllReports(status,page), ...STATUS_TABS.map(value=>supabase.from('reports').select('id',{count:'exact',head:true}).eq('status',value))]);
+        if(generation.current!==request)return;
+        if(counters.some(value=>value.error))throw new Error('Compteurs indisponibles');
+        setRows(result.rows);setTotal(result.total);
+        setCounts({pending:counters[0].count??0,reviewed:counters[1].count??0,resolved:counters[2].count??0});setFailed(false);
+      } catch {if(generation.current===request)setFailed(true);}
+      finally {if(generation.current===request)setLoading(false);}
     },
-    [isAdmin],
+    [isAdmin,page],
   );
 
   useEffect(() => {
@@ -69,18 +82,9 @@ export default function AdminReportsPage() {
       navigate('/', { replace: true });
       return;
     }
-    load(tab);
+    void load(tab);
+    return () => {generation.current += 1;};
   }, [authLoading, isAdmin, tab, load, navigate]);
-
-  const counts = useMemo(() => {
-    const c: Record<ReportStatus, number> = {
-      pending: 0,
-      reviewed: 0,
-      resolved: 0,
-    };
-    for (const r of rows) c[r.status] = (c[r.status] || 0) + 1;
-    return c;
-  }, [rows]);
 
   const setStatus = async (id: string, status: ReportStatus) => {
     const { ok, error } = await updateReportStatus(id, status);
@@ -146,7 +150,7 @@ export default function AdminReportsPage() {
               key={s}
               role="tab"
               aria-selected={tab === s}
-              onClick={() => setTab(s)}
+              onClick={() => {setTab(s);setPage(0);}}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap ${
                 tab === s
                   ? 'bg-[rgba(37,99,235,0.2)] text-[#60a5fa]'
@@ -163,7 +167,7 @@ export default function AdminReportsPage() {
           ))}
         </div>
 
-        {loading ? (
+        {failed ? <AdminError retry={()=>void load(tab)} /> : loading ? (
           <div className="text-sm text-[var(--loboko-text-muted)] py-6 text-center">
             Chargement…
           </div>
@@ -183,6 +187,7 @@ export default function AdminReportsPage() {
             ))}
           </div>
         )}
+        <AdminPagination page={page} total={total} busy={loading||failed} onChange={setPage} />
       </div>
     </Layout>
   );
@@ -197,14 +202,17 @@ function ReportCard({
   onUpdate: (id: string, status: ReportStatus) => void;
   adminId: string;
 }) {
+  const commentId = report.target_type === 'comment' ? report.target_id : null;
   const target =
     report.reported_user_id
       ? { label: 'Utilisateur', value: report.reported_user_id, link: `/u/${report.reported_user_id}` }
       : report.reported_message_id
         ? { label: 'Message', value: report.reported_message_id, link: null }
         : report.reported_post_id
-          ? { label: 'Publication', value: report.reported_post_id, link: null }
-          : { label: 'Inconnu', value: '—', link: null };
+          ? { label: 'Publication', value: report.reported_post_id, link: `/post/${report.reported_post_id}` }
+          : commentId
+            ? { label: 'Commentaire', value: commentId, link: null }
+            : { label: report.target_type || 'Inconnu', value: report.target_id || '—', link: null };
 
   return (
     <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4">
@@ -224,12 +232,12 @@ function ReportCard({
       <div className="text-xs text-[var(--loboko-text-secondary)] mb-1">
         <span className="font-semibold">Cible :</span> {target.label} —{' '}
         {target.link ? (
-          <a
-            href={target.link}
+          <Link
+            to={target.link}
             className="text-[#60a5fa] underline break-all"
           >
             {target.value}
-          </a>
+          </Link>
         ) : (
           <span className="break-all">{target.value}</span>
         )}
@@ -280,6 +288,7 @@ function ReportCard({
             <button
               type="button"
               onClick={async () => {
+                if (!confirm('Confirmer la suspension de ce compte ?')) return;
                 const res = await suspendUser(
                   report.reported_user_id!,
                   adminId,
@@ -297,6 +306,7 @@ function ReportCard({
             <button
               type="button"
               onClick={async () => {
+                if (!confirm('Confirmer la suspension de ce compte ?')) return;
                 const res = await suspendUser(
                   report.reported_user_id!,
                   adminId,
@@ -376,7 +386,7 @@ function ReportCard({
           </button>
         )}
         
-        {report.reported_comment_id && (
+        {commentId && (
           <button
             type="button"
             onClick={async () => {
@@ -384,7 +394,7 @@ function ReportCard({
               if (!ok) return;
         
               const res = await deleteReportedComment(
-                report.reported_comment_id!,
+                commentId!,
                 adminId,
                 report.description || 'Commentaire supprimé après signalement',
               );

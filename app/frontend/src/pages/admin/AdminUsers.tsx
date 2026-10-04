@@ -1,127 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Search, ShieldCheck, BadgeCheck } from 'lucide-react';
-
-interface UserRow {
-  id: string;
-  user_id: string;
-  username: string;
-  display_name?: string | null;
-  role: string;
-  is_admin?: boolean;
-  is_verified?: boolean;
-}
-
+import { applyAdminAction, type AdminAction } from '@/lib/admin-controls';
+import { AdminHeader, AdminPagination, AdminError, AdminDialog } from '@/components/AdminTools';
+import { toast } from 'sonner';
+interface UserRow { id: string; user_id: string; username: string; display_name: string|null; role: string; is_admin: boolean; is_verified: boolean; banned: boolean; suspended: boolean; suspended_until: string|null; banned_reason: string|null; suspended_reason: string|null; deleted_at: string|null; }
+const isSuspended=(row:UserRow)=>row.suspended&&(!row.suspended_until||new Date(row.suspended_until).getTime()>Date.now());
+const fields='id,user_id,username,display_name,role,is_admin,is_verified,banned,suspended,suspended_until,banned_reason,suspended_reason,deleted_at';
+const labels:Record<string,string>={suspend:'Suspendre',ban:'Bannir',unban:'Lever le bannissement',unsuspend:'Lever la suspension',grant_admin:'Accorder les droits administrateur',revoke_admin:'Retirer les droits administrateur'};
 export default function AdminUsers() {
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          user_id,
-          username,
-          display_name,
-          role,
-          is_admin,
-          is_verified
-        `)
-        .order('id', { ascending: false });
-
-      if (!error) {
-        setUsers((data as UserRow[]) || []);
-      }
-
-      setLoading(false);
-    })();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-
-    if (!q) return users;
-
-    return users.filter((u) => {
-      const name =
-        `${u.display_name || ''} ${u.username || ''}`.toLowerCase();
-
-      return name.includes(q);
-    });
-  }, [users, query]);
-
-  return (
-    <Layout title="Utilisateurs">
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold">
-          👥 Utilisateurs
-        </h1>
-
-        <p className="text-sm text-[var(--loboko-text-muted)] mt-1">
-          Gestion des comptes utilisateurs
-        </p >
-      </div>
-
-      <div className="mb-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]">
-        <Search size={16} className="text-[var(--loboko-text-muted)]" />
-
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un utilisateur"
-          className="flex-1 bg-transparent text-sm focus:outline-none"
-        />
-      </div>
-
-      {loading ? (
-        <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-          Chargement...
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((u) => (
-            <div
-              key={u.id}
-              className="p-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold flex items-center gap-2 flex-wrap">
-                    {u.display_name || u.username}
-
-                    {u.is_admin && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-[rgba(147,51,234,0.18)] text-[#c084fc] font-semibold">
-                        💎 Admin
-                      </span>
-                    )}
-
-                    {u.is_verified && (
-                      <BadgeCheck
-                        size={14}
-                        className="text-[#60a5fa]"
-                      />
-                    )}
-                  </div>
-
-                  <div className="text-sm text-[var(--loboko-text-muted)]">
-                    @{u.username}
-                  </div>
-                </div>
-
-                <div className="text-xs px-2 py-1 rounded-full bg-[rgba(37,99,235,0.15)] text-[#2563eb] capitalize">
-                  {u.role}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Layout>
-  );
+  const { user }=useAuth();
+  const [rows,setRows]=useState<UserRow[]>([]),[query,setQuery]=useState(''),[role,setRole]=useState('all'),[status,setStatus]=useState('all');
+  const [page,setPage]=useState(0),[total,setTotal]=useState(0),[loading,setLoading]=useState(true),[failed,setFailed]=useState(false),[tick,setTick]=useState(0);
+  const [choice,setChoice]=useState<{row:UserRow;action:AdminAction;days:number}|null>(null),[reason,setReason]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>{let cancelled=false;setLoading(true);const timer=setTimeout(()=>{void(async()=>{try{
+    let request=supabase.from('profiles').select(fields,{count:'exact'});
+    const clean=query.trim().replace(/[^\p{L}\p{N} _-]/gu,' ').slice(0,80);
+    if(clean)request=request.or(`username.ilike.%${clean}%,display_name.ilike.%${clean}%`);
+    if(role==='admin')request=request.eq('is_admin',true);else if(role!=='all')request=request.eq('role',role);
+    if(status==='banned')request=request.eq('banned',true);
+    if(status==='suspended')request=request.eq('suspended',true).or(`suspended_until.is.null,suspended_until.gt.${new Date().toISOString()}`);
+    if(status==='deleted')request=request.not('deleted_at','is',null);
+    const result=await request.order('created_at',{ascending:false}).order('id').range(page*50,page*50+49);
+    if(result.error)throw result.error;if(cancelled)return;setRows((result.data??[]) as UserRow[]);setTotal(result.count??0);setFailed(false);
+  }catch{if(!cancelled)setFailed(true);}finally{if(!cancelled)setLoading(false);}})();},250);return()=>{cancelled=true;clearTimeout(timer);};},[query,role,status,page,tick]);
+  const select=(row:UserRow,action:AdminAction,days=1)=>{setChoice({row,action,days});setReason('');};
+  const execute=async()=>{if(!choice||busy)return;if(['suspend','ban'].includes(choice.action)&&reason.trim().length<3){toast.error('Indiquez un motif.');return;}setBusy(true);try{await applyAdminAction(choice.action,choice.row.user_id,reason,choice.days);toast.success('Action enregistrée dans le journal');setChoice(null);setTick(v=>v+1);}catch{toast.error('Action impossible. Le compte peut avoir changé ; actualisez et réessayez.');}finally{setBusy(false);}};
+  const input='min-h-11 rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] px-3 text-base';
+  const actionButton='rounded-lg border border-[var(--loboko-border)] px-3 py-2 text-xs disabled:opacity-40';
+  return <Layout title="Utilisateurs"><div className="mx-auto max-w-3xl"><AdminHeader title="Utilisateurs" description="Comptes, restrictions et accès administrateur" busy={loading} refresh={()=>setTick(v=>v+1)} />
+    <div className="mb-4 grid gap-2 sm:grid-cols-3"><input aria-label="Rechercher un utilisateur" placeholder="Nom ou pseudo" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}} className={input} /><select aria-label="Filtrer par rôle" className={input} value={role} onChange={e=>{setRole(e.target.value);setPage(0);}}><option value="all">Tous les rôles</option><option value="client">Clients</option><option value="prestataire">Prestataires</option><option value="admin">Administrateurs</option></select><select aria-label="Filtrer par statut" className={input} value={status} onChange={e=>{setStatus(e.target.value);setPage(0);}}><option value="all">Tous les comptes</option><option value="banned">Bannis</option><option value="suspended">Suspendus</option><option value="deleted">Supprimés</option></select></div>
+    {failed?<AdminError retry={()=>setTick(v=>v+1)} />:loading?<p role="status">Chargement…</p>:<div className="space-y-3">{!rows.length&&<p>Aucun compte pour ces filtres.</p>}{rows.map(row=><article key={row.id} className="rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] p-4"><div className="flex flex-wrap justify-between gap-2"><Link to={`/u/${row.user_id}`} className="font-semibold text-[#60a5fa]">{row.display_name||row.username}</Link><span className="text-xs">{row.is_admin?'💎 Admin · ':''}{row.role}{row.is_verified?' · Vérifié':''}</span></div><p className="text-sm text-[var(--loboko-text-secondary)]">@{row.username}</p><p className="mt-2 text-xs">{row.deleted_at?'Compte supprimé':row.banned?'Banni':isSuspended(row)?`Suspendu jusqu’au ${row.suspended_until?new Date(row.suspended_until).toLocaleString('fr-FR'):'rétablissement manuel'}`:'Actif'}</p>{(row.banned_reason||row.suspended_reason)&&<p className="mt-1 text-xs text-[var(--loboko-text-secondary)]">{row.banned_reason||row.suspended_reason}</p>}
+    {row.user_id===user?.id?<p className="mt-3 text-xs text-[var(--loboko-text-secondary)]">Votre compte administrateur est protégé.</p>:!row.deleted_at&&<div className="mt-3 flex flex-wrap gap-2">{row.is_admin?<button type="button" className={actionButton} onClick={()=>select(row,'revoke_admin')}>Retirer les droits admin</button>:<>{[1,7,30].map(days=><button type="button" key={days} className={actionButton} onClick={()=>select(row,'suspend',days)}>Suspendre {days}j</button>)}<button type="button" className={`${actionButton} text-red-400`} onClick={()=>select(row,row.banned?'unban':'ban')}>{row.banned?'Lever le bannissement':'Bannir'}</button>{!row.banned&&!isSuspended(row)&&<button type="button" className={actionButton} onClick={()=>select(row,'grant_admin')}>Nommer admin</button>}</>}{row.suspended&&<button type="button" className={actionButton} onClick={()=>select(row,'unsuspend')}>Lever la suspension</button>}</div>}</article>)}</div>}
+    <AdminPagination page={page} total={total} busy={loading||failed} onChange={setPage} />
+    <AdminDialog open={!!choice} title={choice?labels[choice.action]:'Gérer le compte'} busy={busy} onClose={()=>setChoice(null)}><p className="mb-3 text-sm">Confirmer pour <strong>{choice?.row.display_name||choice?.row.username}</strong>{choice?.action==='suspend'?` pendant ${choice.days} jour(s)`:''} ?</p>{choice&&['grant_admin','revoke_admin'].includes(choice.action)&&<p className="mb-3 text-sm text-amber-500">Cette décision change l’accès à l’administration de LOBOKO.</p>}<label className={choice&&['ban','suspend'].includes(choice.action)?'block text-sm':'hidden'}>Motif {choice&&['ban','suspend'].includes(choice.action)?'(obligatoire)':'(facultatif)'}<textarea value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000} disabled={busy||!choice||!['ban','suspend'].includes(choice.action)} className="mt-2 w-full rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-bg)] p-3 text-base" /></label><div className="mt-4 flex justify-end gap-3"><button type="button" disabled={busy} onClick={()=>setChoice(null)}>Annuler</button><button type="button" disabled={busy} onClick={execute} className="rounded-xl bg-[#2563eb] px-4 py-3 text-white disabled:opacity-50">{busy?'Enregistrement…':'Confirmer'}</button></div></AdminDialog>
+  </div></Layout>;
 }
