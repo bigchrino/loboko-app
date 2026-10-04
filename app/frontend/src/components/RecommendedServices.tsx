@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAppPreferences } from '@/lib/use-app-preferences';
 import { supabase } from '@/lib/supabase';
-import { recommendationCache, type RecommendedService } from '@/lib/service-recommendations';
+import { recommendationCache, resetServiceInterests, type RecommendedService } from '@/lib/service-recommendations';
 
 export default function RecommendedServices({ userId }: { userId: string }) {
+  const { personalizedServices } = useAppPreferences(userId);
+  return personalizedServices ? <Suggestions key={userId} userId={userId} /> : null;
+}
+
+function Suggestions({ userId }: { userId: string }) {
   const navigate = useNavigate();
   const [items, setItems] = useState<RecommendedService[]>(() => recommendationCache.get(userId) ?? []);
   const [loading, setLoading] = useState(!recommendationCache.has(userId));
@@ -31,9 +37,7 @@ export default function RecommendedServices({ userId }: { userId: string }) {
   const reset = async () => {
     setResetting(true);
     try {
-      const { error } = await supabase.from('user_service_interests').delete().eq('user_id', userId);
-      if (error) throw error;
-      recommendationCache.delete(userId);
+      await resetServiceInterests(userId);
       const result = await supabase.rpc('recommend_services');
       if (result.error) throw result.error;
       const list = (result.data ?? []) as RecommendedService[];

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type VideoHTMLAttributes } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppPreferences } from '@/lib/use-app-preferences';
 import { supabase } from '@/lib/supabase';
 import { captureVideoPoster, validVideoPoster } from '@/lib/video-poster';
 
@@ -14,11 +15,12 @@ supabase.auth.onAuthStateChange((event, session) => {
 
 function Player({ src, poster: provided, cacheId, onPosterReady, onLoadedMetadata, onLoadedData, onSeeked, onPlay, onError, autoPlay, preload = 'metadata', ...props }: Props) {
   const { user } = useAuth();
+  const { saveData } = useAppPreferences();
   const key = `${user?.id ?? ''}:${cacheId ?? src}`;
   const cached = posters.get(key);
   const supplied = validVideoPoster(provided);
   const [poster, setPoster] = useState(() => supplied ?? (cached && cached.expires > Date.now() ? cached.image : undefined));
-  const needsFrame = useRef(!poster && !autoPlay);
+  const needsFrame = useRef(!poster && !autoPlay && !saveData);
   const [visible, setVisible] = useState(!!autoPlay);
   const [corsFallback, setCorsFallback] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
@@ -54,10 +56,10 @@ function Player({ src, poster: provided, cacheId, onPosterReady, onLoadedMetadat
   const source = needsFrame.current && !src.includes('#') ? `${src}#t=0.1` : src;
   return <video {...props} key={corsFallback ? 'plain' : 'cors'} ref={ref} src={source} poster={poster} autoPlay={autoPlay}
     crossOrigin={corsFallback ? undefined : 'anonymous'}
-    preload={visible ? preload : 'none'}
+    preload={visible && (!saveData || autoPlay || started.current) ? preload : 'none'}
     onLoadedMetadata={event => {
       const video = event.currentTarget;
-      if (!poster && !started.current && !autoPlay && !corsFallback) {
+      if (!poster && !started.current && !autoPlay && !corsFallback && !saveData) {
         target.current = Math.min(.1, Number.isFinite(video.duration) ? video.duration / 2 : .1);
         try { video.currentTime = target.current; } catch { /* Playback remains available. */ }
       }

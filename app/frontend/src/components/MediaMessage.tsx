@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image as ImageIcon, Video as VideoIcon, LoaderCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAppPreferences } from '@/lib/use-app-preferences';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSignedStorageUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
@@ -36,6 +37,7 @@ function Placeholder({ kind = 'image' }: { kind?: 'image' | 'video' }) {
 
 function MediaInner({ kind, objectKey, duration, poster }: Props) {
   const { user } = useAuth();
+  const { saveData } = useAppPreferences();
   const cacheKey = `${user?.id ?? ''}:${objectKey}`;
   const cached = mediaLinks.get(cacheKey);
   const [url, setUrl] = useState<string | null>(() => cached && cached.expires > Date.now() ? cached.url : null);
@@ -65,14 +67,16 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
 
   // A stalled download must offer a retry instead of an endless blank bubble.
   useEffect(() => {
-    if (ready || error) return;
+    if (ready || error || (kind === 'video' && saveData && url)) return;
     const timer = window.setTimeout(() => setError(true), 30000);
     return () => window.clearTimeout(timer);
-  }, [url, ready, error, attempt]);
+  }, [url, ready, error, attempt, kind, saveData]);
 
+  // A deferred video is ready for manual playback, not a stalled download.
+  const displayReady = ready || (kind === 'video' && saveData && !!url);
   return (
-    <div className="relative w-full h-full" aria-busy={!ready && !error}>
-      {!ready && !error && <Placeholder kind={kind} />}
+    <div className="relative w-full h-full" aria-busy={!displayReady && !error}>
+      {!displayReady && !error && <Placeholder kind={kind} />}
       {error ? (
         <button type="button" onClick={() => { mediaLinks.delete(cacheKey); setAttempt((value) => value + 1); }}
           className="w-full h-full rounded-lg bg-[#151b25] text-white/80 text-xs p-3">
@@ -92,7 +96,7 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
         <>
           <VideoWithPoster src={url} cacheId={objectKey} poster={poster} onPosterReady={() => setReady(true)} className="rounded-lg w-full h-full object-contain block bg-black"
             controls playsInline preload="metadata" onLoadedMetadata={() => setReady(true)} onError={() => setError(true)} />
-          {duration != null && ready && <span className="absolute bottom-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/70 text-white">{formatDuration(duration)}</span>}
+          {duration != null && displayReady && <span className="absolute bottom-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/70 text-white">{formatDuration(duration)}</span>}
         </>
       ))}
     </div>

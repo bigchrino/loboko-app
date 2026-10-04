@@ -1,3 +1,4 @@
+import { getAppPreferences } from '@/lib/app-preferences';
 import { supabase } from '@/lib/supabase';
 
 export interface RecommendedService {
@@ -33,7 +34,7 @@ supabase.auth.onAuthStateChange((event) => {
 export async function recordServiceInterest(userId: string, serviceIds: string[],
   eventType: 'search' | 'category' | 'service') {
   const ids = [...new Set(serviceIds)].slice(0, 8);
-  if (!userId || !ids.length) return;
+  if (!userId || !ids.length || !getAppPreferences(userId).personalizedServices) return;
   const key = `${userId}:${eventType}:${[...ids].sort().join(',')}`;
   const now = Date.now();
   if (now - (recentEvents.get(key) ?? 0) < 30_000) return;
@@ -51,5 +52,16 @@ export async function recordServiceInterest(userId: string, serviceIds: string[]
   }
   } catch {
     recentEvents.delete(key);
+  }
+}
+
+/** Delete only this account's service-interest signals, never posts or messages. */
+export async function resetServiceInterests(userId: string) {
+  if (!userId) throw new Error('Connexion requise');
+  const { error } = await supabase.from('user_service_interests').delete().eq('user_id', userId);
+  if (error) throw error;
+  recommendationCache.delete(userId);
+  for (const key of recentEvents.keys()) {
+    if (key.startsWith(`${userId}:`)) recentEvents.delete(key);
   }
 }
