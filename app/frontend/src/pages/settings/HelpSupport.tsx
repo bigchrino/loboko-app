@@ -40,8 +40,8 @@ const FAQ_ITEMS: Array<{ q: string; a: string }> = [
     a: 'Ouvrez la conversation avec cette personne, touchez le menu ⋮ en haut, puis "Bloquer" ou "Bloquer et signaler". Vous pouvez retrouver et débloquer vos contacts bloqués depuis Paramètres \u2192 Confidentialité.',
   },
   {
-    q: 'Comment fonctionne le paiement sécurisé ?',
-    a: 'Une fois la commande acceptée, le client prépare le paiement (prix, commission, devise USD/CDF). Les fonds sont mis de côté jusqu\u2019à la confirmation de fin de mission par les deux parties, puis versés au prestataire.',
+    q: 'Le paiement en ligne est-il disponible ?',
+    a: 'Pas encore. LOBOKO permet de demander un service et de convenir du prix, mais ne collecte, ne conserve et ne verse aucun fonds. Les remboursements automatiques ne sont pas disponibles. Un paiement effectué en dehors de LOBOKO ne bénéficie pas d’une protection des fonds par LOBOKO.',
   },
   {
     q: 'Puis-je changer de rôle (client ↔ prestataire) ?',

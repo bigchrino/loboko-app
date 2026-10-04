@@ -74,11 +74,12 @@ export default function ServiceOrderDetail() {
   };
   
   const paymentFr: Record<string, string> = {
-    pending: 'En attente',
-    held: 'En sécurité',
-    paid: 'Payé',
+    pending: 'Non encaissé dans LOBOKO',
+    held: 'Retenue non confirmée',
+    paid: 'Paiement non confirmé',
     failed: 'Échoué',
-    refunded: 'Remboursé',
+    refunded: 'Remboursement non confirmé',
+    disputed: 'Litige',
   };
 
   useEffect(() => {
@@ -147,26 +148,6 @@ export default function ServiceOrderDetail() {
 
   const isProvider =
     user?.id === order.provider_id;
-
-  const confirmMissionCompleted = async () => {
-    if (!order) return;
-
-    try {
-      const { data, error } = await supabase.rpc('complete_service_order', {
-        p_order_id: order.id,
-      });
-
-      if (error) throw error;
-
-      const updated = data as ServiceOrder | null;
-      if (updated) setOrder(updated);
-
-      toast.success('Mission terminée et paiement libéré');
-    } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'Impossible de confirmer');
-    }
-  };
 
   const acceptOrder = async () => {
     if (!order) return;
@@ -423,26 +404,19 @@ export default function ServiceOrderDetail() {
           </button>
         )}
 
-        {isClient &&
-          order.status === 'accepted' &&
-          order.payment_status === 'held' && (
-            <button
-              onClick={confirmMissionCompleted}
-              className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold"
-            >
-              Confirmer la mission terminée et libérer le paiement
-            </button>
-          )}
-        {isClient &&
-          order.status === 'accepted' &&
-          order.payment_status === 'pending' && (
+        {(isClient || isProvider) && order.status === 'accepted' && (
+          <div className="space-y-3">
+            <p className="text-sm text-[var(--loboko-text-secondary)]">
+              Le paiement en ligne est indisponible. LOBOKO ne collecte ni ne conserve de fonds pour cette mission.
+            </p>
             <button
               onClick={() => navigate(`/payments/${order.id}`)}
-              className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold"
+              className="w-full py-3 rounded-xl border border-[var(--loboko-border)] font-semibold"
             >
-              Payer le prestataire
+              Informations sur le paiement
             </button>
-          )}
+          </div>
+        )}
         {isProvider && order.status === 'requested' && (
           <div className="space-y-4">
         

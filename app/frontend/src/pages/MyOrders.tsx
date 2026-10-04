@@ -41,11 +41,12 @@ export default function MyOrders() {
   };
   
   const paymentFr: Record<string, string> = {
-    pending: 'En attente',
-    held: 'En sécurité',
-    paid: 'Payé',
+    pending: 'Non encaissé dans LOBOKO',
+    held: 'Retenue non confirmée',
+    paid: 'Paiement non confirmé',
     failed: 'Échoué',
-    refunded: 'Remboursé',
+    refunded: 'Remboursement non confirmé',
+    disputed: 'Litige',
   };
 
   useEffect(() => {
