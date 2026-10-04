@@ -14,7 +14,11 @@ export default function Urgences() {
         </div>
 
         <p className="text-[var(--loboko-text-secondary)]">
-          Contactez les urgences pour un quelconque problème grave.
+          Consultez les contacts de secours documentés en RDC ou trouvez un prestataire pour une demande de service urgente.
+        </p>
+
+        <p className="text-sm p-4 rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
+          Les contacts de secours publiés couvrent actuellement Kinshasa. Une demande urgente à un prestataire LOBOKO ne remplace pas les secours médicaux, la police ou les pompiers.
         </p>
 
         <Link
@@ -45,7 +49,7 @@ export default function Urgences() {
           <div className="flex-1 min-w-0">
             <div className="font-semibold">Hôpitaux</div>
             <div className="text-sm text-[var(--loboko-text-secondary)]">
-              Trouvez un hôpital proche de vous
+              Contacts d’hôpitaux documentés à Kinshasa
             </div>
           </div>
           <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
@@ -59,9 +63,9 @@ export default function Urgences() {
             <Shield size={22} className="text-[#2563eb]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Polices</div>
+            <div className="font-semibold">Police</div>
             <div className="text-sm text-[var(--loboko-text-secondary)]">
-              Contactez les forces de l'ordre
+              Contact de la police à Kinshasa
             </div>
           </div>
           <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
@@ -75,9 +79,9 @@ export default function Urgences() {
             <Flame size={22} className="text-[#f97316]" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Casernes</div>
+            <div className="font-semibold">Pompiers</div>
             <div className="text-sm text-[var(--loboko-text-secondary)]">
-              Appelez les pompiers en cas d'urgence
+              Contact des pompiers à Kinshasa
             </div>
           </div>
           <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
