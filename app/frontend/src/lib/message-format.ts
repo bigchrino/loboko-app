@@ -120,6 +120,22 @@ export function decodePayload(raw: string | undefined | null): MessagePayload {
       // fall through to text
     }
   }
+  // Early clients saved text envelopes without PREFIX. Recognize only that
+  // exact shape: other JSON (including unprefixed media/signals) is user text.
+  if (raw.trimStart().startsWith('{')) {
+    try {
+      const obj: unknown = JSON.parse(raw);
+      if (
+        obj !== null && typeof obj === 'object' && !Array.isArray(obj) &&
+        Object.keys(obj).length === 2 && 'kind' in obj && obj.kind === 'text' &&
+        'text' in obj && typeof obj.text === 'string'
+      ) {
+        return { kind: 'text', text: obj.text };
+      }
+    } catch {
+      // Preserve malformed JSON exactly as entered.
+    }
+  }
   return { kind: 'text', text: raw };
 }
 
