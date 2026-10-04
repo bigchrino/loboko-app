@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
-import { CHAT_PANEL_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
+import { CHAT_PANEL_CLASS, CHAT_HEADER_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
@@ -1014,9 +1014,9 @@ export default function GroupChat() {
 
   if (loading) {
     return (
-      <Layout title="Groupe" hideMobileNav>
+      <Layout title="Groupe" hideMobileNav fullScreenChat>
         <div className={CHAT_PANEL_CLASS} style={chatViewport.panelStyle}>
-          <header className="p-3 border-b border-[var(--loboko-border)] flex items-center gap-2">
+          <header className={CHAT_HEADER_CLASS}>
             <button type="button" onClick={goBack} aria-label="Retour aux messages" className="p-2 rounded-full"><ArrowLeft size={18} /></button>
             <span className="text-sm font-semibold">Groupe</span>
           </header>
@@ -1031,7 +1031,7 @@ export default function GroupChat() {
 
   if (!group) {
     return (
-      <Layout title="Groupe" hideMobileNav>
+      <Layout title="Groupe" hideMobileNav fullScreenChat>
         <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
           Groupe introuvable ou supprimé.
         </div>
@@ -1040,9 +1040,9 @@ export default function GroupChat() {
   }
 
   return (
-    <Layout title={group.name} hideMobileNav>
+    <Layout title={group.name} hideMobileNav fullScreenChat>
       <div className={CHAT_PANEL_CLASS} style={chatViewport.panelStyle}>
-        <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
+        <header className={CHAT_HEADER_CLASS}>
           <button
             onClick={goBack}
             className="p-2 rounded-full hover:bg-[var(--loboko-surface-hover)]"
@@ -1122,7 +1122,7 @@ export default function GroupChat() {
 
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
           style={{
             WebkitOverflowScrolling: 'touch',
           }}
@@ -1498,7 +1498,7 @@ export default function GroupChat() {
                     if (e.key === 'Enter' && !mentionState.open) handleSendText();
                   }}
                   placeholder="Votre message... (@ pour mentionner)"
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
                 />
                 <GroupMentionSuggestions
                   open={mentionState.open}

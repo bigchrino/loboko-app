@@ -33,6 +33,7 @@ interface LayoutProps {
   children: ReactNode;
   title?: string;
   hideMobileNav?: boolean;
+  fullScreenChat?: boolean;
 }
 
 const mobileNavItems = [
@@ -58,7 +59,7 @@ const desktopNavItems = [
   { to: '/profile', label: 'Profil', icon: User },
 ];
 
-export default function Layout({ children, title, hideMobileNav = false }: LayoutProps) {
+export default function Layout({ children, title, hideMobileNav = false, fullScreenChat = false }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
@@ -238,7 +239,7 @@ export default function Layout({ children, title, hideMobileNav = false }: Layou
       </aside>
 
       {/* Mobile top header */}
-      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur">
+      <header className={`${fullScreenChat ? 'hidden' : 'lg:hidden'} sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur`}>
         <div className="flex items-center gap-2.5 min-w-0">
           <Logo size="md" />
           {title && title !== 'LOBOKO' && (

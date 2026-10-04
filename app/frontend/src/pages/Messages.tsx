@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
-import { CHAT_PANEL_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
+import { CHAT_PANEL_CLASS, CHAT_HEADER_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
 import { supabase } from '@/lib/supabase';
 import { useAuth, Profile } from '@/contexts/AuthContext';
 import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
@@ -1734,7 +1734,7 @@ export default function Messages() {
 
 
   return (
-    <Layout title="Messages" hideMobileNav={!!activeUserId}>
+    <Layout title="Messages" hideMobileNav={!!activeUserId} fullScreenChat={!!activeUserId}>
       <h1 className="text-2xl font-bold mb-4 hidden lg:block">Messages</h1>
 
       {!activeUserId ? (
@@ -1750,7 +1750,7 @@ export default function Messages() {
                 value={listQuery}
                 onChange={(e) => setListQuery(e.target.value)}
                 placeholder="Rechercher un contact, un pseudo, un mot…"
-                className="w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                className="w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
               />
               {listQuery && (
                 <button
@@ -1993,7 +1993,7 @@ export default function Messages() {
           className={CHAT_PANEL_CLASS}
           style={chatViewport.panelStyle}
         >
-          <header className="flex items-center gap-2 p-3 border-b border-[var(--loboko-border)]">
+          <header className={CHAT_HEADER_CLASS}>
             <button
               onClick={closeConversation}
               className="p-2 rounded-full hover:bg-[var(--loboko-surface-hover)]"
@@ -2096,7 +2096,7 @@ export default function Messages() {
                 value={convQuery}
                 onChange={(e) => setConvQuery(e.target.value)}
                 placeholder="Rechercher dans la conversation…"
-                className="flex-1 bg-transparent text-sm outline-none"
+                className="flex-1 bg-transparent text-base sm:text-sm outline-none"
                 autoFocus
               />
               <span className="text-[11px] text-[var(--loboko-text-muted)] shrink-0">
@@ -2148,7 +2148,7 @@ export default function Messages() {
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
             style={{
               WebkitOverflowScrolling: 'touch',
             }}
@@ -2560,7 +2560,7 @@ export default function Messages() {
                         if (e.key === 'Enter') sendText();
                       }}
                       placeholder="Votre message..."
-                      className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
                     />
                   </div>
                   {draft.trim() ? (
