@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Video as VideoIcon, LoaderCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppPreferences } from '@/lib/use-app-preferences';
@@ -7,6 +8,7 @@ import { getSignedStorageUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
 import LazyMedia from '@/components/LazyMedia';
 import VideoWithPoster from '@/components/VideoWithPoster';
+import MediaViewer from '@/components/MediaViewer';
 
 interface Props {
   kind: 'image' | 'video';
@@ -44,9 +46,20 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setViewerOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [viewerOpen]);
 
   useEffect(() => {
     let cancelled = false;
+    setViewerOpen(false);
     setError(false);
     const existing = mediaLinks.get(cacheKey);
     if (existing && existing.expires > Date.now() && attempt === 0) {
@@ -83,7 +96,9 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
           Chargement impossible · Réessayer
         </button>
       ) : url && (kind === 'image' ? (
-        <a href={url} target="_blank" rel="noreferrer" className="block w-full h-full">
+        <button type="button" aria-label="Ouvrir la photo en plein écran"
+          onClick={(event) => { event.stopPropagation(); setViewerOpen(true); }}
+          className="block w-full h-full">
           <img src={url} alt="photo" onLoad={() => { setError(false); setReady(true); }} onError={() => setError(true)}
             ref={(element) => {
               // Safari may finish a cached image before React receives load.
@@ -91,7 +106,7 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
             }}
             className="rounded-2xl w-full h-full object-contain block bg-[#151b25]"
             decoding="async" />
-        </a>
+        </button>
       ) : (
         <>
           <VideoWithPoster src={url} cacheId={objectKey} poster={poster} onPosterReady={() => setReady(true)} className="rounded-2xl w-full h-full object-contain block bg-black"
@@ -99,6 +114,22 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
           {duration != null && displayReady && <span className="absolute bottom-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/70 text-white">{formatDuration(duration)}</span>}
         </>
       ))}
+      {viewerOpen && url && kind === 'image' && createPortal(
+        <div
+          onClick={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.stopPropagation()}
+        >
+          <MediaViewer
+            items={[{ url, type: 'image' }]}
+            index={0}
+            onIndexChange={() => {}}
+            onClose={() => setViewerOpen(false)}
+          />
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
