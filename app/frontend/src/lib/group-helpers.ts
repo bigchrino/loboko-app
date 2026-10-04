@@ -182,7 +182,9 @@ export async function updateGroup(
   const { error } = await supabase
     .from('groups')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('id', groupId);
+    .eq('id', groupId)
+    .select('id')
+    .single();
   if (error) throw new Error(humanize(error));
 }
 

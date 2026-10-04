@@ -87,6 +87,9 @@ export async function uploadMediaEx(
     // Per-type limits for mixed buckets: 5 MB for images, 15 MB for videos.
     // Single-type buckets use the map value as-is.
     const type = (uploadFile.type || '').toLowerCase();
+    if (folder === 'group-avatars' && !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type)) {
+      return { key: null, error: 'Choisissez une photo JPG, PNG, WebP ou GIF pour le groupe.' };
+    }
     let effectiveMax = MAX_SIZES[folder];
     let kindLabel = '';
     if (MIXED_BUCKETS.has(folder)) {
@@ -174,6 +177,7 @@ function parseStorageKey(storageKey: string): { bucket: string; path: string } {
  * Public buckets such as `avatars`, `posts` and `statuses` return a
  * standard public URL.
  *
+ * Group avatars resolve to an authorized, temporary signed URL.
  * Private chat buckets (`message-documents`, `message-media`,
  * `voice-notes`) never return a public URL. Callers must use
  * `getSignedStorageUrl`, whose RLS check ensures the current user is
@@ -186,6 +190,10 @@ export async function getMediaUrl(storageKey?: string | null): Promise<string | 
       return storageKey;
     }
     const { bucket, path } = parseStorageKey(storageKey);
+    if (bucket === 'group-avatars') {
+      const { url } = await getSignedStorageUrl(storageKey, 3600);
+      return url;
+    }
     if (PRIVATE_BUCKETS.has(bucket)) {
       // Private buckets never return a public URL. The caller must use
       // `getSignedStorageUrl` at click time.
