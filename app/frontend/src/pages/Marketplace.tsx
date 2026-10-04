@@ -87,7 +87,7 @@ export default function Marketplace() {
             </div>
           )}
         </section>
-        <p className="rounded-xl bg-[var(--loboko-surface)] px-4 py-3 text-xs leading-relaxed text-[var(--loboko-text-muted)]">Les commandes produits sont enregistrées dans LOBOKO. Le paiement électronique et le suivi de livraison nécessitent encore leur intégration dédiée.</p>
+        <p className="rounded-xl bg-[var(--loboko-surface)] px-4 py-3 text-xs leading-relaxed text-[var(--loboko-text-muted)]">Retrouvez le paiement Mobile Money et le suivi de vos livraisons dans Mes commandes. Le paiement nécessite l’activation du compte marchand LOBOKO. Les étapes de livraison sont mises à jour par le vendeur.</p>
       </div>
     </Layout>
   );

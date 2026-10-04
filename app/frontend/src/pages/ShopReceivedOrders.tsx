@@ -5,12 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyShop, fetchProduct, ProductWithShop } from '@/lib/shops';
 import {
   fetchShopProductOrders,
-  completeProductOrder,
   ProductOrder,
 } from '@/lib/product-orders';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Package, User } from 'lucide-react';
 import { toast } from 'sonner';
+import ProductShipmentPanel from '@/components/ProductShipmentPanel';
 
 interface ClientInfo {
   display_name?: string | null;
@@ -39,7 +39,6 @@ export default function ShopReceivedOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completingId, setCompletingId] = useState<string | null>(null);
 
   const load = async () => {
     if (!user?.id) return;
@@ -75,18 +74,6 @@ export default function ShopReceivedOrders() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  const handleComplete = async (order: OrderRow) => {
-    setCompletingId(order.id);
-    const { data, error } = await completeProductOrder(order.id);
-    setCompletingId(null);
-    if (!data) {
-      toast.error(error || 'Action impossible');
-      return;
-    }
-    setOrders((cur) => cur.map((o) => (o.id === order.id ? { ...o, status: 'completed' } : o)));
-    toast.success('Commande marquée comme terminée');
-  };
 
   return (
     <Layout title="Commandes reçues">
@@ -145,15 +132,7 @@ export default function ShopReceivedOrders() {
                     Paiement : {paymentFr[o.payment_status] || o.payment_status}
                   </span>
                 </div>
-                {o.status === 'pending' && (
-                  <button
-                    onClick={() => handleComplete(o)}
-                    disabled={completingId === o.id}
-                    className="mt-2 px-3 py-1.5 rounded-full bg-green-600 text-white text-xs font-semibold disabled:opacity-50"
-                  >
-                    {completingId === o.id ? 'Enregistrement…' : 'Marquer comme terminée'}
-                  </button>
-                )}
+                {o.payment_status === 'paid' ? <ProductShipmentPanel orderId={o.id} editable onUpdated={() => { void load(); }} /> : o.status === 'pending' && <p className="mt-3 text-xs text-[var(--loboko-text-muted)]">Attendez la confirmation du paiement avant de préparer et expédier cette commande.</p>}
               </div>
             </div>
           ))}

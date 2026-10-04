@@ -1,8 +1,10 @@
 # Paiements LOBOKO
 
-Le paiement en ligne n’est pas opérationnel. Aucun encaissement, conservation de fonds, versement ou remboursement automatique n’est assuré par LOBOKO.
+Le paiement des **services** reste indisponible. Le Marketplace dispose désormais d’un raccordement CinetPay Mobile Money, à activer avec un compte marchand autorisé en CDF, les secrets serveur et un taux de conversion validé. Le détail et les limites sont dans [MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md](./MARKETPLACE_PAYMENTS_DELIVERY_SETUP.md).
 
-La page de paiement informe les utilisateurs de cette indisponibilité. Les anciennes RPC `prepare_service_payment` et `complete_service_order` rejettent tout appel sans modifier les données, y compris depuis un ancien client. La seconde RPC associait auparavant la fin de mission à une libération fictive de fonds : ce parcours est donc suspendu. La création, l’acceptation, les contre-propositions et l’annulation des demandes restent disponibles.
+Les versements automatiques aux vendeurs, la conservation des fonds et les remboursements automatiques ne sont pas assurés par cette intégration. Aucun encaissement réel n’a été validé tant que le compte marchand n’est pas configuré.
+
+La page de paiement des services informe les utilisateurs de cette indisponibilité. Les anciennes RPC `prepare_service_payment` et `complete_service_order` rejettent tout appel sans modifier les données, y compris depuis un ancien client. La seconde RPC associait auparavant la fin de mission à une libération fictive de fonds : ce parcours est donc suspendu. La création, l’acceptation, les contre-propositions et l’annulation des demandes restent disponibles.
 
 Les écritures directes des utilisateurs dans `service_orders` sont interdites ; les RPC validées créent et modifient les commandes. Les anciens enregistrements de paiement sont conservés pour examen. Leur statut seul ne constitue pas une preuve de transaction réelle.
 

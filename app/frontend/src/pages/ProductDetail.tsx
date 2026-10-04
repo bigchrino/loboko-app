@@ -148,11 +148,12 @@ export default function ProductDetail() {
       toast.error(error || 'Commande impossible');
       return;
     }
-    toast.success('Commande envoyée — le vendeur va la préparer.');
+    toast.success('Commande créée. Retrouvez le paiement dans Mes commandes.');
     setProduct((cur) =>
       cur ? { ...cur, stock_quantity: Math.max(0, cur.stock_quantity - quantity) } : cur,
     );
     setQuantity(1);
+    navigate('/my-product-orders');
   };
 
   if (loading) {

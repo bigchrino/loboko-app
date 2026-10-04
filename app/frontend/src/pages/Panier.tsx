@@ -74,7 +74,8 @@ export default function Panier() {
     }
     await removeFromCart(item.id);
     setCart((cur) => cur.filter((x) => x.id !== item.id));
-    toast.success(`Commande envoyée pour "${item.product.name}"`);
+    toast.success(`Commande créée pour "${item.product.name}". Continuez vers le paiement.`);
+    navigate('/my-product-orders');
   };
 
   const orderAll = async () => {
@@ -92,6 +93,7 @@ export default function Panier() {
     await loadCart();
     if (successCount > 0) {
       toast.success(`${successCount} commande${successCount > 1 ? 's' : ''} envoyée${successCount > 1 ? 's' : ''}`);
+      navigate('/my-product-orders');
     } else {
       toast.error('Aucune commande n\u2019a pu être envoyée (stock épuisé ?)');
     }

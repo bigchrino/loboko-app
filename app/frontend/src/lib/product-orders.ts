@@ -12,13 +12,13 @@ export interface ProductOrder {
   payment_status: 'pending' | 'paid' | 'refunded';
   created_at: string;
   updated_at: string;
+  payment_intents?: { status: string; amount: number; currency: string; exchange_rate: number; created_at: string }[];
 }
 
 /**
  * Passe une vraie commande produit : réserve le stock et crée la commande
  * en une seule opération sécurisée côté base (fonction place_product_order).
- * Le paiement réel n'est pas encore branché — le statut reste "pending"
- * jusqu'à l'intégration de l'agrégateur.
+ * Le paiement reste en attente jusqu'à la vérification serveur CinetPay.
  */
 export async function placeProductOrder(
   clientId: string,
@@ -64,7 +64,7 @@ export async function fetchMyProductOrders(clientId: string): Promise<ProductOrd
   try {
     const { data, error } = await supabase
       .from('product_orders')
-      .select('*')
+      .select('*, payment_intents:product_payment_intents(status,amount,currency,exchange_rate,created_at)')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -75,7 +75,7 @@ export async function fetchMyProductOrders(clientId: string): Promise<ProductOrd
   }
 }
 
-/** Le vendeur marque une commande comme préparée/terminée. */
+/** Une commande ne peut être terminée qu'après paiement vérifié et livraison. */
 export async function completeProductOrder(
   orderId: string,
 ): Promise<{ data: ProductOrder | null; error: string | null }> {
