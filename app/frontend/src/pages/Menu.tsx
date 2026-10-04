@@ -2,7 +2,6 @@ import { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Menu as MenuIcon,
   User,
   Search,
   Building2,
@@ -37,7 +36,7 @@ interface MenuItem {
 const items: MenuItem[] = [
   {
     to: '/profile',
-    label: 'Mon Profil',
+    label: 'Mon profil',
     desc: 'Voir et modifier votre profil',
     icon: User,
     color: '#2563eb',
@@ -45,21 +44,21 @@ const items: MenuItem[] = [
   {
     to: '/verification',
     label: 'Vérification',
-    desc: 'Vérifier votre identité prestataire',
+    desc: 'Identité prestataire',
     icon: ShieldCheck,
     color: '#2563eb',
   },
   {
     to: '/statuses',
     label: 'Statuts',
-    desc: 'Photos, vidéos et textes à partager 24h',
+    desc: 'Photos, vidéos, textes · 24 h',
     icon: Circle,
     color: '#7c3aed',
   },
   {
     to: '/calls',
     label: 'Appels',
-    desc: 'Historique des appels vocaux et vidéo',
+    desc: 'Historique vocal et vidéo',
     icon: Phone,
     color: '#2563eb',
     badgeKey: 'missedCalls',
@@ -67,14 +66,14 @@ const items: MenuItem[] = [
   {
     to: '/messages/starred',
     label: 'Messages importants',
-    desc: "Retrouvez vos messages marqués d'une étoile",
+    desc: 'Messages étoilés',
     icon: Star,
     color: '#eab308',
   },
   {
     to: '/works',
     label: 'Réalisations',
-    desc: 'Voir les travaux publiés par les prestataires',
+    desc: 'Travaux des prestataires',
     icon: Image,
     color: '#06b6d4',
   },
@@ -144,6 +143,45 @@ const items: MenuItem[] = [
   },
 ];
 
+function sectionFor(to: string): string {
+  if (['/statuses', '/calls', '/messages/starred', '/works'].includes(to)) return 'Activités';
+  if (['/recherches', '/suggestion'].includes(to)) return 'Explorer';
+  if (to === '/settings') return 'Mon compte';
+  return 'Services';
+}
+
+function MenuCard({ item, badgeCount = 0, compact = false }: {
+  item: MenuItem;
+  badgeCount?: number;
+  compact?: boolean;
+}) {
+  const { to, label, desc, icon: Icon, color } = item;
+  const icon = (
+    <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}26` }}>
+      <Icon size={26} style={{ color }} aria-hidden="true" />
+      {badgeCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[var(--loboko-elevated)]" aria-label={`${badgeCount} appels manqués`}>
+          {badgeCount > 99 ? '99+' : badgeCount}
+        </span>
+      )}
+    </div>
+  );
+  return (
+    <Link to={to} className={`min-w-0 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:border-[#2563eb] hover:bg-[var(--loboko-surface-hover)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${compact ? 'flex flex-col gap-3 p-4 sm:p-5' : 'flex items-center gap-4 p-4 sm:p-5'}`}>
+      {compact ? (
+        <div className="flex items-center justify-between gap-2">
+          {icon}<ChevronRight size={20} className="text-[var(--loboko-text-muted)] shrink-0" aria-hidden="true" />
+        </div>
+      ) : icon}
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-base sm:text-lg leading-snug break-words">{label}</div>
+        <p className="mt-1 text-sm leading-relaxed text-[var(--loboko-text-secondary)]">{desc}</p>
+      </div>
+      {!compact && <ChevronRight size={20} className="text-[var(--loboko-text-muted)] shrink-0" aria-hidden="true" />}
+    </Link>
+  );
+}
+
 export default function Menu() {
   const { logout, profile } = useAuth();
   const { unseenMissed } = useMissedCalls();
@@ -164,10 +202,11 @@ export default function Menu() {
         ]
       : items;
 
-  const badgeCountFor = (key?: MenuItem['badgeKey']): number => {
-    if (key === 'missedCalls') return unseenMissed;
-    return 0;
-  };
+  const featuredItems = visibleItems.filter((item) => ['/profile', '/verification'].includes(item.to));
+  const groupedItems = ['Activités', 'Services', 'Explorer', 'Mon compte'].map((title) => ({
+    title,
+    items: visibleItems.filter((item) => !['/profile', '/verification'].includes(item.to) && sectionFor(item.to) === title),
+  }));
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -181,101 +220,38 @@ export default function Menu() {
   };
 
   return (
-    <Layout title="Menu">
+    <Layout title="Menu" hideHeaderTitle>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center">
-            <MenuIcon size={22} className="text-[#2563eb]" />
-          </div>
-          <h1 className="text-2xl font-bold">Menu</h1>
-        </div>
-
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Menu</h1>
         <div className="space-y-3">
-          {visibleItems.map(({ to, label, desc, icon: Icon, color, badgeKey }) => {
-            const badgeCount = badgeCountFor(badgeKey);
-            const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
-
-            return (
-              <Link
-                key={to}
-                to={to}
-                className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
-              >
-                <div
-                  className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: `${color}26` }}
-                >
-                  <Icon size={22} style={{ color }} />
-
-                  {badgeCount > 0 && (
-                    <span
-                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[var(--loboko-elevated)]"
-                      aria-label={`${badgeCount} appels manqués`}
-                    >
-                      {badgeLabel}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold flex items-center gap-2">
-                    {label}
-
-                    {badgeCount > 0 && (
-                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-semibold">
-                        {badgeLabel}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-sm text-[var(--loboko-text-secondary)]">
-                    {desc}
-                  </div>
-                </div>
-
-                <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
-              </Link>
-            );
-          })}
-
-          {profile?.is_admin && (
-            <Link
-              to="/admin"
-              className="flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all"
-            >
-              <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0">
-                <ShieldCheck size={22} className="text-[#2563eb]" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold">Administration</div>
-                <div className="text-sm text-[var(--loboko-text-secondary)]">
-                  Centre de contrôle LOBOKO
-                </div>
-              </div>
-
-              <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
-            </Link>
-          )}
-
-          <button
-            onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-all text-left"
-          >
-            <div className="w-11 h-11 rounded-xl bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0">
-              <LogOut size={22} className="text-[#ef4444]" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold">Déconnexion</div>
-              <div className="text-sm text-[var(--loboko-text-secondary)]">
-                Se déconnecter de LOBOKO
-              </div>
-            </div>
-
-            <ChevronRight size={20} className="text-[var(--loboko-text-muted)]" />
-          </button>
+          {featuredItems.map((item) => <MenuCard key={item.to} item={item} />)}
         </div>
+        {groupedItems.map((section, index) => (
+          <section key={section.title} aria-labelledby={`menu-${index}`}>
+            <h2 id={`menu-${index}`} className="mb-3 text-xl sm:text-2xl font-bold">{section.title}</h2>
+            <div className={section.title === 'Mon compte' ? 'space-y-3' : 'grid grid-cols-2 gap-3'}>
+              {section.items.map((item) => (
+                <MenuCard key={item.to} item={item} compact={section.title !== 'Mon compte'} badgeCount={item.badgeKey === 'missedCalls' ? unseenMissed : 0} />
+              ))}
+              {section.title === 'Mon compte' && (
+                <>
+                  {profile?.is_admin && (
+                    <MenuCard item={{ to: '/admin', label: 'Administration', desc: 'Centre de contrôle LOBOKO', icon: ShieldCheck, color: '#2563eb' }} />
+                  )}
+                  <button type="button" onClick={() => setShowLogoutConfirm(true)}
+                    className="w-full flex items-center gap-4 p-4 sm:p-5 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] hover:bg-[var(--loboko-surface-hover)] transition-colors text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ef4444]">
+                    <div className="w-12 h-12 rounded-2xl bg-[rgba(239,68,68,0.15)] flex items-center justify-center shrink-0"><LogOut size={26} className="text-[#ef4444]" aria-hidden="true" /></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-base sm:text-lg">Déconnexion</div>
+                      <p className="mt-1 text-sm text-[var(--loboko-text-secondary)]">Se déconnecter de LOBOKO</p>
+                    </div>
+                    <ChevronRight size={20} className="text-[var(--loboko-text-muted)] shrink-0" aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+        ))}
       </div>
 
       <LogoutConfirm
