@@ -98,13 +98,13 @@ export default function Panier() {
   };
 
   return (
-    <Layout title="Panier">
+    <Layout title="Mon panier">
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-[rgba(37,99,235,0.15)] flex items-center justify-center">
             <ShoppingCart size={22} className="text-[#2563eb]" />
           </div>
-          <h1 className="text-2xl font-bold">Panier</h1>
+          <h1 className="text-2xl font-bold">Mon panier</h1>
         </div>
 
         {!loadingShop && (

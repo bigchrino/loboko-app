@@ -46,6 +46,7 @@ const MyMusalaRequests = lazy(() => import('./pages/MyMusalaRequests'));
 const EntrepriseOffres = lazy(() => import('./pages/EntrepriseOffres'));
 const EntrepriseMusala = lazy(() => import('./pages/EntrepriseMusala'));
 const Panier = lazy(() => import('./pages/Panier'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
 const CreateShop = lazy(() => import('./pages/CreateShop'));
 const ShopManage = lazy(() => import('./pages/ShopManage'));
 const DiscoverShops = lazy(() => import('./pages/DiscoverShops'));
@@ -186,7 +187,8 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
   { path: '/entreprise/offres', element: <EntrepriseOffres /> },
   { path: '/entreprise/musala', element: <EntrepriseMusala /> },
 
-  { path: '/panier', element: <Panier /> },
+  { path: '/cart', element: <Panier /> },
+  { path: '/marketplace', element: <Marketplace /> },
   { path: '/shop/create', element: <CreateShop /> },
   { path: '/shop/manage', element: <ShopManage /> },
   { path: '/shops', element: <DiscoverShops /> },
@@ -263,6 +265,7 @@ const AppRoutes = () => (
   <Suspense fallback={<RoutePending />}>
   <Routes>
     <Route path="/" element={<Index />} />
+    <Route path="/panier" element={<Navigate to="/marketplace" replace />} />
     <Route path="/contact" element={<PublicContact />} />
 
     <Route path="/auth/callback" element={<AuthCallback />} />

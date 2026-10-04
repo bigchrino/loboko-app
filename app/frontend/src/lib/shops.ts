@@ -16,7 +16,7 @@ export interface Shop {
 export interface ProductWithShop extends ShopProduct {
   image_url?: string | null;
   gallery?: { id: string; image_url: string }[];
-  shop: Pick<Shop, 'id' | 'name' | 'slug' | 'color_key'>;
+  shop: Pick<Shop, 'id' | 'name' | 'slug' | 'color_key' | 'owner_id'>;
 }
 
 export interface ProductImage {
@@ -78,7 +78,7 @@ export async function searchProducts(query: string): Promise<ProductWithShop[]> 
   try {
     const { data, error } = await supabase
       .from('shop_products')
-      .select('*, shops!inner(id, name, slug, color_key)')
+      .select('*, shops!inner(id, name, slug, color_key, owner_id)')
       .eq('is_active', true)
       .gt('stock_quantity', 0)
       .ilike('name', `%${term}%`)
@@ -98,11 +98,36 @@ export async function searchProducts(query: string): Promise<ProductWithShop[]> 
   }
 }
 
+/** Nouveautés du catalogue, affichées sur la page Marketplace. */
+export async function fetchLatestProducts(limit = 8): Promise<ProductWithShop[]> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_products')
+      .select('*, shops!inner(id, name, slug, color_key, owner_id)')
+      .eq('is_active', true)
+      .eq('shops.is_active', true)
+      .gt('stock_quantity', 0)
+      .order('created_at', { ascending: false })
+      .limit(Math.max(1, Math.min(limit, 24)));
+    if (error) throw error;
+    return Promise.all(
+      ((data || []) as any[]).map(async (row) => ({
+        ...row,
+        shop: row.shops,
+        image_url: row.image_key ? await getMediaUrl(row.image_key) : null,
+      })),
+    );
+  } catch (error) {
+    console.error('fetchLatestProducts', error);
+    return [];
+  }
+}
+
 export async function fetchProduct(productId: string): Promise<ProductWithShop | null> {
   try {
     const { data, error } = await supabase
       .from('shop_products')
-      .select('*, shops!inner(id, name, slug, color_key)')
+      .select('*, shops!inner(id, name, slug, color_key, owner_id)')
       .eq('id', productId)
       .maybeSingle();
     if (error) throw error;

@@ -6,6 +6,7 @@ export interface ProductComment {
   product_id: string;
   user_id: string;
   comment: string;
+  rating: number | null;
   photo_key: string | null;
   created_at: string;
 }
@@ -72,6 +73,7 @@ export async function createProductComment(input: {
   product_id: string;
   user_id: string;
   comment: string;
+  rating?: number | null;
   photoFile?: File | null;
 }): Promise<{ data: ProductCommentWithAuthor | null; error: string | null }> {
   try {
@@ -90,6 +92,7 @@ export async function createProductComment(input: {
         product_id: input.product_id,
         user_id: input.user_id,
         comment: input.comment.trim(),
+        rating: input.rating ?? null,
         photo_key,
       })
       .select()

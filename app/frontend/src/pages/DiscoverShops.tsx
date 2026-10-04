@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { ArrowLeft, Search, Store, Star, Package } from 'lucide-react';
 import {
@@ -17,8 +17,9 @@ interface ShopCardState extends Shop {
 
 export default function DiscoverShops() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('query') || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('query') || '');
 
   const [shops, setShops] = useState<ShopCardState[]>([]);
   const [products, setProducts] = useState<ProductWithShop[]>([]);
@@ -28,6 +29,12 @@ export default function DiscoverShops() {
     const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
+
+  useEffect(() => {
+    const term = searchParams.get('query') || '';
+    setQuery(term);
+    setDebouncedQuery(term);
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +84,13 @@ export default function DiscoverShops() {
         />
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            const next = new URLSearchParams(searchParams);
+            if (e.target.value.trim()) next.set('query', e.target.value.trim());
+            else next.delete('query');
+            setSearchParams(next, { replace: true });
+          }}
           placeholder="Rechercher un produit…"
           className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-sm focus:outline-none focus:border-[#2563eb]"
         />

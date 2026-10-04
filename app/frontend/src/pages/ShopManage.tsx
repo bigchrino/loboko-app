@@ -68,7 +68,7 @@ export default function ShopManage() {
       const s = await fetchMyShop(user.id);
       if (!s) {
         toast.error("Vous n'avez pas encore de boutique");
-        navigate('/panier', { replace: true });
+        navigate('/marketplace', { replace: true });
         return;
       }
       setShop(s);

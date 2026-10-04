@@ -54,7 +54,7 @@ const desktopNavItems = [
   { to: '/suggestion', label: 'Suggestion', icon: Lightbulb },
   { to: '/entreprise', label: 'Entreprise', icon: Building2 },
   { to: '/notifications', label: 'Notifications', icon: Bell },
-  { to: '/panier', label: 'Panier', icon: ShoppingCart },
+  { to: '/marketplace', label: 'Marketplace', icon: ShoppingCart },
   { to: '/urgences', label: 'Urgences', icon: Siren },
   { to: '/recherches', label: 'Recherches', icon: Search },
   { to: '/profile', label: 'Profil', icon: User },

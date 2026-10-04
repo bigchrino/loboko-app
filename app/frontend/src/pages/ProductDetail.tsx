@@ -11,6 +11,7 @@ import {
   ProductCommentWithAuthor,
 } from '@/lib/product-comments';
 import FavoriteButton from '@/components/FavoriteButton';
+import { supabase } from '@/lib/supabase';
 import {
   ArrowLeft,
   Store,
@@ -38,6 +39,8 @@ export default function ProductDetail() {
   const [commentsLoading, setCommentsLoading] = useState(true);
 
   const [commentText, setCommentText] = useState('');
+  const [productRating, setProductRating] = useState(0);
+  const [canRate, setCanRate] = useState(false);
   const [commentPhoto, setCommentPhoto] = useState<File | null>(null);
   const [commentPhotoPreview, setCommentPhotoPreview] = useState<string | null>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -68,6 +71,12 @@ export default function ProductDetail() {
     const list = await fetchProductComments(id);
     setComments(list);
     setCommentsLoading(false);
+    if (user?.id) {
+      const { data: completedOrder } = await supabase.from('product_orders').select('id').eq('product_id', id).eq('client_id', user.id).eq('status', 'completed').limit(1).maybeSingle();
+      setCanRate(Boolean(completedOrder));
+    } else {
+      setCanRate(false);
+    }
   };
 
   useEffect(() => {
@@ -89,8 +98,12 @@ export default function ProductDetail() {
 
   const submitComment = async () => {
     if (!user?.id || !product) return;
-    if (!commentText.trim()) {
-      toast.error('Écrivez un commentaire');
+    if (!commentText.trim() && !productRating) {
+      toast.error('Écrivez un commentaire ou choisissez une note');
+      return;
+    }
+    if (productRating && !canRate) {
+      toast.error('Une note est réservée aux clients ayant reçu leur commande');
       return;
     }
     setSubmittingComment(true);
@@ -98,6 +111,7 @@ export default function ProductDetail() {
       product_id: product.id,
       user_id: user.id,
       comment: commentText,
+      rating: productRating || null,
       photoFile: commentPhoto,
     });
     setSubmittingComment(false);
@@ -107,6 +121,7 @@ export default function ProductDetail() {
     }
     setComments((cur) => [data, ...cur]);
     setCommentText('');
+    setProductRating(0);
     setCommentPhoto(null);
     setCommentPhotoPreview(null);
     toast.success('Avis publié');
@@ -165,6 +180,10 @@ export default function ProductDetail() {
 
   const color = getShopColor(product.shop.color_key);
   const outOfStock = product.stock_quantity <= 0;
+  const ratedComments = comments.filter((comment) => comment.rating !== null && comment.rating !== undefined);
+  const averageProductRating = ratedComments.length
+    ? ratedComments.reduce((sum, comment) => sum + (comment.rating || 0), 0) / ratedComments.length
+    : 0;
 
   return (
     <Layout title={product.name}>
@@ -271,13 +290,22 @@ export default function ProductDetail() {
       </div>
 
       {/* 4. Voir la boutique / Favoris / Commenter */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <button
           onClick={() => navigate(`/shop/${product.shop.slug}`)}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs font-semibold"
         >
           <Store size={14} /> Voir la boutique
         </button>
+        {user?.id && product.shop.owner_id !== user.id && (
+          <button
+            type="button"
+            onClick={() => navigate(`/messages?to=${encodeURIComponent(product.shop.owner_id)}`)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-xs font-semibold"
+          >
+            <MessageCircle size={14} /> Contacter le vendeur
+          </button>
+        )}
         {user?.id && (
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)]">
             <FavoriteButton type="product" targetId={product.id} ghost ariaLabel="Ajouter aux favoris" />
@@ -314,10 +342,11 @@ export default function ProductDetail() {
 
       {/* 3. Commentaires */}
       <div>
-        <h2 className="text-lg font-bold mb-3">Avis ({comments.length})</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-2"><h2 className="text-lg font-bold">Avis ({comments.length})</h2>{ratedComments.length > 0 && <span className="text-sm text-amber-500" aria-label={`${averageProductRating.toFixed(1)} sur 5, ${ratedComments.length} notes`}>★ {averageProductRating.toFixed(1)} · {ratedComments.length} note{ratedComments.length > 1 ? 's' : ''}</span>}</div>
 
         {user?.id && (
           <div className="mb-4 p-3 rounded-xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)]">
+            {canRate && <div className="mb-3"><p className="mb-1 text-xs text-[var(--loboko-text-muted)]">Votre note après réception</p><div className="flex gap-1" role="group" aria-label="Note du produit sur cinq étoiles">{[1,2,3,4,5].map((star) => <button key={star} type="button" onClick={() => setProductRating(star)} aria-label={`${star} étoile${star > 1 ? 's' : ''}`} aria-pressed={productRating === star} className="p-1 text-xl leading-none">{star <= productRating ? '★' : '☆'}</button>)}</div></div>}
             <textarea
               ref={commentInputRef}
               value={commentText}
@@ -396,6 +425,7 @@ export default function ProductDetail() {
                   <p className="text-sm text-[var(--loboko-text-secondary)] whitespace-pre-wrap">
                     {c.comment}
                   </p>
+                  {c.rating && <p className="mt-1 text-sm tracking-wide text-amber-500" aria-label={`${c.rating} sur 5 étoiles`}>{'★'.repeat(c.rating)}<span className="text-[var(--loboko-text-muted)]">{'☆'.repeat(5 - c.rating)}</span></p>}
                   {c.photo_url && (
                     <img
                       src={c.photo_url}

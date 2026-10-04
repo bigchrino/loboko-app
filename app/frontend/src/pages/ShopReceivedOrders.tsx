@@ -48,7 +48,7 @@ export default function ShopReceivedOrders() {
     const shop = await fetchMyShop(user.id);
     if (!shop) {
       toast.error("Vous n'avez pas encore de boutique");
-      navigate('/panier', { replace: true });
+      navigate('/marketplace', { replace: true });
       return;
     }
 

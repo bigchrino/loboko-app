@@ -121,9 +121,9 @@ const items: MenuItem[] = [
     color: '#2563eb',
   },
   {
-    to: '/panier',
-    label: 'Panier',
-    desc: 'Vos articles à acheter',
+    to: '/marketplace',
+    label: 'Marketplace',
+    desc: 'Boutiques, produits, favoris et commandes',
     icon: ShoppingCart,
     color: '#10b981',
   },
