@@ -44,7 +44,7 @@ import MessageActionsMenu, { MessageAction } from '@/components/MessageActionsMe
 import ForwardDialog from '@/components/ForwardDialog';
 import ReportDialog from '@/components/ReportDialog';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
-import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus, Pin } from 'lucide-react';
+import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Plus, Pin } from 'lucide-react';
 import { Group, GroupMessage } from '@/lib/group-helpers';
 import { loadGroupInbox } from '@/lib/group-inbox';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
@@ -353,6 +353,7 @@ export default function Messages() {
   // Phase 1 state
   const [listQuery, setListQuery] = useState('');
   const [viewMode, setViewMode] = useState<'main' | 'archived'>('main');
+  const [inboxFilter, setInboxFilter] = useState<'all' | 'personal' | 'groups'>('all');
   const [states, setStates] = useState<Record<string, ConversationState>>(initialInbox?.states ?? {});
   const [blocked, setBlocked] = useState<Set<string>>(initialInbox?.blocked ?? new Set());
   const [convSearchOpen, setConvSearchOpen] = useState(urlSearch);
@@ -874,6 +875,35 @@ export default function Messages() {
       return hasMatch;
     });
   }, [viewMode, archivedList, mainList, listQuery, allMessages, myId]);
+
+  // Merge both inboxes without changing their loading or unread-count logic.
+  const inboxEntries = useMemo(() => {
+    type Entry =
+      | { kind: 'personal'; conversation: Conversation; timestamp: number; pinned: boolean }
+      | { kind: 'group'; group: Group; timestamp: number; pinned: boolean };
+    const timestamp = (value?: string) => {
+      const time = value ? Date.parse(value) : 0;
+      return Number.isFinite(time) ? time : 0;
+    };
+    const entries: Entry[] = [];
+    if (viewMode === 'archived' || inboxFilter !== 'groups') {
+      for (const conversation of visibleList) {
+        entries.push({ kind: 'personal', conversation,
+          timestamp: timestamp(conversation.lastMessage?.created_at),
+          pinned: viewMode === 'main' && !!states[conversation.userId]?.pinned });
+      }
+    }
+    if (viewMode === 'main' && inboxFilter !== 'personal') {
+      const query = listQuery.trim().toLowerCase();
+      for (const group of groups) {
+        if (query && !group.name.toLowerCase().includes(query)) continue;
+        entries.push({ kind: 'group', group,
+          timestamp: timestamp(groupLastMessages[group.id]?.created_at || group.created_at),
+          pinned: false });
+      }
+    }
+    return entries.sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.timestamp - a.timestamp);
+  }, [visibleList, groups, groupLastMessages, inboxFilter, viewMode, listQuery, states]);
 
   // Active conversation messages come from the paginated store
   // (`activeConvMessages`), which is kept in sync with the server via:
@@ -1710,47 +1740,42 @@ export default function Messages() {
 
 
   return (
-    <Layout title="Messages" hideMobileNav={!!activeUserId} fullScreenChat={!!activeUserId}>
-      <h1 className="text-2xl font-bold mb-4 hidden lg:block">Messages</h1>
+    <Layout title="Messages" hideHeaderTitle={!activeUserId} hideMobileNav={!!activeUserId} fullScreenChat={!!activeUserId}>
 
       {!activeUserId ? (
         <>
-          {/* Search bar + new group */}
-          <div className="mb-3 flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--loboko-text-muted)]"
-              />
-              <input
-                value={listQuery}
-                onChange={(e) => setListQuery(e.target.value)}
-                placeholder="Rechercher un contact, un pseudo, un mot…"
-                className="w-full pl-9 pr-9 py-2.5 rounded-full bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
-              />
-              {listQuery && (
-                <button
-                  type="button"
-                  onClick={() => setListQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[var(--loboko-surface-hover)]"
-                  aria-label="Effacer"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Messages</h1>
             {viewMode === 'main' && (
-              <button
-                type="button"
-                onClick={() => setShowCreateGroup(true)}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
-                aria-label="Nouveau groupe"
-                title="Nouveau groupe"
-              >
-                <Plus size={18} />
+              <button type="button" onClick={() => setShowCreateGroup(true)}
+                className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0 hover:brightness-110 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+                aria-label="Nouveau groupe" title="Nouveau groupe">
+                <Plus size={24} />
               </button>
             )}
           </div>
+          <div className="relative mb-4">
+            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--loboko-text-muted)] pointer-events-none" />
+            <input value={listQuery} onChange={(e) => setListQuery(e.target.value)}
+              aria-label="Rechercher une conversation" placeholder="Rechercher une conversation…"
+              className="w-full pl-12 pr-11 py-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] text-base focus:outline-none focus:border-[#2563eb]" />
+            {listQuery && (
+              <button type="button" onClick={() => setListQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-[var(--loboko-surface-hover)]" aria-label="Effacer la recherche">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          {viewMode === 'main' && (
+            <div className="grid grid-cols-3 gap-1 p-1 mb-4 rounded-full border border-[var(--loboko-border)] bg-[var(--loboko-surface)]" role="group" aria-label="Filtrer les conversations">
+              {([{ value: 'all', label: 'Tous' }, { value: 'personal', label: 'Personnels' }, { value: 'groups', label: 'Groupes' }] as const).map((filter) => (
+                <button key={filter.value} type="button" aria-pressed={inboxFilter === filter.value} onClick={() => setInboxFilter(filter.value)}
+                  className={`min-h-11 px-2 py-2.5 rounded-full text-sm font-semibold transition ${inboxFilter === filter.value ? 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white' : 'text-[var(--loboko-text-muted)] hover:bg-[var(--loboko-surface-hover)]'}`}>
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Archived entry */}
           {viewMode === 'main' && archivedList.length > 0 && (
@@ -1788,86 +1813,19 @@ export default function Messages() {
             </div>
           )}
 
-          {/* Groups section (only in main view) */}
-          {!loading && viewMode === 'main' && groups.length > 0 && (
-            <div className="mb-3">
-              <div className="flex items-center gap-2 px-1 mb-2">
-                <Users size={14} className="text-[#2563eb]" />
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--loboko-text-muted)]">
-                  Groupes
-                </span>
-              </div>
-              <div className="space-y-2">
-                {groups
-                  .filter((g) => {
-                    const q = listQuery.trim().toLowerCase();
-                    if (!q) return true;
-                    return g.name.toLowerCase().includes(q);
-                  })
-                  .map((g) => {
-                    const last = groupLastMessages[g.id];
-                    const senderId = last?.user_id;
-                    const senderName = senderId
-                      ? senderId === myId
-                        ? 'Vous'
-                        : profilesMap[senderId]?.display_name ||
-                          profilesMap[senderId]?.username ||
-                          'Membre'
-                      : '';
-                    const preview = groupPreviewOf(last, senderName);
-                    const memberCount = groupMemberCounts[g.id] || 0;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/messages/group/${g.id}`)}
-                        className="w-full flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
-                      >
-                        <GroupAvatar group={g} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-semibold text-sm truncate flex items-center gap-1 min-w-0">
-                              <span className="truncate">{g.name}</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold shrink-0">
-                                GROUPE
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <div className="text-[10px] text-[var(--loboko-text-muted)]">
-                                {last?.created_at
-                                  ? formatMessageTime(last.created_at)
-                                  : ''}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between gap-2 mt-0.5">
-                            <div className="text-xs text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
-                              {preview ||
-                                `${memberCount} membre${memberCount > 1 ? 's' : ''}`}
-                            </div>
-                            <UnreadBadge count={groupUnreadCounts[g.id] || 0} />
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-
           {loading ? (
-            <div className="space-y-2" role="status" aria-label="Chargement des conversations">
+            <div className="space-y-3" role="status" aria-label="Chargement des conversations">
               {[0, 1, 2, 3, 4].map((row) => (
-                <div key={row} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] motion-safe:animate-pulse" aria-hidden="true">
+                <div key={row} className="flex items-center gap-3 p-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] motion-safe:animate-pulse" aria-hidden="true">
                   <div className="w-11 h-11 rounded-full bg-[var(--loboko-elevated)] shrink-0" />
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-3">
                     <div className="h-3 w-28 rounded bg-[var(--loboko-elevated)]" />
                     <div className="h-3 w-3/4 rounded bg-[var(--loboko-elevated)]" />
                   </div>
                 </div>
               ))}
             </div>
-          ) : visibleList.length === 0 ? (
+          ) : inboxEntries.length === 0 ? (
             <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
               <div className="w-16 h-16 mx-auto rounded-full bg-[rgba(37,99,235,0.15)] flex items-center justify-center mb-4">
                 <span className="text-2xl">💬</span>
@@ -1877,19 +1835,70 @@ export default function Messages() {
                   ? 'Aucune conversation archivée'
                   : listQuery
                     ? 'Aucun résultat'
-                    : 'Aucune conversation'}
+                    : inboxFilter === 'groups' ? 'Aucun groupe' : 'Aucune conversation'}
               </h3>
               <p className="text-sm text-[var(--loboko-text-muted)]">
                 {viewMode === 'archived'
                   ? 'Archivez une conversation pour la retrouver ici.'
                   : listQuery
                     ? 'Essayez un autre terme.'
-                    : "Allez dans Découverte pour contacter quelqu'un"}
+                    : inboxFilter === 'groups'
+                      ? 'Créez un groupe avec le bouton + pour échanger à plusieurs.'
+                      : "Allez dans Découverte pour contacter quelqu'un"}
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {visibleList.map((c) => {
+            <div className="space-y-3">
+              {inboxEntries.map((entry) => {
+                if (entry.kind === 'group') {
+                  const g = entry.group;
+                  const last = groupLastMessages[g.id];
+                  const senderId = last?.user_id;
+                  const senderName = senderId
+                    ? senderId === myId
+                      ? 'Vous'
+                      : profilesMap[senderId]?.display_name ||
+                        profilesMap[senderId]?.username ||
+                        'Membre'
+                    : '';
+                  const preview = groupPreviewOf(last, senderName);
+                  const memberCount = groupMemberCounts[g.id] || 0;
+                  return (
+                    <button
+                      key={`group:${g.id}`}
+                      type="button"
+                      onClick={() => navigate(`/messages/group/${g.id}`)}
+                      className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
+                    >
+                      <GroupAvatar group={g} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-semibold text-base truncate flex items-center gap-1 min-w-0">
+                            <span className="truncate">{g.name}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(37,99,235,0.15)] text-[#2563eb] font-semibold shrink-0">
+                              Groupe
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="text-xs text-[var(--loboko-text-muted)]">
+                              {last?.created_at
+                                ? formatMessageTime(last.created_at)
+                                : ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <div className="text-sm text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
+                            {preview ||
+                              `${memberCount} membre${memberCount > 1 ? 's' : ''}`}
+                          </div>
+                          <UnreadBadge count={groupUnreadCounts[g.id] || 0} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                }
+                const c = entry.conversation;
                 const preview = previewOf(c.lastMessage);
                 const online = isOnline(c.userId);
                 const displayName =
@@ -1897,7 +1906,7 @@ export default function Messages() {
                 const isBlocked = blocked.has(c.userId);
                 return (
                   <button
-                    key={c.userId}
+                    key={`personal:${c.userId}`}
                     onClick={() => openConversation(c.userId)}
                     onMouseDown={() => startLongPress(c.userId)}
                     onMouseUp={cancelLongPress}
@@ -1912,12 +1921,12 @@ export default function Messages() {
                         c.userId,
                       );
                     }}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] hover:border-[#2563eb] transition text-left"
                   >
                     <Avatar profile={c.profile} online={online} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-sm truncate flex items-center gap-1 min-w-0">
+                        <div className="font-semibold text-base truncate flex items-center gap-1 min-w-0">
                           {states[c.userId]?.pinned && (
                             <Pin
                               size={11}
@@ -1939,19 +1948,19 @@ export default function Messages() {
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-[var(--loboko-text-muted)] shrink-0">
+                        <div className="text-xs text-[var(--loboko-text-muted)] shrink-0">
                           {formatMessageTime(c.lastMessage?.created_at)}
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-0.5">
-                        <div className="text-xs text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
-                          {c.lastMessage?.user_id === myId ? 'Vous: ' : ''}
+                        <div className="text-sm text-[var(--loboko-text-muted)] truncate flex-1 min-w-0">
+                          {c.lastMessage?.user_id === myId ? 'Vous : ' : ''}
                           {highlightText(preview, listQuery)}
                         </div>
                         <UnreadBadge count={unreadByUser[c.userId] || 0} />
                       </div>
                       {!c.lastMessage && (online || c.profile?.last_seen_at) && (
-                        <div className="text-[10px] text-[var(--loboko-text-muted)] mt-0.5 truncate">
+                        <div className="text-xs text-[var(--loboko-text-muted)] mt-0.5 truncate">
                           {online
                             ? 'En ligne'
                             : formatLastSeen(c.profile?.last_seen_at)}
