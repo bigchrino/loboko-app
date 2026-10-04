@@ -61,6 +61,7 @@ export default function Discover() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [ratingMap, setRatingMap] = useState<Record<string, { average: number; count: number }>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>('all');
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -78,19 +79,27 @@ export default function Discover() {
   );
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
+    let cancelled = false;
+    let inFlight = false;
+    const load = async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
       try {
         const { data, error } = await supabase
           .from('profile_directory')
           .select('*')
           .eq('banned', false)
           .eq('suspended', false)
+          .is('deactivated_at', null)
+          .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(1000);
         if (error) throw error;
+        if (cancelled) return;
         const list = (data as Profile[]) || [];
         setProfiles(list);
+        setLoadError(false);
+        setRatingMap({});
 
         const presIds = list
           .filter((p) => p.role === 'prestataire')
@@ -110,20 +119,40 @@ export default function Discover() {
           Object.entries(acc).forEach(([uid, v]) => {
             map[uid] = { average: v.sum / v.count, count: v.count };
           });
-          setRatingMap(map);
+          if (!cancelled) setRatingMap(map);
         }
       } catch (e) {
         console.error(e);
+        if (!cancelled) {
+          setProfiles([]);
+          setRatingMap({});
+          setLoadError(true);
+        }
       } finally {
-        setLoading(false);
+        inFlight = false;
+        if (!cancelled) setLoading(false);
       }
-    })();
+    };
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    void load();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const timer = window.setInterval(refresh, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
   
     const result = profiles.filter((p) => {
+      if (p.deleted_at || p.deactivated_at || p.banned || p.suspended) return false;
       if (filter !== 'all' && p.role !== filter) return false;
   
       if (
@@ -223,6 +252,10 @@ export default function Discover() {
       {loading ? (
         <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
           Chargement...
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="py-12 text-center text-sm text-[var(--loboko-text-secondary)]">
+          Impossible de charger la communauté. Vérifiez votre connexion puis revenez sur cette page.
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-sm text-[var(--loboko-text-muted)]">
