@@ -28,7 +28,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 function Placeholder({ kind = 'image' }: { kind?: 'image' | 'video' }) {
   const Icon = kind === 'image' ? ImageIcon : VideoIcon;
   return (
-    <div className="absolute inset-0 z-10 rounded-lg bg-[#151b25] text-white/65 flex flex-col items-center justify-center gap-2 pointer-events-none" role="status" aria-label="Chargement du média">
+    <div className="absolute inset-0 z-10 rounded-2xl bg-[#151b25] text-white/65 flex flex-col items-center justify-center gap-2 pointer-events-none" role="status" aria-label="Chargement du média">
       <Icon size={32} className="text-white/35" aria-hidden="true" />
       <span className="flex items-center gap-2 text-xs"><LoaderCircle size={14} className="motion-safe:animate-spin" aria-hidden="true" />{kind === 'image' ? 'Chargement de la photo…' : 'Chargement de la vidéo…'}</span>
     </div>
@@ -79,7 +79,7 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
       {!displayReady && !error && <Placeholder kind={kind} />}
       {error ? (
         <button type="button" onClick={() => { mediaLinks.delete(cacheKey); setAttempt((value) => value + 1); }}
-          className="w-full h-full rounded-lg bg-[#151b25] text-white/80 text-xs p-3">
+          className="w-full h-full rounded-2xl bg-[#151b25] text-white/80 text-xs p-3">
           Chargement impossible · Réessayer
         </button>
       ) : url && (kind === 'image' ? (
@@ -89,12 +89,12 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
               // Safari may finish a cached image before React receives load.
               if (element?.complete && element.naturalWidth > 0) setReady(true);
             }}
-            className="rounded-lg w-full h-full object-contain block bg-[#151b25]"
+            className="rounded-2xl w-full h-full object-contain block bg-[#151b25]"
             decoding="async" />
         </a>
       ) : (
         <>
-          <VideoWithPoster src={url} cacheId={objectKey} poster={poster} onPosterReady={() => setReady(true)} className="rounded-lg w-full h-full object-contain block bg-black"
+          <VideoWithPoster src={url} cacheId={objectKey} poster={poster} onPosterReady={() => setReady(true)} className="rounded-2xl w-full h-full object-contain block bg-black"
             controls playsInline preload="metadata" onLoadedMetadata={() => setReady(true)} onError={() => setError(true)} />
           {duration != null && displayReady && <span className="absolute bottom-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/70 text-white">{formatDuration(duration)}</span>}
         </>

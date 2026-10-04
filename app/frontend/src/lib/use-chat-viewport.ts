@@ -1,8 +1,8 @@
 import { useLayoutEffect, useState, type CSSProperties } from 'react';
 
-export const CHAT_PANEL_CLASS = 'fixed inset-x-0 top-[var(--chat-top)] h-[var(--chat-height)] z-30 flex flex-col bg-[var(--loboko-surface)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl';
-export const CHAT_HEADER_CLASS = 'shrink-0 flex items-center gap-2 p-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] lg:pt-3 border-b border-[var(--loboko-border)]';
-export const CHAT_COMPOSER_CLASS = 'shrink-0 p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 bg-[var(--loboko-surface)]';
+export const CHAT_PANEL_CLASS = 'fixed inset-x-0 top-[var(--chat-top)] h-[var(--chat-height)] z-30 flex flex-col bg-[var(--loboko-bg)] overflow-hidden overscroll-none lg:static lg:h-[calc(100vh-160px)] lg:border lg:border-[var(--loboko-border)] lg:rounded-2xl';
+export const CHAT_HEADER_CLASS = 'shrink-0 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] lg:pt-3 border-b border-[var(--loboko-border)]';
+export const CHAT_COMPOSER_CLASS = 'shrink-0 p-2 sm:p-3 border-t border-[var(--loboko-border)] flex items-center gap-1.5 sm:gap-2 relative w-full min-w-0 bg-[var(--loboko-bg)]';
 
 // Conversations and the editor can be mounted together. Reference-count the
 // scroll lock so closing either one cannot leave the page locked on exit.

@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ChatDateSeparator from '@/components/ChatDateSeparator';
+import { chatDayKey, formatChatTime } from '@/lib/chat-date';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
@@ -101,15 +103,6 @@ supabase.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') recentGroups.clear();
 });
 
-
-function formatTime(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const hh = d.getHours().toString().padStart(2, '0');
-  const mm = d.getMinutes().toString().padStart(2, '0');
-  return `${hh}:${mm}`;
-}
 
 function Avatar({ profile }: { profile?: Profile }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -1047,7 +1040,7 @@ export default function GroupChat() {
           <button
             type="button"
             onClick={() => navigate(`/messages/group/${group.id}/info`)}
-            className="flex items-center gap-3 flex-1 min-w-0 hover:bg-[var(--loboko-surface-hover)] rounded-xl px-1 py-1"
+            className="flex items-center gap-2 flex-1 min-w-0 hover:bg-[var(--loboko-surface-hover)] rounded-xl px-1 py-1"
           >
             <GroupAvatar group={group} />
             <div className="flex-1 min-w-0 text-left">
@@ -1060,7 +1053,7 @@ export default function GroupChat() {
           <button
             type="button"
             onClick={() => navigate(`/messages/group/${group.id}/info`)}
-            className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
+            className="w-9 h-9 shrink-0 rounded-full hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
             aria-label="Infos du groupe"
             title="Infos du groupe"
           >
@@ -1070,7 +1063,7 @@ export default function GroupChat() {
             <button
               type="button"
               onClick={() => setShowHeaderMenu((v) => !v)}
-              className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
+              className="w-9 h-9 shrink-0 rounded-full hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
               aria-label="Options du groupe"
               title="Options"
             >
@@ -1151,11 +1144,14 @@ export default function GroupChat() {
                       })
                     : '';
                 return (
-                  <div key={m.id} id={`gmsg-${m.id}`} className="flex flex-col items-center">
-                    <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
-                      <span>{label}</span>
+                  <Fragment key={m.id}>
+                    <ChatDateSeparator createdAt={m.created_at} previousAt={visibleMessages[idx - 1]?.created_at} />
+                    <div id={`gmsg-${m.id}`} className="flex flex-col items-center">
+                      <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
+                        <span>{label}</span>
+                      </div>
                     </div>
-                  </div>
+                  </Fragment>
                 );
               }
 
@@ -1172,7 +1168,7 @@ export default function GroupChat() {
                 if (r.user_id === myId) reactionGroups[r.emoji].mine = true;
               });
               const prev = idx > 0 ? visibleMessages[idx - 1] : null;
-              const showName = !mine && (!prev || prev.user_id !== m.user_id);
+              const showName = !mine && (!prev || prev.user_id !== m.user_id || chatDayKey(prev.created_at) !== chatDayKey(m.created_at) || decodePayload(prev.content).kind === 'system');
               const replySource = m.reply_to_message_id
                 ? messageById[m.reply_to_message_id]
                 : undefined;
@@ -1190,155 +1186,162 @@ export default function GroupChat() {
                 }
               };
 
-              const isHighlighted = highlightedMessageId === m.id;
-              return (
+              const messageMeta = (
                 <div
-                  key={m.id}
-                  id={`gmsg-${m.id}`}
-                  className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${
-                    isHighlighted
-                      ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
-                      : 'transition-[background,box-shadow] duration-500'
+                  className={`flex items-center gap-1 mt-1 text-[10px] ${
+                    mine && (!isMedia || isDeleted) ? 'text-white/75 justify-end' : 'text-[var(--loboko-text-muted)] justify-end'
                   }`}
                 >
-                  {!mine && (
-                    <div className="pt-1">
-                      {showName ? <Avatar profile={profilesMap[m.user_id]} /> : <div className="w-8" />}
-                    </div>
+                  <span>{formatChatTime(m.created_at)}</span>
+                  {(m.is_ephemeral || m.expires_at) && !isDeleted && (
+                    <EphemeralBadge expiresAt={m.expires_at} size={10} />
                   )}
+                  {isStarred && !isDeleted && (
+                    <StarIcon
+                      size={10}
+                      className="text-yellow-400 fill-yellow-400"
+                    />
+                  )}
+                </div>
+                );
+                const isHighlighted = highlightedMessageId === m.id;
+              return (
+                <Fragment key={m.id}>
+                  <ChatDateSeparator createdAt={m.created_at} previousAt={visibleMessages[idx - 1]?.created_at} />
                   <div
-                    className={`flex flex-col ${mine ? 'items-end' : 'items-start'} max-w-[75%]`}
+                    id={`gmsg-${m.id}`}
+                    className={`flex gap-2 ${mine ? 'flex-row-reverse' : ''} ${
+                      isHighlighted
+                        ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
+                        : 'transition-[background,box-shadow] duration-500'
+                    }`}
                   >
-                    {showName && (
-                      <div className="text-[11px] text-[#2563eb] font-semibold mb-0.5 px-1">
-                        {nameOf(m.user_id)}
+                    {!mine && (
+                      <div className="pt-1">
+                        {showName ? <Avatar profile={profilesMap[m.user_id]} /> : <div className="w-8" />}
                       </div>
                     )}
                     <div
-                      onMouseDown={(e) => startPress(e.clientX, e.clientY)}
-                      onMouseUp={cancelPress}
-                      onMouseLeave={cancelPress}
-                      onTouchStart={(e) => {
-                        const t = e.touches[0];
-                        if (t) startPress(t.clientX, t.clientY);
-                      }}
-                      onTouchEnd={cancelPress}
-                      onTouchCancel={cancelPress}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        cancelPress();
-                        openMenu(m, e.clientX, e.clientY);
-                      }}
-                      className={`${
-                        isMedia && !isDeleted ? 'p-1' : 'px-4 py-2'
-                      } rounded-2xl text-sm select-none ${
-                        mine
-                          ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
-                          : 'bg-[var(--loboko-elevated)] text-[var(--loboko-text)] rounded-bl-md'
-                      } ${isDeleted ? 'italic opacity-70' : ''}`}
+                      className={`flex flex-col ${mine ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%]`}
                     >
-                      {!isDeleted && replySource && (
-                        <div
-                          className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] border-l-2 ${
-                            mine
-                              ? 'bg-white/10 border-white/60'
-                              : 'bg-black/20 border-[#2563eb]'
-                          }`}
-                        >
-                          <div className="font-semibold truncate">
-                            {nameOf(replySource.user_id)}
-                          </div>
-                          <div
-                            className={`truncate ${
-                              mine ? 'text-white/80' : 'text-[var(--loboko-text-muted)]'
-                            }`}
-                          >
-                            {replySource.deleted_for_everyone_at
-                              ? 'Message supprimé'
-                              : buildReplyPreview(replySource)}
-                          </div>
+                      {showName && (
+                        <div className="text-[11px] text-[#2563eb] font-semibold mb-0.5 px-1">
+                          {nameOf(m.user_id)}
                         </div>
                       )}
-
-                      {isDeleted ? (
-                        <span className="flex items-center gap-1">
-                          <XIcon size={12} /> Ce message a été supprimé
-                        </span>
-                      ) : payload.kind === 'audio' ? (
-                        <VoiceMessage
-                          objectKey={payload.object_key}
-                          duration={payload.duration}
-                          mine={mine}
-                        />
-                      ) : payload.kind === 'image' ? (
-                        <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
-                      ) : payload.kind === 'video' ? (
-                        <MediaMessage
-                          kind="video"
-                          objectKey={payload.object_key}
-                          duration={payload.duration}
-                          caption={payload.caption}
-                          poster={payload.poster}
-                        />
-                      ) : payload.kind === 'file' ? (
-                        <FileMessage
-                          objectKey={payload.object_key}
-                          fileName={payload.file_name}
-                          fileSize={payload.file_size}
-                          fileType={payload.file_type}
-                          mine={mine}
-                        />
-                      ) : payload.kind === 'shared_post' ? (
-                        <SharedPostMessage payload={payload} mine={mine} />
-                      ) : (
-                        <MentionText
-                          text={payload.kind === 'text' ? payload.text : ''}
-                        />
-                      )}
-                    </div>
-                    {!isDeleted && Object.keys(reactionGroups).length > 0 && (
                       <div
-                        className={`flex flex-wrap gap-1 mt-1 ${
-                          mine ? 'justify-end' : 'justify-start'
-                        }`}
+                        onMouseDown={(e) => startPress(e.clientX, e.clientY)}
+                        onMouseUp={cancelPress}
+                        onMouseLeave={cancelPress}
+                        onTouchStart={(e) => {
+                          const t = e.touches[0];
+                          if (t) startPress(t.clientX, t.clientY);
+                        }}
+                        onTouchEnd={cancelPress}
+                        onTouchCancel={cancelPress}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          cancelPress();
+                          openMenu(m, e.clientX, e.clientY);
+                        }}
+                        className={`${
+                          isMedia && !isDeleted ? 'p-0' : 'px-3 py-2'
+                        } rounded-2xl text-sm select-none ${
+                          isMedia && !isDeleted
+                            ? 'bg-transparent'
+                            : mine
+                            ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
+                            : 'bg-[var(--loboko-surface)] text-[var(--loboko-text)] rounded-bl-md'
+                        } ${isDeleted ? 'italic opacity-70' : ''}`}
                       >
-                        {Object.entries(reactionGroups).map(([emoji, info]) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleQuickToggleReaction(m.id, emoji)}
-                            className={`text-[11px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
-                              info.mine
-                                ? 'bg-[rgba(37,99,235,0.25)] border-[#2563eb]'
-                                : 'bg-[var(--loboko-elevated)] border-[var(--loboko-border)]'
+                        {!isDeleted && replySource && (
+                          <div
+                            className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] border-l-2 ${
+                              mine
+                                ? 'bg-white/10 border-white/60'
+                                : 'bg-black/20 border-[#2563eb]'
                             }`}
                           >
-                            <span>{emoji}</span>
-                            <span className="text-[var(--loboko-text-muted)]">
-                              {info.count}
-                            </span>
-                          </button>
-                        ))}
+                            <div className="font-semibold truncate">
+                              {nameOf(replySource.user_id)}
+                            </div>
+                            <div
+                              className={`truncate ${
+                                mine ? 'text-white/80' : 'text-[var(--loboko-text-muted)]'
+                              }`}
+                            >
+                              {replySource.deleted_for_everyone_at
+                                ? 'Message supprimé'
+                                : buildReplyPreview(replySource)}
+                            </div>
+                          </div>
+                        )}
+                        {isDeleted ? (
+                          <span className="flex items-center gap-1">
+                            <XIcon size={12} /> Ce message a été supprimé
+                          </span>
+                        ) : payload.kind === 'audio' ? (
+                          <VoiceMessage
+                            objectKey={payload.object_key}
+                            duration={payload.duration}
+                            mine={mine}
+                          />
+                        ) : payload.kind === 'image' ? (
+                          <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
+                        ) : payload.kind === 'video' ? (
+                          <MediaMessage
+                            kind="video"
+                            objectKey={payload.object_key}
+                            duration={payload.duration}
+                            caption={payload.caption}
+                            poster={payload.poster}
+                          />
+                        ) : payload.kind === 'file' ? (
+                          <FileMessage
+                            objectKey={payload.object_key}
+                            fileName={payload.file_name}
+                            fileSize={payload.file_size}
+                            fileType={payload.file_type}
+                            mine={mine}
+                          />
+                        ) : payload.kind === 'shared_post' ? (
+                          <SharedPostMessage payload={payload} mine={mine} />
+                        ) : (
+                          <MentionText
+                            text={payload.kind === 'text' ? payload.text : ''}
+                          />
+                        )}
+                        {(!isMedia || isDeleted) && messageMeta}
                       </div>
-                    )}
-                    <div
-                      className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-[var(--loboko-text-muted)] ${
-                        mine ? 'flex-row-reverse' : ''
-                      }`}
-                    >
-                      <span>{formatTime(m.created_at)}</span>
-                      {(m.is_ephemeral || m.expires_at) && !isDeleted && (
-                        <EphemeralBadge expiresAt={m.expires_at} size={10} />
+                      {!isDeleted && Object.keys(reactionGroups).length > 0 && (
+                        <div
+                          className={`flex flex-wrap gap-1 mt-1 ${
+                            mine ? 'justify-end' : 'justify-start'
+                          }`}
+                        >
+                          {Object.entries(reactionGroups).map(([emoji, info]) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleQuickToggleReaction(m.id, emoji)}
+                              className={`text-[11px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                                info.mine
+                                  ? 'bg-[rgba(37,99,235,0.25)] border-[#2563eb]'
+                                  : 'bg-[var(--loboko-elevated)] border-[var(--loboko-border)]'
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span className="text-[var(--loboko-text-muted)]">
+                                {info.count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                      {isStarred && !isDeleted && (
-                        <StarIcon
-                          size={10}
-                          className="text-yellow-400 fill-yellow-400"
-                        />
-                      )}
+                      {isMedia && !isDeleted && messageMeta}
                     </div>
                   </div>
-                </div>
+                </Fragment>
               );
             })
           )}
@@ -1399,18 +1402,69 @@ export default function GroupChat() {
             <VoiceRecorder onSend={handleSendVoice} onClose={() => setShowRecorder(false)} />
           ) : (
             <>
+                <div className="flex flex-1 min-w-0 items-center gap-1 px-1 rounded-full border border-[var(--loboko-border)] bg-[var(--loboko-elevated)] focus-within:border-[#2563eb]">
               <button
                 onClick={() => setShowEmoji((v) => !v)}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
+                className="w-10 h-10 rounded-full hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
                 aria-label="Emojis"
                 type="button"
               >
                 <Smile size={18} />
               </button>
+              <div className="flex-1 min-w-0 relative">
+                <input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const caret = e.target.selectionStart ?? v.length;
+                    setDraft(v);
+                    const r = extractMentionQuery(v, caret);
+                    if (r) {
+                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                    } else {
+                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                    }
+                  }}
+                  onKeyUp={(e) => {
+                    const el = e.currentTarget;
+                    const caret = el.selectionStart ?? el.value.length;
+                    const r = extractMentionQuery(el.value, caret);
+                    if (r) {
+                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
+                    } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
+                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !mentionState.open) handleSendText();
+                  }}
+                  aria-label="Votre message (@ pour mentionner)" placeholder="Votre message…"
+                  className="w-full min-h-11 px-2 py-3 bg-transparent text-base focus:outline-none"
+                />
+                <GroupMentionSuggestions
+                  open={mentionState.open}
+                  query={mentionState.query}
+                  position="above"
+                  memberProfiles={members
+                    .filter((m) => m.user_id !== myId)
+                    .map((m) => {
+                      const p = profilesMap[m.user_id];
+                      return {
+                        user_id: m.user_id,
+                        username: p?.username ?? null,
+                        display_name: p?.display_name ?? null,
+                        avatar_key: p?.avatar_key ?? null,
+                      };
+                    })}
+                  onSelect={handlePickMention}
+                  onClose={() => setMentionState((p) => ({ ...p, open: false }))}
+                />
+              </div>
               <div className="relative shrink-0">
                 <button
                   onClick={() => setShowMediaPicker((v) => !v)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
+                  className="w-10 h-10 rounded-full hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
                   aria-label="Joindre un média"
                   title="Photo ou vidéo"
                   type="button"
@@ -1424,7 +1478,7 @@ export default function GroupChat() {
                       onClick={() => setShowMediaPicker(false)}
                       aria-hidden="true"
                     />
-                    <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
+                    <div className="absolute bottom-12 right-0 z-50 max-w-[calc(100vw-2rem)] bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
                       <MediaPicker
                         maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
                         prepareForEditing
@@ -1454,74 +1508,25 @@ export default function GroupChat() {
                   </>
                 )}
               </div>
-              <div className="flex-1 min-w-0 relative">
-                <input
-                  ref={inputRef}
-                  value={draft}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    const caret = e.target.selectionStart ?? v.length;
-                    setDraft(v);
-                    const r = extractMentionQuery(v, caret);
-                    if (r) {
-                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-                    } else {
-                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
-                    }
-                  }}
-                  onKeyUp={(e) => {
-                    const el = e.currentTarget;
-                    const caret = el.selectionStart ?? el.value.length;
-                    const r = extractMentionQuery(el.value, caret);
-                    if (r) {
-                      setMentionState({ open: true, query: r.query, start: r.start, end: r.end });
-                    } else if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(e.key)) {
-                      setMentionState((p) => (p.open ? { ...p, open: false } : p));
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !mentionState.open) handleSendText();
-                  }}
-                  placeholder="Votre message... (@ pour mentionner)"
-                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
-                />
-                <GroupMentionSuggestions
-                  open={mentionState.open}
-                  query={mentionState.query}
-                  position="above"
-                  memberProfiles={members
-                    .filter((m) => m.user_id !== myId)
-                    .map((m) => {
-                      const p = profilesMap[m.user_id];
-                      return {
-                        user_id: m.user_id,
-                        username: p?.username ?? null,
-                        display_name: p?.display_name ?? null,
-                        avatar_key: p?.avatar_key ?? null,
-                      };
-                    })}
-                  onSelect={handlePickMention}
-                  onClose={() => setMentionState((p) => ({ ...p, open: false }))}
-                />
               </div>
-              {draft.trim() ? (
+                  {draft.trim() ? (
                 <button
                   onClick={handleSendText}
                   type="button"
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                  className="w-11 h-11 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                   aria-label="Envoyer"
                 >
-                  <Send size={16} />
+                  <Send size={20} />
                 </button>
               ) : (
                 <button
                   onClick={() => setShowRecorder(true)}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                  className="w-11 h-11 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                   aria-label="Note vocale"
                   title="Note vocale"
                   type="button"
                 >
-                  <Mic size={16} />
+                  <Mic size={20} />
                 </button>
               )}
               {showEmoji && (

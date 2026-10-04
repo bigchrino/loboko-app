@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import ChatDateSeparator from '@/components/ChatDateSeparator';
+import { formatChatTime } from '@/lib/chat-date';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { CHAT_PANEL_CLASS, CHAT_HEADER_CLASS, CHAT_COMPOSER_CLASS, useChatViewport } from '@/lib/use-chat-viewport';
@@ -1981,6 +1983,7 @@ export default function Messages() {
           <header className={CHAT_HEADER_CLASS}>
             <button
               onClick={closeConversation}
+              aria-label="Retour aux messages"
               className="p-2 rounded-full hover:bg-[var(--loboko-surface-hover)]"
             >
               <ArrowLeft size={18} />
@@ -1990,7 +1993,7 @@ export default function Messages() {
               onClick={() =>
                 activeUserId && navigate(`/messages/contact/${activeUserId}`)
               }
-              className="flex items-center gap-3 flex-1 min-w-0 hover:bg-[var(--loboko-surface-hover)] rounded-xl px-1 py-1"
+              className="flex items-center gap-2 flex-1 min-w-0 hover:bg-[var(--loboko-surface-hover)] rounded-xl px-1 py-1"
               title="Voir les infos du contact"
             >
               <Avatar profile={activeProfile} online={activeOnline} />
@@ -2032,7 +2035,7 @@ export default function Messages() {
               className={`w-9 h-9 rounded-full flex items-center justify-center ${
                 convSearchOpen
                   ? 'bg-[#2563eb] text-white'
-                  : 'bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)]'
+                  : 'hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)]'
               }`}
               aria-label="Rechercher dans la conversation"
               title="Rechercher dans la conversation"
@@ -2041,7 +2044,7 @@ export default function Messages() {
             </button>
             <button
               onClick={() => initiateCall('voice')}
-              className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
+              className="w-9 h-9 shrink-0 rounded-full hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
               aria-label="Appel vocal"
               title="Appel vocal"
             >
@@ -2049,7 +2052,7 @@ export default function Messages() {
             </button>
             <button
               onClick={() => initiateCall('video')}
-              className="w-9 h-9 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
+              className="w-9 h-9 shrink-0 rounded-full hover:bg-[var(--loboko-surface-hover)] text-[var(--loboko-text)] flex items-center justify-center"
               aria-label="Appel vidéo"
               title="Appel vidéo"
             >
@@ -2151,7 +2154,7 @@ export default function Messages() {
                 Démarrez la conversation
               </div>
             ) : (
-              activeMessages.map((m) => {
+              activeMessages.map((m, idx) => {
                 const mine = m.user_id === myId;
                 const payload = decodePayload(m.content);
 
@@ -2177,17 +2180,18 @@ export default function Messages() {
                       ? 'text-red-400'
                       : 'text-[var(--loboko-text-muted)]';
                   return (
-                    <div key={m.id} id={`msg-${m.id}`} className="flex flex-col items-center">
-                      <div
-                        className={`flex items-center gap-2 text-xs ${color} bg-[var(--loboko-elevated)] px-3 py-1.5 rounded-full`}
-                      >
-                        <Icon size={12} />
-                        <span>{label}</span>
+                    <Fragment key={m.id}>
+                      <ChatDateSeparator createdAt={m.created_at} previousAt={activeMessages[idx - 1]?.created_at} />
+                      <div id={`msg-${m.id}`} className="flex flex-col items-center">
+                        <div
+                          className={`flex items-center gap-2 text-xs ${color} bg-[var(--loboko-elevated)] px-3 py-1.5 rounded-full`}
+                        >
+                          <Icon size={12} />
+                          <span>{label}</span>
+                          <span className="text-[10px] text-[var(--loboko-text-muted)]">· {formatChatTime(m.created_at)}</span>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-[var(--loboko-text-muted)] mt-0.5">
-                        {formatMessageTime(m.created_at)}
-                      </div>
-                    </div>
+                    </Fragment>
                   );
                 }
 
@@ -2205,12 +2209,15 @@ export default function Messages() {
                         })
                       : '';
                   return (
-                    <div key={m.id} id={`msg-${m.id}`} className="flex flex-col items-center">
-                      <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
-                        <Timer size={11} />
-                        <span>{label}</span>
+                    <Fragment key={m.id}>
+                      <ChatDateSeparator createdAt={m.created_at} previousAt={activeMessages[idx - 1]?.created_at} />
+                      <div id={`msg-${m.id}`} className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 text-[11px] text-[var(--loboko-text-muted)] bg-[var(--loboko-elevated)]/60 px-3 py-1 rounded-full select-none">
+                          <Timer size={11} />
+                          <span>{label}</span>
+                        </div>
                       </div>
-                    </div>
+                    </Fragment>
                   );
                 }
 
@@ -2252,156 +2259,161 @@ export default function Messages() {
                   }
                 };
 
-                const isHighlighted = highlightedMessageId === m.id;
-                return (
+                const messageMeta = (
                   <div
-                    key={m.id}
-                    id={`msg-${m.id}`}
-                    className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${
-                      isHighlighted
-                        ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
-                        : 'transition-[background,box-shadow] duration-500'
+                    className={`flex items-center gap-1 mt-1 text-[10px] ${
+                      mine && (!isMedia || isDeletedForEveryone) ? 'text-white/75 justify-end' : 'text-[var(--loboko-text-muted)] justify-end'
                     }`}
                   >
+                    <span>{formatChatTime(m.created_at)}</span>
+                    {(m.is_ephemeral || m.expires_at) && !isDeletedForEveryone && (
+                      <EphemeralBadge expiresAt={m.expires_at} size={10} />
+                    )}
+                    {isStarred && !isDeletedForEveryone && (
+                      <StarIcon
+                        size={10}
+                        className="text-yellow-400 fill-yellow-400"
+                        aria-label="Message important"
+                      />
+                    )}
+                    {mine && !isDeletedForEveryone && (
+                      <span className="inline-flex items-center">
+                        <MessageStatus m={m} peerOnline={activeOnline} />
+                      </span>
+                    )}
+                  </div>
+                );
+                const isHighlighted = highlightedMessageId === m.id;
+                return (
+                  <Fragment key={m.id}>
+                    <ChatDateSeparator createdAt={m.created_at} previousAt={activeMessages[idx - 1]?.created_at} />
                     <div
-                      onMouseDown={(e) => startPress(e.clientX, e.clientY)}
-                      onMouseUp={cancelPress}
-                      onMouseLeave={cancelPress}
-                      onTouchStart={(e) => {
-                        const t = e.touches[0];
-                        if (t) startPress(t.clientX, t.clientY);
-                      }}
-                      onTouchEnd={cancelPress}
-                      onTouchCancel={cancelPress}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        cancelPress();
-                        openMessageMenu(m, e.clientX, e.clientY);
-                      }}
-                      className={`${
-                        isMedia && !isDeletedForEveryone ? 'p-1' : 'px-4 py-2'
-                      } max-w-[75%] rounded-2xl text-sm select-none ${
-                        mine
-                          ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
-                          : 'bg-[var(--loboko-elevated)] text-[var(--loboko-text)] rounded-bl-md'
-                      } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : ''} ${
-                        isDeletedForEveryone ? 'italic opacity-70' : ''
+                      id={`msg-${m.id}`}
+                      className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${
+                        isHighlighted
+                          ? 'rounded-lg ring-2 ring-yellow-400/70 ring-offset-2 ring-offset-transparent bg-yellow-200/20 transition-[background,box-shadow] duration-500'
+                          : 'transition-[background,box-shadow] duration-500'
                       }`}
                     >
-                      {!isDeletedForEveryone && replySource && (
-                        <div
-                          className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] border-l-2 ${
-                            mine
-                              ? 'bg-white/10 border-white/60'
-                              : 'bg-black/20 border-[#2563eb]'
-                          }`}
-                        >
-                          <div className="font-semibold truncate">
-                            {nameOf(replySource.user_id)}
-                          </div>
+                      <div
+                        onMouseDown={(e) => startPress(e.clientX, e.clientY)}
+                        onMouseUp={cancelPress}
+                        onMouseLeave={cancelPress}
+                        onTouchStart={(e) => {
+                          const t = e.touches[0];
+                          if (t) startPress(t.clientX, t.clientY);
+                        }}
+                        onTouchEnd={cancelPress}
+                        onTouchCancel={cancelPress}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          cancelPress();
+                          openMessageMenu(m, e.clientX, e.clientY);
+                        }}
+                        className={`${
+                          isMedia && !isDeletedForEveryone ? 'p-0' : 'px-3 py-2'
+                        } max-w-[85%] sm:max-w-[75%] rounded-2xl text-sm select-none ${
+                          isMedia && !isDeletedForEveryone
+                            ? 'bg-transparent'
+                            : mine
+                            ? 'bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white rounded-br-md'
+                            : 'bg-[var(--loboko-surface)] text-[var(--loboko-text)] rounded-bl-md'
+                        } ${isCurrentMatch ? 'ring-2 ring-yellow-400' : ''} ${
+                          isDeletedForEveryone ? 'italic opacity-70' : ''
+                        }`}
+                      >
+                        {!isDeletedForEveryone && replySource && (
                           <div
-                            className={`truncate ${
-                              mine ? 'text-white/80' : 'text-[var(--loboko-text-muted)]'
+                            className={`mb-1.5 px-2 py-1 rounded-lg text-[11px] border-l-2 ${
+                              mine
+                                ? 'bg-white/10 border-white/60'
+                                : 'bg-black/20 border-[#2563eb]'
                             }`}
                           >
-                            {replySource.deleted_for_everyone_at
-                              ? 'Message supprimé'
-                              : buildReplyPreview(replySource)}
+                            <div className="font-semibold truncate">
+                              {nameOf(replySource.user_id)}
+                            </div>
+                            <div
+                              className={`truncate ${
+                                mine ? 'text-white/80' : 'text-[var(--loboko-text-muted)]'
+                              }`}
+                            >
+                              {replySource.deleted_for_everyone_at
+                                ? 'Message supprimé'
+                                : buildReplyPreview(replySource)}
+                            </div>
                           </div>
+                        )}
+                        {isDeletedForEveryone ? (
+                          <span className="whitespace-pre-wrap break-words flex items-center gap-1">
+                            <XIcon size={12} /> Ce message a été supprimé
+                          </span>
+                        ) : payload.kind === 'audio' ? (
+                          <VoiceMessage
+                            objectKey={payload.object_key}
+                            duration={payload.duration}
+                            mine={mine}
+                          />
+                        ) : payload.kind === 'image' ? (
+                          <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
+                        ) : payload.kind === 'video' ? (
+                          <MediaMessage
+                            kind="video"
+                            objectKey={payload.object_key}
+                            duration={payload.duration}
+                            caption={payload.caption}
+                            poster={payload.poster}
+                          />
+                        ) : payload.kind === 'file' ? (
+                          <FileMessage
+                            objectKey={payload.object_key}
+                            fileName={payload.file_name}
+                            fileSize={payload.file_size}
+                            fileType={payload.file_type}
+                            mine={mine}
+                          />
+                        ) : payload.kind === 'shared_post' ? (
+                          <SharedPostMessage payload={payload} mine={mine} />
+                        ) : (
+                          <span className="whitespace-pre-wrap break-words">
+                            {payload.kind === 'text'
+                              ? convSearchOpen && convQuery
+                                ? highlightText(payload.text, convQuery)
+                                : <MentionText text={payload.text} />
+                              : ''}
+                          </span>
+                        )}
+                        {(!isMedia || isDeletedForEveryone) && messageMeta}
+                      </div>
+                      {/* Reactions row */}
+                      {!isDeletedForEveryone && Object.keys(reactionGroups).length > 0 && (
+                        <div
+                          className={`flex flex-wrap gap-1 mt-1 ${
+                            mine ? 'justify-end' : 'justify-start'
+                          } max-w-[85%] sm:max-w-[75%]`}
+                        >
+                          {Object.entries(reactionGroups).map(([emoji, info]) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleQuickReactionToggle(m.id, emoji)}
+                              className={`text-[11px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                                info.mine
+                                  ? 'bg-[rgba(37,99,235,0.25)] border-[#2563eb]'
+                                  : 'bg-[var(--loboko-elevated)] border-[var(--loboko-border)]'
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span className="text-[var(--loboko-text-muted)]">
+                                {info.count}
+                              </span>
+                            </button>
+                          ))}
                         </div>
                       )}
-
-                      {isDeletedForEveryone ? (
-                        <span className="whitespace-pre-wrap break-words flex items-center gap-1">
-                          <XIcon size={12} /> Ce message a été supprimé
-                        </span>
-                      ) : payload.kind === 'audio' ? (
-                        <VoiceMessage
-                          objectKey={payload.object_key}
-                          duration={payload.duration}
-                          mine={mine}
-                        />
-                      ) : payload.kind === 'image' ? (
-                        <MediaMessage kind="image" objectKey={payload.object_key} caption={payload.caption} />
-                      ) : payload.kind === 'video' ? (
-                        <MediaMessage
-                          kind="video"
-                          objectKey={payload.object_key}
-                          duration={payload.duration}
-                          caption={payload.caption}
-                          poster={payload.poster}
-                        />
-                      ) : payload.kind === 'file' ? (
-                        <FileMessage
-                          objectKey={payload.object_key}
-                          fileName={payload.file_name}
-                          fileSize={payload.file_size}
-                          fileType={payload.file_type}
-                          mine={mine}
-                        />
-                      ) : payload.kind === 'shared_post' ? (
-                        <SharedPostMessage payload={payload} mine={mine} />
-                      ) : (
-                        <span className="whitespace-pre-wrap break-words">
-                          {payload.kind === 'text'
-                            ? convSearchOpen && convQuery
-                              ? highlightText(payload.text, convQuery)
-                              : <MentionText text={payload.text} />
-                            : ''}
-                        </span>
-                      )}
+                      {isMedia && !isDeletedForEveryone && messageMeta}
                     </div>
-
-                    {/* Reactions row */}
-                    {!isDeletedForEveryone && Object.keys(reactionGroups).length > 0 && (
-                      <div
-                        className={`flex flex-wrap gap-1 mt-1 ${
-                          mine ? 'justify-end' : 'justify-start'
-                        } max-w-[75%]`}
-                      >
-                        {Object.entries(reactionGroups).map(([emoji, info]) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => handleQuickReactionToggle(m.id, emoji)}
-                            className={`text-[11px] px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${
-                              info.mine
-                                ? 'bg-[rgba(37,99,235,0.25)] border-[#2563eb]'
-                                : 'bg-[var(--loboko-elevated)] border-[var(--loboko-border)]'
-                            }`}
-                          >
-                            <span>{emoji}</span>
-                            <span className="text-[var(--loboko-text-muted)]">
-                              {info.count}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <div
-                      className={`flex items-center gap-1 mt-0.5 px-1 text-[10px] text-[var(--loboko-text-muted)] ${
-                        mine ? 'flex-row-reverse' : ''
-                      }`}
-                    >
-                      <span>{formatMessageTime(m.created_at)}</span>
-                      {(m.is_ephemeral || m.expires_at) && !isDeletedForEveryone && (
-                        <EphemeralBadge expiresAt={m.expires_at} size={10} />
-                      )}
-                      {isStarred && !isDeletedForEveryone && (
-                        <StarIcon
-                          size={10}
-                          className="text-yellow-400 fill-yellow-400"
-                          aria-label="Message important"
-                        />
-                      )}
-                      {mine && !isDeletedForEveryone && (
-                        <span className="inline-flex items-center">
-                          <MessageStatus m={m} peerOnline={activeOnline} />
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  </Fragment>
                 );
               })
             )}
@@ -2466,18 +2478,36 @@ export default function Messages() {
                 <VoiceRecorder onSend={sendVoiceNote} onClose={() => setShowRecorder(false)} />
               ) : (
                 <>
+                <div className="flex flex-1 min-w-0 items-center gap-1 px-1 rounded-full border border-[var(--loboko-border)] bg-[var(--loboko-elevated)] focus-within:border-[#2563eb]">
                   <button
                     onClick={() => setShowEmoji((v) => !v)}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
+                    className="w-10 h-10 rounded-full hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center shrink-0 text-[var(--loboko-text)]"
                     aria-label="Emojis"
                     type="button"
                   >
                     <Smile size={18} />
                   </button>
+                  <div className="flex-1 min-w-0 relative">
+                    <input
+                      ref={inputRef}
+                      value={draft}
+                      onChange={(e) =>
+                        handleDraftChange(
+                          e.target.value,
+                          e.target.selectionStart ?? e.target.value.length,
+                        )
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') sendText();
+                      }}
+                      aria-label="Votre message" placeholder="Votre message…"
+                      className="w-full min-h-11 px-2 py-3 bg-transparent text-base focus:outline-none"
+                    />
+                  </div>
                   <div className="relative shrink-0">
                     <button
                       onClick={() => setShowMediaPicker((v) => !v)}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--loboko-elevated)] hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
+                      className="w-10 h-10 rounded-full hover:bg-[var(--loboko-surface-hover)] flex items-center justify-center text-[var(--loboko-text)]"
                       aria-label="Joindre un média"
                       title="Photo ou vidéo"
                       type="button"
@@ -2491,7 +2521,7 @@ export default function Messages() {
                           onClick={() => setShowMediaPicker(false)}
                           aria-hidden="true"
                         />
-                        <div className="absolute bottom-12 left-0 z-50 bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
+                        <div className="absolute bottom-12 right-0 z-50 max-w-[calc(100vw-2rem)] bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] rounded-2xl shadow-lg p-2">
                           <MediaPicker
                             maxVideoSeconds={MAX_MESSAGE_VIDEO_SECONDS}
                             prepareForEditing
@@ -2521,41 +2551,25 @@ export default function Messages() {
                       </>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 relative">
-                    <input
-                      ref={inputRef}
-                      value={draft}
-                      onChange={(e) =>
-                        handleDraftChange(
-                          e.target.value,
-                          e.target.selectionStart ?? e.target.value.length,
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') sendText();
-                      }}
-                      placeholder="Votre message..."
-                      className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-base sm:text-sm focus:outline-none focus:border-[#2563eb]"
-                    />
                   </div>
                   {draft.trim() ? (
                     <button
                       onClick={sendText}
                       type="button"
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                      className="w-11 h-11 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                       aria-label="Envoyer"
                     >
-                      <Send size={16} />
+                      <Send size={20} />
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowRecorder(true)}
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
+                      className="w-11 h-11 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white flex items-center justify-center shrink-0"
                       aria-label="Note vocale"
                       title="Note vocale"
                       type="button"
                     >
-                      <Mic size={16} />
+                      <Mic size={20} />
                     </button>
                   )}
                   {showEmoji && (
