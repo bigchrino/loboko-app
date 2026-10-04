@@ -92,9 +92,10 @@ export default function ComposePost({ onPosted }: Props) {
       const media_keys: {
         key: string;
         type: 'image' | 'video';
+        poster?: string;
       }[] = [];
       for (const item of media) {
-        const { key, error } = await uploadMediaEx(item.file, 'posts', { skipImageCompression: item.prepared });
+        const { key, error, poster } = await uploadMediaEx(item.file, 'posts', { skipImageCompression: item.prepared });
       
         if (error || !key) {
           toast.error(error || "Échec de l'upload");
@@ -105,6 +106,7 @@ export default function ComposePost({ onPosted }: Props) {
         media_keys.push({
           key,
           type: item.kind,
+          ...(poster ? { poster } : {}),
         });
       }
 

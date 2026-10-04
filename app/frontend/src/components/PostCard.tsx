@@ -11,6 +11,7 @@ import PostMenu from './PostMenu';
 import MentionText from './MentionText';
 import SharePostDialog, { SharePostPreview } from './SharePostDialog';
 import MediaViewer from './MediaViewer';
+import VideoWithPoster from './VideoWithPoster';
 import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
 import { encodePayload, SharedPostPayload } from '@/lib/message-format';
@@ -21,7 +22,7 @@ export interface PostItem {
   content: string;
   image_key?: string;
   video_key?: string;
-  media_keys?: Array<string | { key: string; type: 'image' | 'video' }>;
+  media_keys?: Array<string | { key: string; type: 'image' | 'video'; poster?: string }>;
   likes_count?: number;
   comments_count?: number;
   shares_count?: number;
@@ -61,7 +62,7 @@ export default function PostCard({
   const [author, setAuthor] = useState<PostAuthor | null>(cached?.author ?? null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(cached?.avatarUrl ?? null);
   const [mediaUrls, setMediaUrls] = useState<
-    { url: string; type: 'image' | 'video' }[]
+    { url: string; type: 'image' | 'video'; poster?: string }[]
   >(cached?.mediaUrls ?? []);
   const [mediaRatios, setMediaRatios] = useState<Record<string, number>>(cached?.mediaRatios ?? {});
   const [liked, setLiked] = useState(cached?.liked ?? false);
@@ -159,7 +160,7 @@ export default function PostCard({
 
   useEffect(() => {
     let cancelled = false;
-    const updateMedia = (value: { url: string; type: 'image' | 'video' }[]) => {
+    const updateMedia = (value: { url: string; type: 'image' | 'video'; poster?: string }[]) => {
       if (!cancelled) setMediaUrls(value);
     };
     void (async () => {
@@ -180,13 +181,14 @@ export default function PostCard({
             return {
               url,
               type: typeof m === 'string' ? fallbackType : m.type,
+              poster: typeof m === 'string' ? undefined : m.poster,
             };
           })
         );
 
         updateMedia(
           medias.filter(
-            (m): m is { url: string; type: 'image' | 'video' } => !!m
+            (m): m is { url: string; type: 'image' | 'video'; poster: string | undefined } => !!m
           )
         );
       } else if (post.image_key) {
@@ -637,8 +639,9 @@ export default function PostCard({
                     />
                   </button>
                 ) : (
-                  <video
+                  <VideoWithPoster
                     src={media.url}
+                    poster={media.poster}
                     controls
                     controlsList="nodownload"
                     playsInline

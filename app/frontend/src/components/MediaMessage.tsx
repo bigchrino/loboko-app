@@ -5,12 +5,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getSignedStorageUrl } from '@/lib/storage-helpers';
 import { formatDuration } from '@/lib/message-format';
 import LazyMedia from '@/components/LazyMedia';
+import VideoWithPoster from '@/components/VideoWithPoster';
 
 interface Props {
   kind: 'image' | 'video';
   objectKey: string;
   duration?: number;
   caption?: string;
+  poster?: string;
 }
 
 // Memory only, scoped to the current account and shorter than the signed TTL.
@@ -32,7 +34,7 @@ function Placeholder({ kind = 'image' }: { kind?: 'image' | 'video' }) {
   );
 }
 
-function MediaInner({ kind, objectKey, duration }: Props) {
+function MediaInner({ kind, objectKey, duration, poster }: Props) {
   const { user } = useAuth();
   const cacheKey = `${user?.id ?? ''}:${objectKey}`;
   const cached = mediaLinks.get(cacheKey);
@@ -88,7 +90,7 @@ function MediaInner({ kind, objectKey, duration }: Props) {
         </a>
       ) : (
         <>
-          <video src={url} className="rounded-lg w-full h-full object-contain block bg-black"
+          <VideoWithPoster src={url} cacheId={objectKey} poster={poster} onPosterReady={() => setReady(true)} className="rounded-lg w-full h-full object-contain block bg-black"
             controls playsInline preload="metadata" onLoadedMetadata={() => setReady(true)} onError={() => setError(true)} />
           {duration != null && ready && <span className="absolute bottom-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/70 text-white">{formatDuration(duration)}</span>}
         </>

@@ -1,8 +1,10 @@
+import VideoWithPoster from './VideoWithPoster';
 import { X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 interface MediaItem {
   url: string;
   type: 'image' | 'video';
+  poster?: string;
 }
 
 interface Props {
@@ -121,8 +123,9 @@ export default function MediaViewer({
             className="max-w-full max-h-full object-contain"
           />
         ) : (
-          <video
+          <VideoWithPoster
             src={item.url}
+            poster={item.poster}
             controls
             autoPlay
             playsInline

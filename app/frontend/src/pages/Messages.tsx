@@ -1247,7 +1247,7 @@ export default function Messages() {
       throw new Error('Vous avez bloqué ce contact.');
     }
     try {
-      const { key, error } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
+      const { key, error, poster } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
       if (error || !key) {
         throw new Error(error || "Échec de l'upload du média");
       }
@@ -1259,6 +1259,7 @@ export default function Messages() {
               object_key: key,
               duration,
               caption: caption || undefined,
+              poster,
             });
       await insertMessage({ receiver_id: activeUserId, content });
       clearPendingMedia();
@@ -2334,6 +2335,7 @@ export default function Messages() {
                           objectKey={payload.object_key}
                           duration={payload.duration}
                           caption={payload.caption}
+                          poster={payload.poster}
                         />
                       ) : payload.kind === 'file' ? (
                         <FileMessage

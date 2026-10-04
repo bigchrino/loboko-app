@@ -666,7 +666,7 @@ export default function GroupChat() {
 
   const handleSendMedia = async (file: File, caption: string, duration?: number) => {
     if (!groupId || !myId || !pendingMedia) return;
-    const { key, error } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
+    const { key, error, poster } = await uploadMediaEx(file, 'message-media', { skipImageCompression: true });
     if (error || !key) {
       throw new Error(error || "Échec de l'upload");
     }
@@ -678,6 +678,7 @@ export default function GroupChat() {
             object_key: key,
             duration,
             caption: caption || undefined,
+            poster,
           });
     await sendGroupMessage({
       groupId,
@@ -1277,6 +1278,7 @@ export default function GroupChat() {
                           objectKey={payload.object_key}
                           duration={payload.duration}
                           caption={payload.caption}
+                          poster={payload.poster}
                         />
                       ) : payload.kind === 'file' ? (
                         <FileMessage

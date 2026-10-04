@@ -22,6 +22,8 @@ export type VideoPayload = {
   object_key: string;
   duration?: number; // seconds
   caption?: string;
+  poster?: string; // small inline JPEG, protected by message access
+
 };
 
 export type FilePayload = {

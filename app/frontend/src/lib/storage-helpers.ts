@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { compressImage } from '@/utils/mediaCompression';
+import { createFileVideoPoster } from '@/lib/video-poster';
 
 // Hard size limits (client-side guard). Supabase buckets may also enforce
 // their own limit, but we want to fail fast with a clear message.
@@ -45,6 +46,7 @@ export type UploadFolder =
 export interface UploadResult {
   key: string | null;
   error: string | null;
+  poster?: string;
 }
 
 /**
@@ -115,6 +117,8 @@ export async function uploadMediaEx(
     const ext = uploadFile.name.includes('.') ? uploadFile.name.split('.').pop() : 'bin';
     const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
+    const posterPromise = type.startsWith('video/') && (folder === 'posts' || folder === 'message-media')
+      ? createFileVideoPoster(uploadFile).catch(() => undefined) : Promise.resolve(undefined);
     const { error } = await supabase.storage.from(bucket).upload(path, uploadFile, {
       cacheControl: '3600',
       upsert: false,
@@ -130,7 +134,7 @@ export async function uploadMediaEx(
           : msg;
       return { key: null, error: friendly };
     }
-    return { key: `${bucket}::${path}`, error: null };
+    return { key: `${bucket}::${path}`, error: null, poster: await posterPromise };
   } catch (e) {
     console.error('[uploadMedia] exception', e);
     const msg = e instanceof Error ? e.message : 'Erreur inconnue';
