@@ -45,8 +45,8 @@ import ForwardDialog from '@/components/ForwardDialog';
 import ReportDialog from '@/components/ReportDialog';
 import CreateGroupDialog from '@/components/CreateGroupDialog';
 import { Star as StarIcon, X as XIcon, Reply as ReplyIcon, Users, Plus, Pin } from 'lucide-react';
-import { Group, GroupMember, loadMyGroups, loadGroupMessages, GroupMessage } from '@/lib/group-helpers';
-import { loadGroupReads } from '@/lib/group-reads';
+import { Group, GroupMessage } from '@/lib/group-helpers';
+import { loadGroupInbox } from '@/lib/group-inbox';
 import { decodePayload, encodePayload, formatDuration } from '@/lib/message-format';
 import MentionText from '@/components/MentionText';
 import LoadOlderTrigger from '@/components/LoadOlderTrigger';
@@ -138,7 +138,7 @@ interface InboxSnapshot {
   starred: Set<string>;
   deletedForMe: Set<string>;
   groups: Group[];
-  groupMembers: Record<string, GroupMember[]>;
+  groupMemberCounts: Record<string, number>;
   groupLastMessages: Record<string, GroupMessage | undefined>;
   groupReads: Record<string, string>;
   groupUnreadCounts: Record<string, number>;
@@ -333,6 +333,8 @@ export default function Messages() {
   const loadedInboxAccountRef = useRef(initialInbox?.userId ?? '');
   const inboxRequestRef = useRef<{ owner: string; promise: Promise<void> } | null>(null);
 
+  const groupInboxRequestRef = useRef<{ owner: string; promise: Promise<void> } | null>(null);
+
   const [allMessages, setAllMessages] = useState<Message[]>(initialInbox?.allMessages ?? []);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>(initialInbox?.profilesMap ?? {});
   const [activeUserId, setActiveUserId] = useState<string | null>(urlTo);
@@ -400,7 +402,7 @@ export default function Messages() {
   const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
   const [showEphemeralDialog, setShowEphemeralDialog] = useState(false);
   const [groups, setGroups] = useState<Group[]>(initialInbox?.groups ?? []);
-  const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>(initialInbox?.groupMembers ?? {});
+  const [groupMemberCounts, setGroupMemberCounts] = useState<Record<string, number>>(initialInbox?.groupMemberCounts ?? {});
   const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>(initialInbox?.groupLastMessages ?? {});
   const [groupReads, setGroupReads] = useState<Record<string, string>>(initialInbox?.groupReads ?? {});
   const [groupUnreadCounts, setGroupUnreadCounts] = useState<Record<string, number>>(initialInbox?.groupUnreadCounts ?? {});
@@ -428,17 +430,17 @@ export default function Messages() {
     inboxSnapshot = null;
     setAllMessages([]); setProfilesMap({}); setStates({}); setBlocked(new Set());
     setStarred(new Set()); setDeletedForMe(new Set());
-    setGroups([]); setGroupMembers({}); setGroupLastMessages({});
+    setGroups([]); setGroupMemberCounts({}); setGroupLastMessages({});
     setGroupReads({}); setGroupUnreadCounts({}); setLoading(true);
   }, [myId]);
 
   useEffect(() => {
     if (!myId || loading || loadedInboxAccountRef.current !== myId || inboxOwnerRef.current !== myId) return;
     inboxSnapshot = { userId: myId, allMessages, profilesMap, states, blocked,
-      starred, deletedForMe, groups, groupMembers, groupLastMessages,
+      starred, deletedForMe, groups, groupMemberCounts, groupLastMessages,
       groupReads, groupUnreadCounts };
   }, [myId, loading, allMessages, profilesMap, states, blocked, starred,
-    deletedForMe, groups, groupMembers, groupLastMessages, groupReads, groupUnreadCounts]);
+    deletedForMe, groups, groupMemberCounts, groupLastMessages, groupReads, groupUnreadCounts]);
 
   // Global "inbox snapshot" used to build the conversation list previews
   // and per-conversation unread counters. We no longer pull 400 rows here
@@ -543,47 +545,26 @@ export default function Messages() {
 
   const loadGroups = useCallback(async () => {
     if (!myId) return;
-    try {
-      const { groups: gs, membersByGroup } = await loadMyGroups(myId);
-      if (inboxOwnerRef.current !== myId) return;
-      setGroups(gs);
-      setGroupMembers(membersByGroup);
-
-      // Load this user's last_read_at for each group (may be empty if the
-      // SQL from UNREAD_BADGES_SETUP.md has not been executed yet).
-      const reads = await loadGroupReads(myId);
-      if (inboxOwnerRef.current !== myId) return;
-      setGroupReads(reads);
-
-      // For each group, fetch recent messages (enough to count unread) to both
-      // build the preview and the unread badge count.
-      const entries = await Promise.all(
-        gs.map(async (g) => {
-          const msgs = await loadGroupMessages(g.id, 50);
-          return [g.id, msgs] as const;
-        }),
-      );
-      const lm: Record<string, GroupMessage | undefined> = {};
-      const unread: Record<string, number> = {};
-      entries.forEach(([id, msgs]) => {
-        // Skip expired ephemeral messages in both preview and unread counts.
-        const alive = msgs.filter((m) => !isExpired(m.expires_at));
-        lm[id] = alive[0];
-        const lastRead = reads[id];
-        const count = alive.filter((m) => {
-          if (m.user_id === myId) return false;
-          if (m.deleted_for_everyone_at) return false;
-          if (!m.created_at) return false;
-          if (!lastRead) return true;
-          return new Date(m.created_at).getTime() > new Date(lastRead).getTime();
-        }).length;
-        unread[id] = count;
-      });
-      if (inboxOwnerRef.current !== myId) return;
-      setGroupLastMessages(lm);
-      setGroupUnreadCounts(unread);
-    } catch (e) {
-      logger.error('[messages] loadGroups', e);
+    if (groupInboxRequestRef.current?.owner === myId) return groupInboxRequestRef.current.promise;
+    const promise = (async () => {
+      try {
+        const inbox = await loadGroupInbox();
+        if (inboxOwnerRef.current !== myId) return;
+        // Commit complete rows together so previews and badges don't arrive later.
+        setGroups(inbox.groups);
+        setGroupMemberCounts(inbox.memberCounts);
+        setGroupLastMessages(inbox.lastMessages);
+        setGroupReads(inbox.reads);
+        setGroupUnreadCounts(inbox.unreadCounts);
+      } catch (e) {
+        // Keep the last complete snapshot visible on a temporary network failure.
+        logger.error('[messages] loadGroups', e);
+      }
+    })();
+    groupInboxRequestRef.current = { owner: myId, promise };
+    try { await promise; }
+    finally {
+      if (groupInboxRequestRef.current?.promise === promise) groupInboxRequestRef.current = null;
     }
   }, [myId]);
 
@@ -601,9 +582,8 @@ export default function Messages() {
         setProfilesMap(map);
       } catch (e) { logger.error(e); }
     };
-    // Groups update independently: their history must not block direct messages.
-    void loadGroups();
-    void Promise.allSettled([loadMessages(), loadProfiles(), loadStates(), loadPhase2()]).then(() => {
+    // Cold inbox appears once with complete group summaries; warm cache stays visible.
+    void Promise.allSettled([loadMessages(), loadProfiles(), loadStates(), loadPhase2(), loadGroups()]).then(() => {
       if (cancelled || inboxOwnerRef.current !== myId) return;
       loadedInboxAccountRef.current = myId;
       setLoading(false);
@@ -613,8 +593,13 @@ export default function Messages() {
 
   // Periodically refresh groups preview
   useEffect(() => {
-    const t = setInterval(loadGroups, 45_000);
-    return () => clearInterval(t);
+    const refresh = () => { if (!document.hidden) void loadGroups(); };
+    const t = setInterval(refresh, 45_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [loadGroups]);
 
   useEffect(() => {
@@ -1804,7 +1789,7 @@ export default function Messages() {
           )}
 
           {/* Groups section (only in main view) */}
-          {viewMode === 'main' && groups.length > 0 && (
+          {!loading && viewMode === 'main' && groups.length > 0 && (
             <div className="mb-3">
               <div className="flex items-center gap-2 px-1 mb-2">
                 <Users size={14} className="text-[#2563eb]" />
@@ -1830,7 +1815,7 @@ export default function Messages() {
                           'Membre'
                       : '';
                     const preview = groupPreviewOf(last, senderName);
-                    const memberCount = groupMembers[g.id]?.length || 0;
+                    const memberCount = groupMemberCounts[g.id] || 0;
                     return (
                       <button
                         key={g.id}
