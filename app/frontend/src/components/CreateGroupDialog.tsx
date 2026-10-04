@@ -9,6 +9,7 @@ import { decodePayload } from '@/lib/message-format';
 
 interface Props {
   open: boolean;
+  initialMemberIds?: string[];
   currentUserId: string;
   onClose: () => void;
   onCreated: (groupId: string) => void;
@@ -82,9 +83,11 @@ export default function CreateGroupDialog({
   currentUserId,
   onClose,
   onCreated,
+  initialMemberIds,
 }: Props) {
   const [name, setName] = useState('');
   const [contacts, setContacts] = useState<ContactOption[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
@@ -96,39 +99,57 @@ export default function CreateGroupDialog({
     setName('');
     setQuery('');
     setSelected(new Set());
+    setContacts([]);
+    setContactsLoading(true);
+    let cancelled = false;
     setAvatarFile(null);
     setAvatarPreview(null);
-    (async () => {
-      // Load profiles I've exchanged messages with
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('user_id, receiver_id, content')
-        .or(`user_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-        .limit(500);
-      const peerIds = new Set<string>();
-      ((msgs as {
-        user_id: string;
-        receiver_id: string;
-        content: string;
-      }[]) || []).forEach((m) => {
-        // Skip WebRTC signaling messages (they don't count as a real conversation).
-        const p = decodePayload(m.content);
-        if (p.kind === 'signal') return;
-        const other = m.user_id === currentUserId ? m.receiver_id : m.user_id;
-        if (other && other !== currentUserId) peerIds.add(other);
-      });
-      if (peerIds.size === 0) {
-        setContacts([]);
-        return;
-      }
-      const { data: profs } = await supabase
-        .from('profile_directory')
-        .select('*')
-        .in('user_id', Array.from(peerIds));
-      const list = ((profs as Profile[]) || []).map((p) => ({ profile: p }));
-      setContacts(list);
+    void (async () => {
+      try {
+        // Load profiles I've exchanged messages with
+        const { data: msgs, error: messageError } = await supabase
+          .from('messages')
+          .select('user_id, receiver_id, content')
+          .or(`user_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+          .limit(500);
+        if (messageError) throw messageError;
+        if (cancelled) return;
+        const peerIds = new Set<string>();
+        ((msgs as {
+          user_id: string;
+          receiver_id: string;
+          content: string;
+        }[]) || []).forEach((m) => {
+          // Skip WebRTC signaling messages (they don't count as a real conversation).
+          const p = decodePayload(m.content);
+          if (p.kind === 'signal') return;
+          const other = m.user_id === currentUserId ? m.receiver_id : m.user_id;
+          if (other && other !== currentUserId) peerIds.add(other);
+        });
+        for (const id of initialMemberIds ?? []) {
+          if (id && id !== currentUserId) peerIds.add(id);
+        }
+        if (peerIds.size === 0) {
+          setContacts([]);
+          setSelected(new Set());
+          return;
+        }
+        const { data: profs, error: profileError } = await supabase
+          .from('profile_directory')
+          .select('*')
+          .in('user_id', Array.from(peerIds));
+        if (profileError) throw profileError;
+        if (cancelled) return;
+        const list = ((profs as Profile[]) || []).map((p) => ({ profile: p }));
+        setContacts(list);
+        const available = new Set(list.map(option => option.profile.user_id));
+        setSelected(new Set((initialMemberIds ?? []).filter(id => available.has(id))));
+      } catch {
+        if (!cancelled) toast.error('Impossible de charger les contacts du groupe');
+      } finally { if (!cancelled) setContactsLoading(false); }
     })();
-  }, [open, currentUserId]);
+    return () => { cancelled = true; };
+  }, [open, currentUserId, initialMemberIds]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -162,6 +183,7 @@ export default function CreateGroupDialog({
   };
 
   const submit = async () => {
+    if (busy || contactsLoading) return;
     if (!name.trim()) {
       toast.error('Entrez un nom de groupe');
       return;
@@ -289,7 +311,7 @@ export default function CreateGroupDialog({
           <button
             type="button"
             onClick={submit}
-            disabled={busy || !name.trim() || selected.size === 0}
+            disabled={busy || contactsLoading || !name.trim() || selected.size === 0}
             className="px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
           >
             {busy ? 'Création…' : 'Créer'}

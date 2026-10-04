@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { X, Search, Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import { getMediaUrl } from '@/lib/storage-helpers';
 
 interface Props {
@@ -75,18 +76,29 @@ export default function ForwardDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setSelected(new Set());
     setQuery('');
-    (async () => {
-      const { data, error } = await supabase.from('profile_directory').select('*').limit(300);
-      if (error) return;
-      const list = ((data as Profile[]) || []).filter((p) => p.user_id !== currentUserId);
-      setProfiles(list);
+    setProfiles([]);
+    setLoading(true);
+    setLoadError(false);
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('profile_directory').select('*').limit(300);
+        if (error) throw error;
+        const list = ((data as Profile[]) || []).filter(p => p.user_id !== currentUserId);
+        if (!cancelled) setProfiles(list);
+      } catch { if (!cancelled) setLoadError(true); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-  }, [open, currentUserId]);
+    return () => { cancelled = true; };
+  }, [open, currentUserId, retry]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -99,20 +111,28 @@ export default function ForwardDialog({
   }, [profiles, query]);
 
   const toggle = (id: string) => {
+    if (busy) return;
+    if (!selected.has(id) && selected.size >= 5) {
+      toast.message('Vous pouvez sélectionner jusqu’à 5 contacts');
+      return;
+    }
     setSelected((s) => {
       const next = new Set(s);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (next.size < 5) next.add(id);
+
       return next;
     });
   };
 
   const submit = async () => {
-    if (selected.size === 0) return;
+    if (busy || selected.size === 0) return;
     setBusy(true);
     try {
       await onForward(Array.from(selected));
       onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Transfert non confirmé. Vérifiez la conversation avant de réessayer.');
     } finally {
       setBusy(false);
     }
@@ -123,7 +143,7 @@ export default function ForwardDialog({
   return (
     <div
       className="fixed inset-0 z-[75] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      onClick={onClose}
+      onClick={() => { if (!busy) onClose(); }}
     >
       <div
         className="bg-[var(--loboko-surface)] w-full max-w-md rounded-t-2xl sm:rounded-2xl border border-[var(--loboko-border)] p-4 shadow-xl flex flex-col max-h-[85vh]"
@@ -132,7 +152,7 @@ export default function ForwardDialog({
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-base">Transférer à…</h3>
           <button
-            onClick={onClose}
+            onClick={() => { if (!busy) onClose(); }}
             className="p-1 rounded-full hover:bg-[var(--loboko-surface-hover)]"
             aria-label="Fermer"
           >
@@ -155,7 +175,11 @@ export default function ForwardDialog({
           />
         </div>
         <div className="flex-1 overflow-y-auto space-y-1 -mx-1 px-1">
-          {filtered.length === 0 ? (
+          {loading ? <p role="status" className="py-4 text-sm">Chargement des contacts…</p> : loadError ? (
+            <div role="alert" className="py-4 text-sm">Impossible de charger les contacts.
+              <button onClick={() => setRetry(value => value + 1)} className="block text-[#2563eb] mt-2">Réessayer</button>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-6 text-sm text-[var(--loboko-text-muted)]">
               Aucun contact
             </div>
@@ -177,7 +201,7 @@ export default function ForwardDialog({
           <button
             type="button"
             onClick={submit}
-            disabled={busy || selected.size === 0}
+            disabled={busy || loading || loadError || selected.size === 0}
             className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50"
           >
             <Send size={14} />

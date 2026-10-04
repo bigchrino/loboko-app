@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
+import CreateGroupDialog from '@/components/CreateGroupDialog';
+import ChatThemeDialog from '@/components/ChatThemeDialog';
+import { loadConversationStates, pinConversation, unpinConversation } from '@/lib/conversation-controls';
 import { supabase } from '@/lib/supabase';
 import { Profile, useAuth } from '@/contexts/AuthContext';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -51,9 +54,7 @@ interface MediaItem {
 
 /**
  * Contact info page - shown when tapping the avatar/name in a conversation.
- * Layout is intentionally read-focused; sections like "Messages importants",
- * "Thème de la discussion" etc. are listed with a coming-soon behavior so the
- * screen is complete without blocking Phase 1 scope.
+ * Shortcuts use the same controls as the conversation screen.
  */
 export default function ContactInfo() {
   const { userId: peerId } = useParams();
@@ -63,7 +64,19 @@ export default function ContactInfo() {
   const { startCall } = useCall();
   const { isOnline } = usePresence();
   const myId = user?.id || '';
+  const initialMemberIds = useMemo(() => peerId ? [peerId] : [], [peerId]);
 
+  const [openGroup, setOpenGroup] = useState(false);
+  const [openTheme, setOpenTheme] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setPinned(false);
+    if (myId && peerId) void loadConversationStates(myId).then(rows => {
+      if (!cancelled) setPinned(rows.some(row => row.peer_id === peerId && row.pinned));
+    });
+    return () => { cancelled = true; };
+  }, [myId, peerId]);
   const [peer, setPeer] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -245,8 +258,16 @@ export default function ContactInfo() {
     }
   };
 
-  const comingSoon = (label: string) =>
-    toast.message(`${label} : bientôt disponible`);
+  const togglePinned = async () => {
+    if (!peerId || !myId || busy) return;
+    setBusy(true);
+    try {
+      await (pinned ? unpinConversation : pinConversation)(myId, peerId);
+      setPinned(!pinned);
+      toast.success(pinned ? 'Discussion désépinglée' : 'Discussion épinglée');
+    } catch { toast.error('Impossible de modifier cette discussion'); }
+    finally { setBusy(false); }
+  };
 
   return (
     <Layout title="Infos du contact">
@@ -387,7 +408,7 @@ export default function ContactInfo() {
               )}
             </section>
 
-            {/* Feature list (sections stubs) */}
+            {/* Conversation shortcuts */}
             <section className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl overflow-hidden">
               {[
                 { key: 'important', label: 'Messages importants', icon: Star },
@@ -399,7 +420,7 @@ export default function ContactInfo() {
                   label: 'Créer un groupe avec cette personne',
                   icon: Users,
                 },
-                { key: 'favorite', label: 'Ajouter aux favoris', icon: Heart },
+                { key: 'favorite', label: pinned ? 'Désépingler la discussion' : 'Épingler la discussion', icon: Heart },
               ].map(({ key, label, icon: Icon }) => {
                 const isEphemeral = key === 'ephemeral';
                 const isImportant = key === 'important';
@@ -407,13 +428,16 @@ export default function ContactInfo() {
                   <button
                     key={key}
                     type="button"
+                    disabled={key === 'lock' || (key === 'favorite' && busy)}
                     onClick={() => {
                       if (isEphemeral) {
                         setOpenEphemeral(true);
                       } else if (isImportant) {
                         navigate('/messages/starred');
                       } else {
-                        comingSoon(label);
+                        if (key === 'group') setOpenGroup(true);
+                        if (key === 'theme') setOpenTheme(true);
+                        if (key === 'favorite') void togglePinned();
                       }
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--loboko-surface-hover)] border-b border-[var(--loboko-border)] last:border-b-0"
@@ -425,7 +449,7 @@ export default function ContactInfo() {
                         {durationShort(ephemeralDuration)}
                       </span>
                     )}
-                    <ChevronRight size={16} className="text-[var(--loboko-text-muted)]" />
+                    {key === 'lock' ? <span className="text-xs text-[var(--loboko-text-muted)]">Indisponible</span> : <ChevronRight size={16} className="text-[var(--loboko-text-muted)]" />}
                   </button>
                 );
               })}
@@ -458,6 +482,9 @@ export default function ContactInfo() {
         )}
       </div>
 
+      <ChatThemeDialog open={openTheme} owner={myId} conversation={`dm:${peerId || ''}`} onClose={() => setOpenTheme(false)} />
+      <CreateGroupDialog open={openGroup} currentUserId={myId} initialMemberIds={initialMemberIds}
+        onClose={() => setOpenGroup(false)} onCreated={id => navigate(`/messages/group/${id}`)} />
       <ConfirmDialog
         open={confirmClear}
         title="Effacer la discussion ?"

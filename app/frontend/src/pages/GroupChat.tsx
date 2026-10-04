@@ -1,3 +1,7 @@
+import ForwardDialog from '@/components/ForwardDialog';
+import ChatThemeDialog from '@/components/ChatThemeDialog';
+import { useChatTheme } from '@/lib/chat-theme';
+import { forwardContentToContacts } from '@/lib/forward-content';
 import ChatDateSeparator from '@/components/ChatDateSeparator';
 import { chatDayKey, formatChatTime } from '@/lib/chat-date';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -146,6 +150,9 @@ export default function GroupChat() {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const { user } = useAuth();
   const myId = user?.id || '';
+  const { background: chatBackground } = useChatTheme(myId, `group:${groupId || ''}`);
+  const [showTheme, setShowTheme] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<GroupMessage | null>(null);
   const scopeKey = `${myId}:${groupId ?? ''}`;
   const [initialGroup] = useState(() => {
     const cached = recentGroups.get(scopeKey);
@@ -831,6 +838,13 @@ export default function GroupChat() {
     }
   };
 
+  const handleForward = async (userIds: string[]) => {
+    if (!forwardMessage || !myId) throw new Error('Message indisponible');
+    if (forwardMessage.deleted_for_everyone_at || isExpired(forwardMessage.expires_at)) throw new Error('Message indisponible');
+    await forwardContentToContacts(forwardMessage.content, myId, userIds);
+    toast.success(`Transféré à ${userIds.length} contact${userIds.length > 1 ? 's' : ''}`);
+  };
+
   const handleMessageAction = async (a: MessageAction) => {
     if (!actionsMenu || !myId) return;
     const m = actionsMenu.message;
@@ -843,7 +857,7 @@ export default function GroupChat() {
       return;
     }
     if (a === 'forward') {
-      toast.message('Transfert depuis un groupe : bientôt disponible');
+      setForwardMessage(m);
       return;
     }
     if (a === 'copy') {
@@ -1077,6 +1091,8 @@ export default function GroupChat() {
                   aria-hidden="true"
                 />
                 <div className="absolute right-0 mt-2 w-60 bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-xl shadow-xl z-50 overflow-hidden">
+                  <button type="button" className="w-full px-3 py-2.5 text-sm text-left hover:bg-[var(--loboko-surface-hover)]"
+                    onClick={() => { setShowHeaderMenu(false); setShowTheme(true); }}>Thème de la discussion</button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1114,6 +1130,7 @@ export default function GroupChat() {
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
           style={{
             WebkitOverflowScrolling: 'touch',
+            backgroundColor: chatBackground,
           }}
         >
           <LoadOlderTrigger
@@ -1557,6 +1574,9 @@ export default function GroupChat() {
         />
       )}
 
+      <ChatThemeDialog open={showTheme} owner={myId} conversation={`group:${groupId || ''}`} onClose={() => setShowTheme(false)} />
+      <ForwardDialog open={!!forwardMessage} preview={forwardMessage ? buildReplyPreview(forwardMessage) : ''}
+        currentUserId={myId} onClose={() => setForwardMessage(null)} onForward={handleForward} />
       <ReportDialog
         open={!!reportMessage}
         onClose={() => setReportMessage(null)}

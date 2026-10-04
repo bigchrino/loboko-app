@@ -1,3 +1,5 @@
+import { useChatTheme } from '@/lib/chat-theme';
+import { forwardContentToContacts } from '@/lib/forward-content';
 import ChatDateSeparator from '@/components/ChatDateSeparator';
 import { formatChatTime } from '@/lib/chat-date';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -381,6 +383,7 @@ export default function Messages() {
     y: number;
   } | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const { background: chatBackground } = useChatTheme(myId, `dm:${activeUserId || ''}`);
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
   const [reportMessage, setReportMessage] = useState<Message | null>(null);
   const [pendingMessageDelete, setPendingMessageDelete] = useState<{
@@ -1280,7 +1283,7 @@ export default function Messages() {
             });
       await insertMessage({ receiver_id: activeUserId, content });
       clearPendingMedia();
-      await loadMessages();
+      void loadMessages().catch(logger.error);
     } catch (e) {
       logger.error(e);
       throw e;
@@ -1538,24 +1541,20 @@ export default function Messages() {
   };
 
   const handleForward = async (userIds: string[]) => {
-    if (!forwardMessage || !myId) return;
+    if (!forwardMessage || !myId) throw new Error('Message indisponible');
     const m = forwardMessage;
     const payload = decodePayload(m.content);
-    const content = m.content;
-    // Keep payload as-is; text/audio/image/video all forward natively.
-    if (payload.kind === 'call_event' || payload.kind === 'signal') {
-      toast.error("Ce type de message ne peut pas être transféré");
-      return;
+    if (m.deleted_for_everyone_at || isExpired(m.expires_at)) throw new Error('Message indisponible');
+    if (payload.kind === 'call_event' || payload.kind === 'signal' || payload.kind === 'system') {
+      throw new Error('Ce type de message ne peut pas être transféré');
     }
     try {
-      for (const uid of userIds) {
-        await insertMessage({ receiver_id: uid, content });
-      }
+      await forwardContentToContacts(m.content, myId, userIds);
       toast.success(`Transféré à ${userIds.length} contact${userIds.length > 1 ? 's' : ''}`);
-      await loadMessages();
+      void loadMessages().catch(logger.error);
     } catch (e) {
       logger.error(e);
-      toast.error('Transfert impossible');
+      throw e;
     }
   };
 
@@ -2140,6 +2139,7 @@ export default function Messages() {
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-2"
             style={{
               WebkitOverflowScrolling: 'touch',
+              backgroundColor: chatBackground,
             }}
           >
             <LoadOlderTrigger
