@@ -34,6 +34,7 @@ interface LayoutProps {
   title?: string;
   hideMobileNav?: boolean;
   fullScreenChat?: boolean;
+  hideHeaderTitle?: boolean;
 }
 
 const mobileNavItems = [
@@ -59,7 +60,7 @@ const desktopNavItems = [
   { to: '/profile', label: 'Profil', icon: User },
 ];
 
-export default function Layout({ children, title, hideMobileNav = false, fullScreenChat = false }: LayoutProps) {
+export default function Layout({ children, title, hideMobileNav = false, fullScreenChat = false, hideHeaderTitle = false }: LayoutProps) {
   const { logout, profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
@@ -244,7 +245,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
       <header className={`${fullScreenChat ? 'hidden' : 'lg:hidden'} sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur`}>
         <div className="flex items-center gap-2.5 min-w-0">
           <Logo size="md" />
-          {title && title !== 'LOBOKO' && !isHome && (
+          {title && title !== 'LOBOKO' && !isHome && !hideHeaderTitle && (
             <>
               <span className="h-5 w-px bg-[var(--loboko-border)] shrink-0" />
               <span className="text-sm font-semibold text-[var(--loboko-text)] truncate">
