@@ -1,75 +1,77 @@
+import { lazy, Suspense } from 'react';
+import RouteLoadBoundary from './components/RouteLoadBoundary';
 import { MissedCallsProvider } from '@/contexts/MissedCallsContext';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Verification from './pages/Verification';
-import AdminVerifications from './pages/AdminVerifications';
-import AdminDashboard from './pages/admin/AdminDashboard';
+const Verification = lazy(() => import('./pages/Verification'));
+const AdminVerifications = lazy(() => import('./pages/AdminVerifications'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 import AdminRoute from './components/AdminRoute';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminPosts from './pages/admin/AdminPosts';
-import AdminStats from './pages/admin/AdminStats';
-import AdminAds from './pages/admin/AdminAds';
-import AdminPayments from './pages/admin/AdminPayments';
-import AdminJournal from './pages/admin/AdminJournal';
-import MyOrders from './pages/MyOrders';
-import ServiceOrderDetail from './pages/ServiceOrderDetail';
-import ReceivedOrders from './pages/ReceivedOrders';
-import ServicePayment from './pages/ServicePayment';
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminPosts = lazy(() => import('./pages/admin/AdminPosts'));
+const AdminStats = lazy(() => import('./pages/admin/AdminStats'));
+const AdminAds = lazy(() => import('./pages/admin/AdminAds'));
+const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'));
+const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
+const MyOrders = lazy(() => import('./pages/MyOrders'));
+const ServiceOrderDetail = lazy(() => import('./pages/ServiceOrderDetail'));
+const ReceivedOrders = lazy(() => import('./pages/ReceivedOrders'));
+const ServicePayment = lazy(() => import('./pages/ServicePayment'));
 
-import Index from './pages/Index';
-import PublicContact from './pages/PublicContact';
-import AuthCallback from './pages/AuthCallback';
-import AuthError from './pages/AuthError';
-import Home from './pages/Home';
-import Discover from './pages/Discover';
-import Messages from './pages/Messages';
-import Calls from './pages/Calls';
-import Statuses from './pages/Statuses';
-import GroupChat from './pages/GroupChat';
-import GroupInfo from './pages/GroupInfo';
-import StarredMessages from './pages/StarredMessages';
-import Profile from './pages/Profile';
-import Notifications from './pages/Notifications';
-import Settings from './pages/Settings';
-import OnboardingProfile from './pages/OnboardingProfile';
-import Suggestion from './pages/Suggestion';
-import Entreprise from './pages/Entreprise';
-import CreateCompany from './pages/CreateCompany';
-import CompanyManage from './pages/CompanyManage';
-import CompanyDetail from './pages/CompanyDetail';
-import CompanyJobOffersManage from './pages/CompanyJobOffersManage';
-import MyMusalaRequests from './pages/MyMusalaRequests';
-import EntrepriseOffres from './pages/EntrepriseOffres';
-import EntrepriseMusala from './pages/EntrepriseMusala';
-import Panier from './pages/Panier';
-import CreateShop from './pages/CreateShop';
-import ShopManage from './pages/ShopManage';
-import DiscoverShops from './pages/DiscoverShops';
-import ShopDetail from './pages/ShopDetail';
-import ProductDetail from './pages/ProductDetail';
-import MyProductOrders from './pages/MyProductOrders';
-import ShopReceivedOrders from './pages/ShopReceivedOrders';
-import Urgences from './pages/Urgences';
-import UrgencesHopitaux from './pages/UrgencesHopitaux';
-import UrgencesPolices from './pages/UrgencesPolices';
-import UrgencesCasernes from './pages/UrgencesCasernes';
-import UrgencePrestataires from './pages/urgences/UrgencePrestataires';
-import Recherches from './pages/Recherches';
-import Menu from './pages/Menu';
-import UserProfilePage from './pages/UserProfile';
-import PostDetail from './pages/PostDetail';
-import ContactInfo from './pages/ContactInfo';
-import FindProviders from './pages/FindProviders';
-import AdminReports from './pages/AdminReports';
-import ProvidersByCategory from './pages/ProvidersByCategory';
+const Index = lazy(() => import('./pages/Index'));
+const PublicContact = lazy(() => import('./pages/PublicContact'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const AuthError = lazy(() => import('./pages/AuthError'));
+const Home = lazy(() => import('./pages/Home'));
+const Discover = lazy(() => import('./pages/Discover'));
+const Messages = lazy(() => import('./pages/Messages'));
+const Calls = lazy(() => import('./pages/Calls'));
+const Statuses = lazy(() => import('./pages/Statuses'));
+const GroupChat = lazy(() => import('./pages/GroupChat'));
+const GroupInfo = lazy(() => import('./pages/GroupInfo'));
+const StarredMessages = lazy(() => import('./pages/StarredMessages'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Settings = lazy(() => import('./pages/Settings'));
+const OnboardingProfile = lazy(() => import('./pages/OnboardingProfile'));
+const Suggestion = lazy(() => import('./pages/Suggestion'));
+const Entreprise = lazy(() => import('./pages/Entreprise'));
+const CreateCompany = lazy(() => import('./pages/CreateCompany'));
+const CompanyManage = lazy(() => import('./pages/CompanyManage'));
+const CompanyDetail = lazy(() => import('./pages/CompanyDetail'));
+const CompanyJobOffersManage = lazy(() => import('./pages/CompanyJobOffersManage'));
+const MyMusalaRequests = lazy(() => import('./pages/MyMusalaRequests'));
+const EntrepriseOffres = lazy(() => import('./pages/EntrepriseOffres'));
+const EntrepriseMusala = lazy(() => import('./pages/EntrepriseMusala'));
+const Panier = lazy(() => import('./pages/Panier'));
+const CreateShop = lazy(() => import('./pages/CreateShop'));
+const ShopManage = lazy(() => import('./pages/ShopManage'));
+const DiscoverShops = lazy(() => import('./pages/DiscoverShops'));
+const ShopDetail = lazy(() => import('./pages/ShopDetail'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const MyProductOrders = lazy(() => import('./pages/MyProductOrders'));
+const ShopReceivedOrders = lazy(() => import('./pages/ShopReceivedOrders'));
+const Urgences = lazy(() => import('./pages/Urgences'));
+const UrgencesHopitaux = lazy(() => import('./pages/UrgencesHopitaux'));
+const UrgencesPolices = lazy(() => import('./pages/UrgencesPolices'));
+const UrgencesCasernes = lazy(() => import('./pages/UrgencesCasernes'));
+const UrgencePrestataires = lazy(() => import('./pages/urgences/UrgencePrestataires'));
+const Recherches = lazy(() => import('./pages/Recherches'));
+const Menu = lazy(() => import('./pages/Menu'));
+const UserProfilePage = lazy(() => import('./pages/UserProfile'));
+const PostDetail = lazy(() => import('./pages/PostDetail'));
+const ContactInfo = lazy(() => import('./pages/ContactInfo'));
+const FindProviders = lazy(() => import('./pages/FindProviders'));
+const AdminReports = lazy(() => import('./pages/AdminReports'));
+const ProvidersByCategory = lazy(() => import('./pages/ProvidersByCategory'));
 
-import Works from './pages/Works';
-import ServiceRequests from './pages/ServiceRequests';
-import ServiceRequestDetail from './pages/ServiceRequestDetail';
-import ServiceOrder from './pages/ServiceOrder';
-import Favorites from './pages/Favorites';
+const Works = lazy(() => import('./pages/Works'));
+const ServiceRequests = lazy(() => import('./pages/ServiceRequests'));
+const ServiceRequestDetail = lazy(() => import('./pages/ServiceRequestDetail'));
+const ServiceOrder = lazy(() => import('./pages/ServiceOrder'));
+const Favorites = lazy(() => import('./pages/Favorites'));
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -78,10 +80,10 @@ import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
 import { PresenceProvider } from './contexts/PresenceContext';
-import RoleChangeRequestPage from './pages/settings/RoleChangeRequestPage';
-import BlockedContacts from './pages/settings/BlockedContacts';
-import HelpSupport from './pages/settings/HelpSupport';
-import AdminRoleRequests from './pages/admin/AdminRoleRequests';
+const RoleChangeRequestPage = lazy(() => import('./pages/settings/RoleChangeRequestPage'));
+const BlockedContacts = lazy(() => import('./pages/settings/BlockedContacts'));
+const HelpSupport = lazy(() => import('./pages/settings/HelpSupport'));
+const AdminRoleRequests = lazy(() => import('./pages/admin/AdminRoleRequests'));
 
 const queryClient = new QueryClient();
 
@@ -247,6 +249,8 @@ const protectedRoutes: Array<{ path: string; element: JSX.Element }> = [
 ];
 
 const AppRoutes = () => (
+  <RouteLoadBoundary>
+  <Suspense fallback={<SplashScreen />}>
   <Routes>
     <Route path="/" element={<Index />} />
     <Route path="/contact" element={<PublicContact />} />
@@ -266,6 +270,8 @@ const AppRoutes = () => (
 
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
+  </Suspense>
+  </RouteLoadBoundary>
 );
 
 const App = () => (
