@@ -135,7 +135,8 @@ export default function PostDetail() {
   };
 
   return (
-    <Layout title="Publication">
+    <Layout title="Publication" hideMobileNav>
+      <div className="px-4 py-4 lg:p-0">
       <button
         onClick={handleBack}
         className="flex items-center gap-1 text-sm text-[var(--loboko-text-secondary)] mb-3 hover:text-[var(--loboko-text)] !bg-transparent !hover:bg-transparent"
@@ -191,6 +192,7 @@ export default function PostDetail() {
           </div>
         </>
       )}
+      </div>
     </Layout>
   );
 }

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -85,6 +86,8 @@ export default function CommentsModal({
   }>({ open: false, query: '', start: 0, end: 0 });
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerHeight, setComposerHeight] = useState(80);
   const commentRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   /**
@@ -110,39 +113,53 @@ export default function CommentsModal({
     };
   }, [inline, open, commentInputFocused]);
 
-  /**
-   * Suit la hauteur RÉELLEMENT visible de l'écran (VisualViewport), qui se
-   * réduit quand le clavier s'ouvre — contrairement à `100vh`/`85vh` en CSS,
-   * qui ne tient pas compte du clavier de façon fiable selon les
-   * navigateurs. Sans ça, la feuille de commentaires et sa barre de saisie
-   * se calculaient par rapport à un écran "plein", ce qui provoquait des
-   * sauts au moment d'ouvrir le clavier et laissait parfois deviner la barre
-   * de navigation du bas derrière la feuille.
-   * Ces événements ne se déclenchent qu'à l'ouverture/fermeture du clavier
-   * (ou au zoom), jamais à chaque frappe — la position reste donc stable
-   * pendant qu'on écrit, comme sur Facebook.
-   */
-  const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
+  // iOS moves the visual viewport when the keyboard opens and when the
+  // document scrolls behind it. Keep the composer at that viewport's bottom,
+  // rather than letting it scroll away with the comments.
+  const [viewport, setViewport] = useState<{ height: number; top: number } | null>(() => {
+    const vv = window.visualViewport;
+    return vv ? { height: vv.height, top: vv.offsetTop } : null;
+  });
 
-  useEffect(() => {
-    if (inline) return;
+  const fullViewportHeight = useRef(window.visualViewport?.height ?? window.innerHeight);
+  const keyboardVisible = commentInputFocused && viewport !== null &&
+    viewport.height < fullViewportHeight.current - 120;
+
+  useLayoutEffect(() => {
     if (!open) return;
     const vv = window.visualViewport;
     if (!vv) return;
-
-    const update = () => setViewport({ height: vv.height, top: vv.offsetTop });
-    update();
-
-    // Volontairement UNIQUEMENT 'resize' (déclenché à l'ouverture/fermeture
-    // du clavier ou au zoom) — pas 'scroll'. Sur certains navigateurs
-    // intégrés (ex: WeChat), le scroll du contenu à l'intérieur de la
-    // feuille de commentaires pouvait faire varier `offsetTop` et donnait
-    // l'impression que l'espace clavier "suivait" la publication, alors que
-    // seul le contenu doit bouger.
-    vv.addEventListener('resize', update);
-    return () => {
-      vv.removeEventListener('resize', update);
+    let frame: number | null = null;
+    const update = () => {
+      frame = null;
+      fullViewportHeight.current = Math.max(fullViewportHeight.current, vv.height);
+      setViewport((current) =>
+        current?.height === vv.height && current.top === vv.offsetTop
+          ? current
+          : { height: vv.height, top: vv.offsetTop }
+      );
     };
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(update);
+    };
+    update();
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+    return () => {
+      vv.removeEventListener('resize', schedule);
+      vv.removeEventListener('scroll', schedule);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!inline || !open || !composerRef.current) return;
+    const composer = composerRef.current;
+    const measure = () => setComposerHeight(composer.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(composer);
+    return () => observer.disconnect();
   }, [inline, open]);
 
   /**
@@ -872,7 +889,7 @@ export default function CommentsModal({
   const replyBar = replyTo && (
     <div
       className={`${
-        inline ? 'mt-2 rounded-xl' : 'border-t border-[var(--loboko-border)]'
+        inline ? '' : 'border-t border-[var(--loboko-border)]'
       } px-4 py-2 text-[11px] text-[var(--loboko-text-muted)] flex items-center justify-between flex-shrink-0 bg-[var(--loboko-surface-hover)]`}
     >
       <span>
@@ -892,7 +909,7 @@ export default function CommentsModal({
     <div
       className={`${
         inline
-          ? 'mt-2 border border-[var(--loboko-border)] rounded-2xl bg-[var(--loboko-surface)]'
+          ? 'bg-[var(--loboko-surface)]'
           : 'border-t border-[var(--loboko-border)] pb-[env(safe-area-inset-bottom,0px)]'
       } p-3 flex items-center gap-2 flex-shrink-0`}
     >
@@ -901,6 +918,7 @@ export default function CommentsModal({
         <input
           ref={inputRef}
           type="text"
+          aria-label="Écrire un commentaire"
           value={content}
           onChange={(e) => {
             const v = e.target.value;
@@ -950,6 +968,9 @@ export default function CommentsModal({
         />
       </div>
       <button
+        type="button"
+        aria-label="Envoyer le commentaire"
+        onPointerDown={(event) => event.preventDefault()}
         onClick={handleSend}
         disabled={!currentUserId || sending || !content.trim()}
         className="w-10 h-10 rounded-full bg-[#2563eb] text-white flex items-center justify-center hover:bg-[#1d4ed8] transition disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
@@ -961,12 +982,29 @@ export default function CommentsModal({
 
   if (inline) {
     return (
-      <section className="mt-2">
+      <section className="mt-2" style={{ paddingBottom: composerHeight }}>
         {pulseStyle}
         <h3 className="text-sm font-semibold mb-2 px-1">Commentaires</h3>
         {listSection}
-        {replyBar}
-        {inputBar}
+        {createPortal(
+          <div
+            ref={composerRef}
+            data-comment-composer
+            className="fixed left-0 right-0 lg:left-60 z-40 border-t border-[var(--loboko-border)] bg-[var(--loboko-surface)] text-[var(--loboko-text)]"
+            style={viewport
+              ? { top: viewport.top + viewport.height, transform: 'translateY(-100%)' }
+              : { bottom: 0 }}
+          >
+            <div
+              className="max-w-2xl mx-auto lg:px-8"
+              style={{ paddingBottom: keyboardVisible ? 0 : 'env(safe-area-inset-bottom, 0px)' }}
+            >
+              {replyBar}
+              {inputBar}
+            </div>
+          </div>,
+          document.body,
+        )}
       </section>
     );
   }
