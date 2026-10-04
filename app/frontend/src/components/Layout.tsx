@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import LogoutConfirm from '@/components/LogoutConfirm';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import {
@@ -66,6 +66,8 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
   const { unreadCount: unreadMessagesCount } = useMessages();
   const { unseenMissed } = useMissedCalls();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isHome = pathname === '/home';
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -242,7 +244,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
       <header className={`${fullScreenChat ? 'hidden' : 'lg:hidden'} sticky top-0 z-30 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top,0px)+10px)] pb-2.5 bg-[var(--loboko-elevated)] border-b border-[var(--loboko-border)] backdrop-blur`}>
         <div className="flex items-center gap-2.5 min-w-0">
           <Logo size="md" />
-          {title && title !== 'LOBOKO' && (
+          {title && title !== 'LOBOKO' && !isHome && (
             <>
               <span className="h-5 w-px bg-[var(--loboko-border)] shrink-0" />
               <span className="text-sm font-semibold text-[var(--loboko-text)] truncate">
@@ -252,6 +254,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {isHome && <button type="button" onClick={() => navigate('/discover')} aria-label="Rechercher un prestataire" className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--loboko-border)] bg-[var(--loboko-surface)]"><Search size={18} /></button>}
           <button
             type="button"
             onClick={() => navigate('/profile')}

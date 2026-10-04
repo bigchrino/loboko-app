@@ -105,14 +105,14 @@ export default function AdsCarousel() {
   return (
     <section
       aria-label="Publicités sponsorisées"
-      className="mb-5"
+      className="mb-3"
     >
-      <div className="flex items-center justify-between mb-2 px-1">
+      {ads.length > 1 && <div className="flex items-center justify-between mb-1 px-1">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--loboko-text-muted)] uppercase tracking-wider">
           <Megaphone size={13} />
           À la une
         </div>
-        <div className="hidden sm:flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => scrollByDir('left')}
@@ -130,52 +130,33 @@ export default function AdsCarousel() {
             <ChevronRight size={16} />
           </button>
         </div>
-      </div>
+      </div>}
 
       <div
         ref={scrollerRef}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1"
+        className="relative flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-2 -mx-1 px-1"
         style={{ scrollbarWidth: 'none' }}
       >
         {ads.map((ad) => (
           <article
             key={ad.id}
-            className="snap-start shrink-0 w-[85%] sm:w-[60%] md:w-[48%] lg:w-[46%] rounded-2xl overflow-hidden border border-[var(--loboko-border)] bg-[var(--loboko-surface)] shadow-sm"
+            className="snap-start shrink-0 w-full rounded-2xl overflow-hidden border border-[var(--loboko-border)] bg-[var(--loboko-surface)] shadow-sm"
           >
-            <div className="relative aspect-[16/9] bg-black/30">
-              <img
-                src={ad.image}
-                alt={ad.title}
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              {ad.badge && (
-                <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wider bg-black/60 text-white/90 border border-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                  {ad.badge}
-                </span>
-              )}
-            </div>
-            <div className="p-3 sm:p-4">
-              <h3 className="text-[15px] sm:text-base font-semibold text-[var(--loboko-text)] mb-1 leading-snug">
-                {ad.title}
-              </h3>
-              <p className="text-xs sm:text-sm text-[var(--loboko-text-muted)] leading-relaxed mb-3 line-clamp-2">
-                {ad.description}
-              </p>
-              <button
-                type="button"
-                onClick={() => navigate(`/services/${ad.categorySlug}`)}
-                className="inline-flex items-center justify-center h-9 px-4 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-sm font-semibold transition-colors"
-              >
-                Voir
-              </button>
+            <div className="px-3 pt-2 text-[11px] text-[var(--loboko-text-secondary)]">À la une · Sponsorisé</div>
+            <div className="flex items-center gap-3 p-3 pt-2">
+              <img src={ad.image} alt="" loading="lazy" className="h-16 w-20 shrink-0 rounded-xl bg-[var(--loboko-elevated)] object-cover sm:h-20 sm:w-28" />
+              <div className="min-w-0 flex-1">
+                <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{ad.title}</h3>
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--loboko-text-secondary)]">{ad.description}</p>
+              </div>
+              <button type="button" onClick={() => navigate(`/services/${ad.categorySlug}`)} aria-label={`Voir : ${ad.title}`} className="flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-[#2563eb]/15 px-3 text-xs font-semibold text-[#2563eb] hover:bg-[#2563eb]/25">Voir<ChevronRight size={15} aria-hidden="true" /></button>
             </div>
           </article>
         ))}
       </div>
 
       {/* Dot indicator — helpful on mobile where side arrows are hidden. */}
-      <div className="flex justify-center gap-1.5 mt-2 sm:hidden">
+      {ads.length > 1 && <div className="flex justify-center gap-1.5 mt-1">
         {ads.map((ad, idx) => (
           <button
             key={ad.id}
@@ -189,7 +170,7 @@ export default function AdsCarousel() {
             }`}
           />
         ))}
-      </div>
+      </div>}
     </section>
   );
 }

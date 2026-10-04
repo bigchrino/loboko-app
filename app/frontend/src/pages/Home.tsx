@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Image, Wrench, Star } from 'lucide-react';
 import Layout from '@/components/Layout';
 import ComposePost from '@/components/ComposePost';
 import PostCard, { PostItem } from '@/components/PostCard';
@@ -166,47 +167,20 @@ export default function Home() {
     <Layout title="Accueil">
       <HeroBanner onFindProvider={() => navigate('/find')} />
 
+      <nav aria-label="Raccourcis de l’accueil" className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          { to: '/works', label: 'Réalisations', icon: Image, color: 'bg-[#2563eb]' },
+          { to: '/requests', label: 'Demandes', icon: Wrench, color: 'bg-[#22c55e]' },
+          { to: '/favorites', label: 'Favoris', icon: Star, color: 'bg-[#f59e0b]' },
+        ].map(({ to, label, icon: Icon, color }) => (
+          <button key={to} type="button" onClick={() => navigate(to)} className="flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] px-1 py-3 text-center transition-colors hover:bg-[var(--loboko-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2563eb] sm:py-4">
+            <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-white ${color}`}><Icon size={23} aria-hidden="true" /></span>
+            <span className="text-xs font-semibold sm:text-sm">{label}</span>
+          </button>
+        ))}
+      </nav>
+
       <AdsCarousel />
-
-      {/* Marketplace shortcuts */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <button
-          onClick={() => navigate('/works')}
-          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
-        >
-          <div className="text-2xl mb-2">🎨</div>
-          <div className="font-semibold">Réalisations</div>
-          <div className="text-sm text-[var(--loboko-text-secondary)]">
-            Voir les travaux des prestataires
-          </div>
-        </button>
-
-        <button
-          onClick={() => navigate('/requests')}
-          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
-        >
-          <div className="text-2xl mb-2">🛠️</div>
-          <div className="font-semibold">Demandes</div>
-          <div className="text-sm text-[var(--loboko-text-secondary)]">
-            Publier ou consulter des demandes
-          </div>
-        </button>
-
-        <button
-          onClick={() => navigate('/favorites')}
-          className="p-4 rounded-2xl bg-[var(--loboko-elevated)] border border-[var(--loboko-border)] text-left hover:bg-[var(--loboko-surface-hover)] transition-all"
-        >
-          <div className="text-2xl mb-2">⭐</div>
-          <div className="font-semibold">Favoris</div>
-          <div className="text-sm text-[var(--loboko-text-secondary)]">
-            Retrouver vos prestataires favoris
-          </div>
-        </button>
-      </div>
-
-      <h1 className="text-2xl font-bold mb-4 hidden lg:block">
-        Fil d'actualité
-      </h1>
 
       <div id="loboko-compose">
         <ComposePost
@@ -220,6 +194,8 @@ export default function Home() {
           }}
         />
       </div>
+
+      <h2 className="mb-3 text-xl font-bold sm:text-2xl">Fil d’actualité</h2>
 
       <div id="loboko-feed" className="grid grid-cols-1 min-w-0">
         {loading && (

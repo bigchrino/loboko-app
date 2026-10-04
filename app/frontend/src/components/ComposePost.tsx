@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { uploadMediaEx } from '@/lib/storage-helpers';
+import { getMediaUrl, uploadMediaEx } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import MediaPicker, { MediaSelection } from './MediaPicker';
@@ -25,7 +25,15 @@ interface Props {
 const MAX_POST_VIDEO_SECONDS = 90;
 
 export default function ComposePost({ onPosted }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setAvatarUrl(null);
+    if (profile?.avatar_key) void getMediaUrl(profile.avatar_key).then(url => { if (!cancelled) setAvatarUrl(url || null); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [profile?.avatar_key]);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [media, setMedia] = useState<MediaSelection[]>([]);
@@ -193,7 +201,9 @@ export default function ComposePost({ onPosted }: Props) {
 
   return (
     <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4 mb-4">
-      <div className="relative">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2563eb]/15 text-sm font-bold text-[#2563eb]">{avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : (profile?.display_name || profile?.username || 'U').slice(0, 2).toUpperCase()}</span>
+        <div className="relative min-w-0 flex-1">
         <textarea
           ref={textareaRef}
           value={content}
@@ -206,9 +216,13 @@ export default function ComposePost({ onPosted }: Props) {
             const el = e.currentTarget;
             handleContentChange(el.value, el.selectionStart ?? el.value.length);
           }}
-          placeholder="Quoi de neuf, LOBOKO ? Utilisez @ pour mentionner quelqu'un"
-          rows={5}
-          className="w-full min-h-[140px] max-h-[260px] bg-transparent text-sm resize-y focus:outline-none placeholder:text-[var(--loboko-text-muted)]"
+          placeholder="Quoi de neuf, LOBOKO ?"
+          aria-label="Texte de votre publication"
+          disabled={loading}
+          onFocus={() => setExpanded(true)}
+          onBlur={() => { if (!content.trim()) setExpanded(false); }}
+          rows={expanded || content ? 3 : 1}
+          className="block w-full min-h-11 max-h-[260px] rounded-2xl border border-[var(--loboko-border)] bg-[var(--loboko-elevated)] px-3 py-2.5 text-base resize-y focus:outline-none focus:border-[#2563eb] placeholder:text-[var(--loboko-text-muted)]"
         />
         <MentionSuggestions
           open={mentionState.open}
@@ -217,6 +231,7 @@ export default function ComposePost({ onPosted }: Props) {
           onSelect={handlePickMention}
           onClose={() => setMentionState((p) => ({ ...p, open: false }))}
         />
+        </div>
       </div>
       {media.length > 0 && (
         <div className="mt-2 grid grid-cols-2 gap-2">
@@ -238,7 +253,7 @@ export default function ComposePost({ onPosted }: Props) {
           ))}
         </div>
       )}
-      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 mt-3 pt-3 pb-1 border-t border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2 pb-1 border-t border-[var(--loboko-border)] bg-[var(--loboko-surface)]">
         <MediaPicker
           maxVideoSeconds={MAX_POST_VIDEO_SECONDS}
           prepareForEditing
@@ -272,7 +287,7 @@ export default function ComposePost({ onPosted }: Props) {
         <button
           onClick={submit}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition shrink-0"
+          className="flex items-center gap-2 min-h-11 px-4 py-2 rounded-full bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition shrink-0"
         >
           <Send size={16} />
           {loading ? 'Envoi...' : 'Publier'}
