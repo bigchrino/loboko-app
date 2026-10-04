@@ -85,7 +85,7 @@ export default function ContactInfo() {
       try {
         // Profile
         const { data: p } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('*')
           .eq('user_id', peerId)
           .maybeSingle();

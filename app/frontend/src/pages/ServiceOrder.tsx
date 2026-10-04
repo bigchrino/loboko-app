@@ -34,7 +34,7 @@ export default function ServiceOrder() {
       if (!userId) return;
 
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('user_id, username, display_name, metier, service_id')
         .eq('user_id', userId)
         .maybeSingle();

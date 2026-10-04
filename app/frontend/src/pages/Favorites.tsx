@@ -91,7 +91,7 @@ export default function Favorites() {
 
       if (tab === 'provider') {
         const { data } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('user_id, display_name, username, avatar_key, metier, city')
           .in('user_id', ids);
 

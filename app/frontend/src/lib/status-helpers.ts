@@ -100,7 +100,7 @@ export async function loadActiveStatuses(): Promise<StatusWithAuthor[]> {
 
   const userIds = Array.from(new Set(list.map((s) => s.user_id)));
   const { data: profiles } = await supabase
-    .from('profiles')
+    .from('profile_directory')
     .select('user_id, username, display_name, avatar_key')
     .in('user_id', userIds);
 
@@ -278,7 +278,7 @@ export async function loadStatusViewers(statusId: string): Promise<StatusViewer[
   if (rows.length === 0) return [];
   const ids = Array.from(new Set(rows.map((r) => r.viewer_id)));
   const { data: profiles } = await supabase
-    .from('profiles')
+    .from('profile_directory')
     .select('user_id, username, display_name, avatar_key')
     .in('user_id', ids);
   const byUser = new Map<string, StatusAuthor>();

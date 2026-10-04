@@ -50,7 +50,7 @@ export default function SharedPostMessage({ payload, mine }: Props) {
         // Try resolve author name from profiles
         if (p.user_id) {
           const { data: prof } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('display_name,username')
             .eq('user_id', p.user_id)
             .maybeSingle();

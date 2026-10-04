@@ -177,7 +177,7 @@ export default function GroupInfo() {
       const userIds = Array.from(new Set(memberList.map((m) => m.user_id)));
       if (userIds.length) {
         const { data: profs } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('*')
           .in('user_id', userIds);
         const map: Record<string, Profile> = {};
@@ -288,7 +288,7 @@ export default function GroupInfo() {
       return;
     }
     const { data: profs } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('*')
       .in('user_id', candidates);
     setAvailableContacts((profs as Profile[]) || []);

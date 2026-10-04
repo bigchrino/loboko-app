@@ -70,7 +70,7 @@ export default function MyOrders() {
 
         if (providerIds.length > 0) {
           const { data: profiles } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('user_id, username, display_name, metier')
             .in('user_id', providerIds);
 

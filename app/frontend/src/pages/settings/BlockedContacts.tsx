@@ -52,7 +52,7 @@ export default function BlockedContacts() {
         return;
       }
       const { data, error } = await supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('user_id, username, display_name, avatar_key')
         .in('user_id', idList);
       if (error) throw error;

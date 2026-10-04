@@ -76,7 +76,7 @@ export default function ServiceRequestDetail() {
       }
 
       const { data: ownerData } = await supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('user_id, username, display_name, avatar_key, is_verified, verification_status')
         .eq('user_id', req.user_id)
         .maybeSingle();
@@ -93,7 +93,7 @@ export default function ServiceRequestDetail() {
         const providerIds = Array.from(new Set(resp.map((r) => r.provider_id)));
 
         const { data } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('user_id, username, display_name, avatar_key, is_verified, verification_status')
           .in('user_id', providerIds);
 

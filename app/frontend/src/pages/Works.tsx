@@ -107,7 +107,7 @@ export default function Works() {
         const authorsById = new Map<string, WorkCardState['author']>();
         if (authorIds.length > 0) {
           const { data } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('user_id, display_name, username, avatar_key')
             .in('user_id', authorIds);
           for (const a of (data as Array<{ user_id: string } & NonNullable<WorkCardState['author']>>) || []) {

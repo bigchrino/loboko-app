@@ -148,7 +148,7 @@ export default function Notifications() {
         await Promise.all([
           (async () => {
             if (!fromIds.length) { if (valid()) setSenders({}); return; }
-            const { data: profiles, error: profileError } = await supabase.from('profiles')
+            const { data: profiles, error: profileError } = await supabase.from('profile_directory')
               .select('user_id, username, display_name, avatar_key').in('user_id', fromIds);
             if (profileError) return;
             const entries = await Promise.all((profiles || []).map(async (profile: SenderProfile) => {

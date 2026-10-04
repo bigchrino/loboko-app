@@ -38,7 +38,7 @@ export async function fetchProductComments(
     // plutôt que via une jointure PostgREST.
     const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
     const { data: profiles } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('user_id, display_name, username, avatar_key')
       .in('user_id', userIds);
 

@@ -87,7 +87,7 @@ export default function PostCard({
     (async () => {
       try {
         const { data } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('username,display_name,metier,avatar_key,role,is_admin')
           .eq('user_id', post.user_id)
           .maybeSingle();

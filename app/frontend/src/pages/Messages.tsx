@@ -577,7 +577,7 @@ export default function Messages() {
     if (loadedInboxAccountRef.current !== myId) setLoading(true);
     const loadProfiles = async () => {
       try {
-        const { data, error } = await supabase.from('profiles').select('*').limit(200);
+        const { data, error } = await supabase.from('profile_directory').select('*').limit(200);
         if (error) throw error;
         if (cancelled || inboxOwnerRef.current !== myId) return;
         const map: Record<string, Profile> = {};

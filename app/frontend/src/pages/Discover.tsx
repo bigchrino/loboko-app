@@ -82,7 +82,7 @@ export default function Discover() {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('*')
           .eq('banned', false)
           .eq('suspended', false)

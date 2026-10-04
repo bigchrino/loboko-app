@@ -32,7 +32,7 @@ import PremiumBadge from '@/components/PremiumBadge';
 import {
   Coordinates,
   distanceInMeters,
-  formatDistance,
+  formatApproximateDistance,
   getCurrentPosition,
   isValidCoordinates,
 } from '@/lib/geo';
@@ -555,7 +555,7 @@ export default function ProvidersByCategory() {
                     )}
                     {p.distanceMeters != null && (
                       <span className="ml-1.5 inline-flex items-center gap-0.5 text-[#22c55e] font-semibold">
-                        · <LocateFixed size={10} /> {formatDistance(p.distanceMeters)}
+                        · <LocateFixed size={10} /> {formatApproximateDistance(p.distanceMeters)}
                       </span>
                     )}
                   </div>

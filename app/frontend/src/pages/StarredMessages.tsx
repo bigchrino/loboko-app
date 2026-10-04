@@ -269,7 +269,7 @@ export default function StarredMessages() {
       const profilesReq =
         profileIds.size > 0
           ? supabase
-              .from('profiles')
+              .from('profile_directory')
               .select('id, username, display_name, avatar_key')
               .in('id', Array.from(profileIds))
           : null;

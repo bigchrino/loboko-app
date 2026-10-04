@@ -189,7 +189,7 @@ export async function fetchCategoriesWithCounts(): Promise<ServiceCategoryWithCo
     }
 
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('service_id')
       .eq('role', 'prestataire')
       .eq('banned', false)
@@ -277,7 +277,7 @@ export async function fetchProvidersByCategory(
     if (serviceIds.length === 0) return [];
 
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)
@@ -303,7 +303,7 @@ export async function fetchProvidersByService(
 ): Promise<ProviderProfile[]> {
   try {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)
@@ -340,7 +340,7 @@ export async function fetchProviders(
 ): Promise<ProviderProfile[]> {
   try {
     let q = supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,verification_status,subscription_type,subscription_expires_at')
       .eq('role', 'prestataire')
       .eq('banned', false)

@@ -55,7 +55,7 @@ export default function ShopReceivedOrders() {
     const rows = await fetchShopProductOrders(shop.id);
     const clientIds = Array.from(new Set(rows.map((o) => o.client_id)));
     const { data: clients } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('user_id, display_name, username')
       .in('user_id', clientIds.length > 0 ? clientIds : ['00000000-0000-0000-0000-000000000000']);
     const clientMap = new Map(((clients as any[]) || []).map((c) => [c.user_id, c]));

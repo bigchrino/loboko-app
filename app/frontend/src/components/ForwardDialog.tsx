@@ -81,7 +81,7 @@ export default function ForwardDialog({
     setSelected(new Set());
     setQuery('');
     (async () => {
-      const { data, error } = await supabase.from('profiles').select('*').limit(300);
+      const { data, error } = await supabase.from('profile_directory').select('*').limit(300);
       if (error) return;
       const list = ((data as Profile[]) || []).filter((p) => p.user_id !== currentUserId);
       setProfiles(list);

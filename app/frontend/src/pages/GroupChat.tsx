@@ -236,7 +236,7 @@ export default function GroupChat() {
         const ids = [...new Set(list.map((member) => member.user_id))];
         const map: Record<string, Profile> = {};
         if (ids.length) {
-          const { data: profiles, error: profileError } = await supabase.from('profiles').select('*').in('user_id', ids);
+          const { data: profiles, error: profileError } = await supabase.from('profile_directory').select('*').in('user_id', ids);
           if (profileError) throw profileError;
           ((profiles as Profile[]) || []).forEach((profile) => { map[profile.user_id] = profile; });
         }

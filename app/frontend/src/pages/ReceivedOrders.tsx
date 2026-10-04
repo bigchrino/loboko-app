@@ -101,7 +101,7 @@ export default function ReceivedOrders() {
         if (clientIds.length > 0) {
           const { data: profiles } =
             await supabase
-              .from('profiles')
+              .from('profile_directory')
               .select(
                 'user_id, username, display_name'
               )

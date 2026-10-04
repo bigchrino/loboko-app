@@ -61,6 +61,13 @@ export function formatDistance(meters: number): string {
   return `À ${Math.round(km)} km`;
 }
 
+// Directory coordinates are deliberately coarse; never imply metre accuracy.
+export function formatApproximateDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return '';
+  if (meters < 1000) return 'À moins de 1 km environ';
+  return `À environ ${Math.round(meters / 1000)} km`;
+}
+
 export type GeolocationErrorReason =
   | 'denied'
   | 'unavailable'

@@ -152,7 +152,7 @@ export default function ComposePost({ onPosted }: Props) {
         let actorName = user.email?.split('@')[0] ?? 'Quelqu’un';
         try {
           const { data: p } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('username, display_name')
             .eq('user_id', user.id)
             .maybeSingle();

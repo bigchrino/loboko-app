@@ -64,7 +64,7 @@ export default function UserProfilePage() {
     setLoading(true);
     try {
       const { data: p, error } = await supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('*')
         .eq('user_id', userId)
         .eq('banned', false)
@@ -89,7 +89,7 @@ export default function UserProfilePage() {
       const ids = Array.from(new Set(list.map((r) => r.from_user_id)));
       if (ids.length) {
         const { data: rp } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('*')
           .in('user_id', ids);
         const map: Record<string, Profile> = {};

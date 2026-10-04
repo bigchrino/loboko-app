@@ -39,7 +39,7 @@ export default function LikesModal({ postId, open, onClose }: Props) {
           return;
         }
         const { data: profiles } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('user_id, username, display_name, avatar_key, metier')
           .in('user_id', userIds);
         const enriched: Liker[] = await Promise.all(

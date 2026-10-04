@@ -137,7 +137,7 @@ export default function Calls() {
         );
         if (missing.length > 0) {
           const { data } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('*')
             .in('user_id', missing);
           if (data) {

@@ -13,7 +13,7 @@ import { Profile } from '@/contexts/AuthContext';
 import {
   Coordinates,
   distanceInMeters,
-  formatDistance,
+  formatApproximateDistance,
   getCurrentPosition,
   isValidCoordinates,
 } from '@/lib/geo';
@@ -99,7 +99,7 @@ export default function UrgencePrestataires() {
 
     try {
       let q = supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('id,user_id,username,display_name,bio,metier,avatar_key,role,service_category_id,service_id,created_at,city,province,commune,latitude,longitude,availability_status,completed_jobs_count,is_verified,subscription_type,subscription_expires_at')
         .eq('role', 'prestataire')
         .eq('service_id', serviceId)
@@ -405,7 +405,7 @@ export default function UrgencePrestataires() {
                       )}
                       {p.distanceMeters != null && (
                         <span className="text-[#22c55e] font-semibold inline-flex items-center gap-0.5">
-                          <LocateFixed size={10} /> {formatDistance(p.distanceMeters)}
+                          <LocateFixed size={10} /> {formatApproximateDistance(p.distanceMeters)}
                         </span>
                       )}
                     </div>

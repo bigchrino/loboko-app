@@ -208,7 +208,7 @@ export default function CommentsModal({
       const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
-          .from('profiles')
+          .from('profile_directory')
           .select('user_id, username, display_name, avatar_key')
           .in('user_id', userIds);
         const map: Record<string, Author> = {};
@@ -506,7 +506,7 @@ export default function CommentsModal({
         let actorName = 'Quelqu’un';
         try {
           const { data: pr } = await supabase
-            .from('profiles')
+            .from('profile_directory')
             .select('username, display_name')
             .eq('user_id', authUid)
             .maybeSingle();

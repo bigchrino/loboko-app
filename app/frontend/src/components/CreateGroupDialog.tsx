@@ -122,7 +122,7 @@ export default function CreateGroupDialog({
         return;
       }
       const { data: profs } = await supabase
-        .from('profiles')
+        .from('profile_directory')
         .select('*')
         .in('user_id', Array.from(peerIds));
       const list = ((profs as Profile[]) || []).map((p) => ({ profile: p }));

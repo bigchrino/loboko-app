@@ -53,7 +53,7 @@ export async function searchMentionables(
   const q = query.trim();
   try {
     let req = supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('user_id, username, display_name, avatar_key')
       .limit(limit);
     if (q.length > 0) {
@@ -119,7 +119,7 @@ export async function resolveMentionedUserIds(
   if (names.length === 0) return {};
   try {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('user_id, username')
       .in('username', names);
     if (error) throw error;
@@ -150,7 +150,7 @@ export async function resolveUsernameToId(
   if (!clean) return null;
   try {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('profile_directory')
       .select('user_id')
       .eq('username', clean)
       .maybeSingle();
