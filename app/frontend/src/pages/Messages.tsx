@@ -127,10 +127,29 @@ interface Conversation {
 
 const MAX_MESSAGE_VIDEO_SECONDS = 60;
 
+interface InboxSnapshot {
+  userId: string;
+  allMessages: Message[];
+  profilesMap: Record<string, Profile>;
+  states: Record<string, ConversationState>;
+  blocked: Set<string>;
+  starred: Set<string>;
+  deletedForMe: Set<string>;
+  groups: Group[];
+  groupMembers: Record<string, GroupMember[]>;
+  groupLastMessages: Record<string, GroupMessage | undefined>;
+  groupReads: Record<string, string>;
+  groupUnreadCounts: Record<string, number>;
+}
+let inboxSnapshot: InboxSnapshot | null = null;
+
 // Keep only recent messages for a bounded number of conversations in this tab.
 const recentConversations = new Map<string, { messages: Message[]; hasMore: boolean }>();
 supabase.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT') recentConversations.clear();
+  if (event === 'SIGNED_OUT') {
+    recentConversations.clear();
+    inboxSnapshot = null;
+  }
 });
 
 function Avatar({ profile, online }: { profile?: Profile; online?: boolean }) {
@@ -307,12 +326,16 @@ export default function Messages() {
   const urlMessageId = searchParams.get('messageId');
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const myId = user?.id || '';
+  const [initialInbox] = useState(() => inboxSnapshot?.userId === myId ? inboxSnapshot : null);
+  const inboxOwnerRef = useRef(myId);
+  const loadedInboxAccountRef = useRef(initialInbox?.userId ?? '');
+  const inboxRequestRef = useRef<{ owner: string; promise: Promise<void> } | null>(null);
 
-  const [allMessages, setAllMessages] = useState<Message[]>([]);
-  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
+  const [allMessages, setAllMessages] = useState<Message[]>(initialInbox?.allMessages ?? []);
+  const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>(initialInbox?.profilesMap ?? {});
   const [activeUserId, setActiveUserId] = useState<string | null>(urlTo);
   const [draft, setDraft] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialInbox);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showRecorder, setShowRecorder] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
@@ -327,8 +350,8 @@ export default function Messages() {
   // Phase 1 state
   const [listQuery, setListQuery] = useState('');
   const [viewMode, setViewMode] = useState<'main' | 'archived'>('main');
-  const [states, setStates] = useState<Record<string, ConversationState>>({});
-  const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [states, setStates] = useState<Record<string, ConversationState>>(initialInbox?.states ?? {});
+  const [blocked, setBlocked] = useState<Set<string>>(initialInbox?.blocked ?? new Set());
   const [convSearchOpen, setConvSearchOpen] = useState(urlSearch);
   const [convQuery, setConvQuery] = useState('');
   const [convMatchIndex, setConvMatchIndex] = useState(0);
@@ -344,8 +367,8 @@ export default function Messages() {
 
   // Phase 2 state
   const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [starred, setStarred] = useState<Set<string>>(new Set());
-  const [deletedForMe, setDeletedForMe] = useState<Set<string>>(new Set());
+  const [starred, setStarred] = useState<Set<string>>(initialInbox?.starred ?? new Set());
+  const [deletedForMe, setDeletedForMe] = useState<Set<string>>(initialInbox?.deletedForMe ?? new Set());
   const [actionsMenu, setActionsMenu] = useState<{
     message: Message;
     x: number;
@@ -375,11 +398,11 @@ export default function Messages() {
   // Phase 3 groups state
   const [ephemeralDuration, setEphemeralDuration] = useState<number>(0);
   const [showEphemeralDialog, setShowEphemeralDialog] = useState(false);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>({});
-  const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>({});
-  const [groupReads, setGroupReads] = useState<Record<string, string>>({});
-  const [groupUnreadCounts, setGroupUnreadCounts] = useState<Record<string, number>>({});
+  const [groups, setGroups] = useState<Group[]>(initialInbox?.groups ?? []);
+  const [groupMembers, setGroupMembers] = useState<Record<string, GroupMember[]>>(initialInbox?.groupMembers ?? {});
+  const [groupLastMessages, setGroupLastMessages] = useState<Record<string, GroupMessage | undefined>>(initialInbox?.groupLastMessages ?? {});
+  const [groupReads, setGroupReads] = useState<Record<string, string>>(initialInbox?.groupReads ?? {});
+  const [groupUnreadCounts, setGroupUnreadCounts] = useState<Record<string, number>>(initialInbox?.groupUnreadCounts ?? {});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -397,6 +420,25 @@ export default function Messages() {
   const lastTypingSentRef = useRef<number>(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useLayoutEffect(() => {
+    if (inboxOwnerRef.current === myId) return;
+    inboxOwnerRef.current = myId;
+    loadedInboxAccountRef.current = '';
+    inboxSnapshot = null;
+    setAllMessages([]); setProfilesMap({}); setStates({}); setBlocked(new Set());
+    setStarred(new Set()); setDeletedForMe(new Set());
+    setGroups([]); setGroupMembers({}); setGroupLastMessages({});
+    setGroupReads({}); setGroupUnreadCounts({}); setLoading(true);
+  }, [myId]);
+
+  useEffect(() => {
+    if (!myId || loading || loadedInboxAccountRef.current !== myId || inboxOwnerRef.current !== myId) return;
+    inboxSnapshot = { userId: myId, allMessages, profilesMap, states, blocked,
+      starred, deletedForMe, groups, groupMembers, groupLastMessages,
+      groupReads, groupUnreadCounts };
+  }, [myId, loading, allMessages, profilesMap, states, blocked, starred,
+    deletedForMe, groups, groupMembers, groupLastMessages, groupReads, groupUnreadCounts]);
+
   // Global "inbox snapshot" used to build the conversation list previews
   // and per-conversation unread counters. We no longer pull 400 rows here
   // — only the last 80 recent rows across all conversations. The full
@@ -404,27 +446,28 @@ export default function Messages() {
   // `loadLatestDMPage` / `loadOlderDMPage` (cursor pagination).
   const loadMessages = useCallback(async () => {
     if (!myId) return;
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`user_id.eq.${myId},receiver_id.eq.${myId}`)
-        .order('created_at', { ascending: false })
-        .limit(80);
-      if (error) throw error;
-      setAllMessages((data as Message[]) || []);
-    } catch (e) {
-      logger.error('[Messages Error]', e);
-    }
+    if (inboxRequestRef.current?.owner === myId) return inboxRequestRef.current.promise;
+    const promise = (async () => {
+      try {
+        const { data, error } = await supabase.from('messages').select('*')
+          .or(`user_id.eq.${myId},receiver_id.eq.${myId}`)
+          .order('created_at', { ascending: false }).limit(80);
+        if (error) throw error;
+        if (inboxOwnerRef.current === myId) setAllMessages((data as Message[]) || []);
+      } catch (e) { logger.error('[Messages Error]', e); }
+    })();
+    inboxRequestRef.current = { owner: myId, promise };
+    try { await promise; }
+    finally { if (inboxRequestRef.current?.promise === promise) inboxRequestRef.current = null; }
   }, [myId]);
 
   const loadStates = useCallback(async () => {
     if (!myId) return;
-    const rows = await loadConversationStates(myId);
+    const [rows, b] = await Promise.all([loadConversationStates(myId), loadBlockedIds(myId)]);
+    if (inboxOwnerRef.current !== myId) return;
     const map: Record<string, ConversationState> = {};
     rows.forEach((s) => (map[s.peer_id] = s));
     setStates(map);
-    const b = await loadBlockedIds(myId);
     setBlocked(b);
   }, [myId]);
 
@@ -434,6 +477,7 @@ export default function Messages() {
       loadStarredIds(myId),
       loadDeletedForMeIds(myId),
     ]);
+    if (inboxOwnerRef.current !== myId) return;
     setStarred(star);
     setDeletedForMe(del);
   }, [myId]);
@@ -500,12 +544,14 @@ export default function Messages() {
     if (!myId) return;
     try {
       const { groups: gs, membersByGroup } = await loadMyGroups(myId);
+      if (inboxOwnerRef.current !== myId) return;
       setGroups(gs);
       setGroupMembers(membersByGroup);
 
       // Load this user's last_read_at for each group (may be empty if the
       // SQL from UNREAD_BADGES_SETUP.md has not been executed yet).
       const reads = await loadGroupReads(myId);
+      if (inboxOwnerRef.current !== myId) return;
       setGroupReads(reads);
 
       // For each group, fetch recent messages (enough to count unread) to both
@@ -532,6 +578,7 @@ export default function Messages() {
         }).length;
         unread[id] = count;
       });
+      if (inboxOwnerRef.current !== myId) return;
       setGroupLastMessages(lm);
       setGroupUnreadCounts(unread);
     } catch (e) {
@@ -540,25 +587,28 @@ export default function Messages() {
   }, [myId]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await loadMessages();
+    if (!myId) return;
+    let cancelled = false;
+    if (loadedInboxAccountRef.current !== myId) setLoading(true);
+    const loadProfiles = async () => {
       try {
         const { data, error } = await supabase.from('profiles').select('*').limit(200);
         if (error) throw error;
-        const list = (data as Profile[]) || [];
+        if (cancelled || inboxOwnerRef.current !== myId) return;
         const map: Record<string, Profile> = {};
-        list.forEach((p) => (map[p.user_id] = p));
+        ((data as Profile[]) || []).forEach((p) => (map[p.user_id] = p));
         setProfilesMap(map);
-      } catch (e) {
-       logger.error(e);
-      }
-      await loadStates();
-      await loadPhase2();
-      await loadGroups();
+      } catch (e) { logger.error(e); }
+    };
+    // Groups update independently: their history must not block direct messages.
+    void loadGroups();
+    void Promise.allSettled([loadMessages(), loadProfiles(), loadStates(), loadPhase2()]).then(() => {
+      if (cancelled || inboxOwnerRef.current !== myId) return;
+      loadedInboxAccountRef.current = myId;
       setLoading(false);
-    })();
-  }, [loadMessages, loadStates, loadPhase2, loadGroups]);
+    });
+    return () => { cancelled = true; };
+  }, [myId, loadMessages, loadStates, loadPhase2, loadGroups]);
 
   // Periodically refresh groups preview
   useEffect(() => {
@@ -1860,8 +1910,16 @@ export default function Messages() {
           )}
 
           {loading ? (
-            <div className="text-center py-10 text-sm text-[var(--loboko-text-muted)]">
-              Chargement...
+            <div className="space-y-2" role="status" aria-label="Chargement des conversations">
+              {[0, 1, 2, 3, 4].map((row) => (
+                <div key={row} className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--loboko-surface)] border border-[var(--loboko-border)] motion-safe:animate-pulse" aria-hidden="true">
+                  <div className="w-11 h-11 rounded-full bg-[var(--loboko-elevated)] shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-28 rounded bg-[var(--loboko-elevated)]" />
+                    <div className="h-3 w-3/4 rounded bg-[var(--loboko-elevated)]" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : visibleList.length === 0 ? (
             <div className="text-center py-16 px-4 bg-[var(--loboko-surface)] rounded-2xl border border-[var(--loboko-border)]">
