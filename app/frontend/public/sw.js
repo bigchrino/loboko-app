@@ -92,6 +92,11 @@ self.addEventListener('notificationclick', (event) => {
     return '/messages';
   })();
 
+  // A notification intentionally opens its destination, even on a cold launch.
+  const launchUrl = new URL(targetPath, self.location.origin);
+  launchUrl.searchParams.set('loboko_launch', 'notification');
+  const launchPath = launchUrl.pathname + launchUrl.search + launchUrl.hash;
+
   event.waitUntil((async () => {
     const clientList = await self.clients.matchAll({
       type: 'window',
@@ -105,7 +110,7 @@ self.addEventListener('notificationclick', (event) => {
           await client.focus();
           if ('navigate' in client) {
             try {
-              await client.navigate(targetPath);
+              await client.navigate(launchPath);
             } catch (_) {
               client.postMessage({ type: 'navigate', path: targetPath });
             }
@@ -119,6 +124,6 @@ self.addEventListener('notificationclick', (event) => {
       }
     }
     // Otherwise open a new window.
-    await self.clients.openWindow(targetPath);
+    await self.clients.openWindow(launchPath);
   })());
 });

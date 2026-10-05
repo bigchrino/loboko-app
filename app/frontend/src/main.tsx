@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { registerServiceWorker } from './lib/push-notifications.ts';
+import { prepareAppLaunch } from './lib/app-launch.ts';
 
 // Empêche le navigateur de tenter sa propre restauration automatique de la
 // position de scroll lors d'une navigation "retour". Sans cela, le fil
@@ -25,6 +26,8 @@ async function initializeApp() {
   ) {
     return;
   }
+
+  prepareAppLaunch();
 
   // Best-effort service worker registration for Web Push. Failures are
   // swallowed and never block app rendering.

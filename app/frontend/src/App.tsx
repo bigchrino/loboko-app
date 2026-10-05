@@ -1,4 +1,5 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { rememberAppPath } from '@/lib/app-launch';
 import { lazyPage, registerPageRoute } from '@/lib/page-preload';
 import NavigationPrefetch from '@/components/NavigationPrefetch';
 import RouteLoadBoundary from './components/RouteLoadBoundary';
@@ -267,7 +268,8 @@ for (const { path, element } of protectedRoutes) {
 }
 
 const AppRoutes = () => {
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
+  useEffect(() => { rememberAppPath(pathname + search + hash); }, [pathname, search, hash]);
   return (
   <RouteLoadBoundary resetKey={pathname}>
   <Suspense fallback={<RoutePending />}>
