@@ -41,7 +41,7 @@ export default function MessagePressable({ disabled = false, onMenu, className =
       onPointerCancelCapture={cancel}
       onPointerLeave={cancel}
       onClickCapture={(event) => {
-        if (held.current && event.currentTarget.contains(event.target as Node)) {
+        if (held.current && event.detail !== 0 && event.currentTarget.contains(event.target as Node)) {
           // Releasing a hold must not also open the image or start playback.
           event.preventDefault();
           event.stopPropagation();

@@ -29,7 +29,7 @@ function fixture() {
   };
   const target = {};
   const event = (extra = {}) => ({ target, currentTarget: { contains: node => node === target },
-    clientX: 20, clientY: 30, pointerId: 1, button: 0, isPrimary: true,
+    clientX: 20, clientY: 30, pointerId: 1, button: 0, isPrimary: true, detail: 1,
     preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...extra });
   return { render, event, menus, flush: () => { const callbacks = [...timers.values()]; timers.clear(); callbacks.forEach(fn => fn()); }, unmount: () => cleanup() };
 }
@@ -49,6 +49,8 @@ test('holding opens actions once and release cannot open the viewer or play audi
   p.onPointerUpCapture(f.event()); const click = f.event(); p.onClickCapture(click);
   assert.equal(f.menus.length, 1); assert.equal(context.prevented, true);
   assert.equal(click.prevented, true); assert.equal(click.stopped, true);
+  const keyboardClick = f.event({ detail: 0 }); p.onClickCapture(keyboardClick);
+  assert.equal(keyboardClick.prevented, undefined);
   p.onPointerDownCapture(f.event()); p.onPointerUpCapture(f.event());
   const next = f.event(); p.onClickCapture(next); assert.equal(next.prevented, undefined);
 });
