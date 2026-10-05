@@ -166,3 +166,12 @@ html[data-reduce-motion='true'] *::after {
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* Chat holds use LOBOKO actions instead of Safari's image/link callout. */
+.loboko-message-pressable,
+.loboko-message-pressable img,
+.loboko-message-pressable a {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

@@ -1,3 +1,4 @@
+import MessagePressable from '@/components/MessagePressable';
 import ForwardDialog from '@/components/ForwardDialog';
 import ChatThemeDialog from '@/components/ChatThemeDialog';
 import { useChatTheme } from '@/lib/chat-theme';
@@ -1190,19 +1191,6 @@ export default function GroupChat() {
                 ? messageById[m.reply_to_message_id]
                 : undefined;
 
-              let pressTimer: ReturnType<typeof setTimeout> | null = null;
-              const startPress = (x: number, y: number) => {
-                if (isDeleted) return;
-                if (pressTimer) clearTimeout(pressTimer);
-                pressTimer = setTimeout(() => openMenu(m, x, y), 450);
-              };
-              const cancelPress = () => {
-                if (pressTimer) {
-                  clearTimeout(pressTimer);
-                  pressTimer = null;
-                }
-              };
-
               const messageMeta = (
                 <div
                   className={`flex items-center gap-1 mt-1 text-[10px] ${
@@ -1246,21 +1234,9 @@ export default function GroupChat() {
                           {nameOf(m.user_id)}
                         </div>
                       )}
-                      <div
-                        onMouseDown={(e) => startPress(e.clientX, e.clientY)}
-                        onMouseUp={cancelPress}
-                        onMouseLeave={cancelPress}
-                        onTouchStart={(e) => {
-                          const t = e.touches[0];
-                          if (t) startPress(t.clientX, t.clientY);
-                        }}
-                        onTouchEnd={cancelPress}
-                        onTouchCancel={cancelPress}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          cancelPress();
-                          openMenu(m, e.clientX, e.clientY);
-                        }}
+                      <MessagePressable
+                        disabled={isDeleted}
+                        onMenu={(x, y) => openMenu(m, x, y)}
                         className={`${
                           isMedia && !isDeleted ? 'p-0' : 'px-3 py-2'
                         } rounded-2xl text-sm select-none ${
@@ -1329,7 +1305,7 @@ export default function GroupChat() {
                           />
                         )}
                         {(!isMedia || isDeleted) && messageMeta}
-                      </div>
+                      </MessagePressable>
                       {!isDeleted && Object.keys(reactionGroups).length > 0 && (
                         <div
                           className={`flex flex-wrap gap-1 mt-1 ${

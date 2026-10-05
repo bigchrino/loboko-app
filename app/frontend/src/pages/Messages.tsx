@@ -1,3 +1,4 @@
+import MessagePressable from '@/components/MessagePressable';
 import { useChatTheme } from '@/lib/chat-theme';
 import { forwardContentToContacts } from '@/lib/forward-content';
 import ChatDateSeparator from '@/components/ChatDateSeparator';
@@ -2240,22 +2241,6 @@ export default function Messages() {
                   ? messageById[m.reply_to_message_id]
                   : undefined;
 
-                // Long-press handlers
-                let pressTimer: ReturnType<typeof setTimeout> | null = null;
-                const startPress = (x: number, y: number) => {
-                  if (isDeletedForEveryone) return;
-                  if (pressTimer) clearTimeout(pressTimer);
-                  pressTimer = setTimeout(() => {
-                    openMessageMenu(m, x, y);
-                  }, 450);
-                };
-                const cancelPress = () => {
-                  if (pressTimer) {
-                    clearTimeout(pressTimer);
-                    pressTimer = null;
-                  }
-                };
-
                 const messageMeta = (
                   <div
                     className={`flex items-center gap-1 mt-1 text-[10px] ${
@@ -2292,21 +2277,9 @@ export default function Messages() {
                           : 'transition-[background,box-shadow] duration-500'
                       }`}
                     >
-                      <div
-                        onMouseDown={(e) => startPress(e.clientX, e.clientY)}
-                        onMouseUp={cancelPress}
-                        onMouseLeave={cancelPress}
-                        onTouchStart={(e) => {
-                          const t = e.touches[0];
-                          if (t) startPress(t.clientX, t.clientY);
-                        }}
-                        onTouchEnd={cancelPress}
-                        onTouchCancel={cancelPress}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          cancelPress();
-                          openMessageMenu(m, e.clientX, e.clientY);
-                        }}
+                      <MessagePressable
+                        disabled={isDeletedForEveryone}
+                        onMenu={(x, y) => openMessageMenu(m, x, y)}
                         className={`${
                           isMedia && !isDeletedForEveryone ? 'p-0' : 'px-3 py-2'
                         } max-w-[85%] sm:max-w-[75%] rounded-2xl text-sm select-none ${
@@ -2381,7 +2354,7 @@ export default function Messages() {
                           </span>
                         )}
                         {(!isMedia || isDeletedForEveryone) && messageMeta}
-                      </div>
+                      </MessagePressable>
                       {/* Reactions row */}
                       {!isDeletedForEveryone && Object.keys(reactionGroups).length > 0 && (
                         <div

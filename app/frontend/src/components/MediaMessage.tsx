@@ -99,7 +99,7 @@ function MediaInner({ kind, objectKey, duration, poster }: Props) {
         <button type="button" aria-label="Ouvrir la photo en plein écran"
           onClick={(event) => { event.stopPropagation(); setViewerOpen(true); }}
           className="block w-full h-full">
-          <img src={url} alt="photo" onLoad={() => { setError(false); setReady(true); }} onError={() => setError(true)}
+          <img src={url} alt="photo" draggable={false} onLoad={() => { setError(false); setReady(true); }} onError={() => setError(true)}
             ref={(element) => {
               // Safari may finish a cached image before React receives load.
               if (element?.complete && element.naturalWidth > 0) setReady(true);
