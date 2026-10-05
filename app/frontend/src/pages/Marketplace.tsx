@@ -48,7 +48,7 @@ export default function Marketplace() {
   return (
     <Layout title="Marketplace">
       <div className="space-y-6">
-        <section className="rounded-3xl border border-[var(--loboko-border)] bg-gradient-to-br from-[#102454] via-[#101827] to-[var(--loboko-surface)] p-5 sm:p-7">
+        <section className="rounded-3xl border border-[var(--loboko-border)] bg-gradient-to-br from-[#2563eb]/15 via-[#2563eb]/5 to-[var(--loboko-surface)] dark:from-[#102454] dark:via-[#101827] p-5 sm:p-7">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">LOBOKO · Boutiques & produits</p>
           <h1 className="mt-2 text-2xl font-bold sm:text-3xl">Achetez auprès des boutiques LOBOKO</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[var(--loboko-text-secondary)]">Découvrez des produits, contactez les vendeurs et retrouvez vos commandes au même endroit.</p>

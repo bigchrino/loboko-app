@@ -1,7 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { loadRuntimeConfig } from './lib/config.ts';
 import { registerServiceWorker } from './lib/push-notifications.ts';
 
 // Empêche le navigateur de tenter sa propre restauration automatique de la
@@ -14,7 +13,7 @@ if ('scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual';
 }
 
-// Load runtime configuration before rendering the app
+// Mount immediately; optional background services must not delay the UI.
 async function initializeApp() {
   // Prerendered blog pages are served as pure static HTML for SEO.
   // Intentionally skip React mounting so the crawler-facing markup stays
@@ -25,16 +24,6 @@ async function initializeApp() {
       ?.getAttribute('content') === 'blog'
   ) {
     return;
-  }
-
-  try {
-    await loadRuntimeConfig();
-    console.log('Runtime configuration loaded successfully');
-  } catch (error) {
-    console.warn(
-      'Failed to load runtime configuration, using defaults:',
-      error
-    );
   }
 
   // Best-effort service worker registration for Web Push. Failures are

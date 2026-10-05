@@ -2,11 +2,17 @@ import { Component, type ReactNode } from 'react';
 
 /** Recover from a failed page chunk, including an outdated cached deployment. */
 export default class RouteLoadBoundary extends Component<
-  { children: ReactNode }, { failed: boolean }
+  { children: ReactNode; resetKey?: string }, { failed: boolean }
 > {
   state = { failed: false };
 
   static getDerivedStateFromError() { return { failed: true }; }
+
+  componentDidUpdate(previous: { children: ReactNode; resetKey?: string }) {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) {
+      this.setState({ failed: false });
+    }
+  }
 
   render() {
     if (!this.state.failed) return this.props.children;

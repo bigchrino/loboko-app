@@ -1,78 +1,78 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyPage, registerPageRoute } from '@/lib/page-preload';
+import NavigationPrefetch from '@/components/NavigationPrefetch';
 import RouteLoadBoundary from './components/RouteLoadBoundary';
 import { MissedCallsProvider } from '@/contexts/MissedCallsContext';
 import { Toaster } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-const Verification = lazy(() => import('./pages/Verification'));
-const AdminVerifications = lazy(() => import('./pages/AdminVerifications'));
-const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+const Verification = lazyPage(() => import('./pages/Verification'));
+const AdminVerifications = lazyPage(() => import('./pages/AdminVerifications'));
+const AdminDashboard = lazyPage(() => import('./pages/admin/AdminDashboard'));
 import AdminRoute from './components/AdminRoute';
-const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
-const AdminPosts = lazy(() => import('./pages/admin/AdminPosts'));
-const AdminStats = lazy(() => import('./pages/admin/AdminStats'));
-const AdminAds = lazy(() => import('./pages/admin/AdminAds'));
-const AdminPayments = lazy(() => import('./pages/admin/AdminPayments'));
-const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
-const MyOrders = lazy(() => import('./pages/MyOrders'));
-const ServiceOrderDetail = lazy(() => import('./pages/ServiceOrderDetail'));
-const ReceivedOrders = lazy(() => import('./pages/ReceivedOrders'));
-const ServicePayment = lazy(() => import('./pages/ServicePayment'));
+const AdminUsers = lazyPage(() => import('./pages/admin/AdminUsers'));
+const AdminPosts = lazyPage(() => import('./pages/admin/AdminPosts'));
+const AdminStats = lazyPage(() => import('./pages/admin/AdminStats'));
+const AdminAds = lazyPage(() => import('./pages/admin/AdminAds'));
+const AdminPayments = lazyPage(() => import('./pages/admin/AdminPayments'));
+const AdminJournal = lazyPage(() => import('./pages/admin/AdminJournal'));
+const MyOrders = lazyPage(() => import('./pages/MyOrders'));
+const ServiceOrderDetail = lazyPage(() => import('./pages/ServiceOrderDetail'));
+const ReceivedOrders = lazyPage(() => import('./pages/ReceivedOrders'));
+const ServicePayment = lazyPage(() => import('./pages/ServicePayment'));
 
-const Index = lazy(() => import('./pages/Index'));
-const PublicContact = lazy(() => import('./pages/PublicContact'));
-const AuthCallback = lazy(() => import('./pages/AuthCallback'));
-const AuthError = lazy(() => import('./pages/AuthError'));
-const Home = lazy(() => import('./pages/Home'));
-const Discover = lazy(() => import('./pages/Discover'));
-const Messages = lazy(() => import('./pages/Messages'));
-const Calls = lazy(() => import('./pages/Calls'));
-const Statuses = lazy(() => import('./pages/Statuses'));
-const GroupChat = lazy(() => import('./pages/GroupChat'));
-const GroupInfo = lazy(() => import('./pages/GroupInfo'));
-const StarredMessages = lazy(() => import('./pages/StarredMessages'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Settings = lazy(() => import('./pages/Settings'));
-const OnboardingProfile = lazy(() => import('./pages/OnboardingProfile'));
-const Suggestion = lazy(() => import('./pages/Suggestion'));
-const Entreprise = lazy(() => import('./pages/Entreprise'));
-const CreateCompany = lazy(() => import('./pages/CreateCompany'));
-const CompanyManage = lazy(() => import('./pages/CompanyManage'));
-const CompanyDetail = lazy(() => import('./pages/CompanyDetail'));
-const CompanyJobOffersManage = lazy(() => import('./pages/CompanyJobOffersManage'));
-const MyMusalaRequests = lazy(() => import('./pages/MyMusalaRequests'));
-const EntrepriseOffres = lazy(() => import('./pages/EntrepriseOffres'));
-const EntrepriseMusala = lazy(() => import('./pages/EntrepriseMusala'));
-const Panier = lazy(() => import('./pages/Panier'));
-const Marketplace = lazy(() => import('./pages/Marketplace'));
-const CreateShop = lazy(() => import('./pages/CreateShop'));
-const ShopManage = lazy(() => import('./pages/ShopManage'));
-const DiscoverShops = lazy(() => import('./pages/DiscoverShops'));
-const ShopDetail = lazy(() => import('./pages/ShopDetail'));
-const ProductDetail = lazy(() => import('./pages/ProductDetail'));
-const MyProductOrders = lazy(() => import('./pages/MyProductOrders'));
-const ShopReceivedOrders = lazy(() => import('./pages/ShopReceivedOrders'));
-const Urgences = lazy(() => import('./pages/Urgences'));
-const UrgencesHopitaux = lazy(() => import('./pages/UrgencesHopitaux'));
-const UrgencesPolices = lazy(() => import('./pages/UrgencesPolices'));
-const UrgencesCasernes = lazy(() => import('./pages/UrgencesCasernes'));
-const UrgencePrestataires = lazy(() => import('./pages/urgences/UrgencePrestataires'));
-const Recherches = lazy(() => import('./pages/Recherches'));
-const Menu = lazy(() => import('./pages/Menu'));
-const UserProfilePage = lazy(() => import('./pages/UserProfile'));
-const PostDetail = lazy(() => import('./pages/PostDetail'));
-const ContactInfo = lazy(() => import('./pages/ContactInfo'));
-const FindProviders = lazy(() => import('./pages/FindProviders'));
-const AdminReports = lazy(() => import('./pages/AdminReports'));
-const ProvidersByCategory = lazy(() => import('./pages/ProvidersByCategory'));
+const Index = lazyPage(() => import('./pages/Index'));
+const PublicContact = lazyPage(() => import('./pages/PublicContact'));
+const AuthCallback = lazyPage(() => import('./pages/AuthCallback'));
+const AuthError = lazyPage(() => import('./pages/AuthError'));
+const Home = lazyPage(() => import('./pages/Home'));
+const Discover = lazyPage(() => import('./pages/Discover'));
+const Messages = lazyPage(() => import('./pages/Messages'));
+const Calls = lazyPage(() => import('./pages/Calls'));
+const Statuses = lazyPage(() => import('./pages/Statuses'));
+const GroupChat = lazyPage(() => import('./pages/GroupChat'));
+const GroupInfo = lazyPage(() => import('./pages/GroupInfo'));
+const StarredMessages = lazyPage(() => import('./pages/StarredMessages'));
+const Profile = lazyPage(() => import('./pages/Profile'));
+const Notifications = lazyPage(() => import('./pages/Notifications'));
+const Settings = lazyPage(() => import('./pages/Settings'));
+const OnboardingProfile = lazyPage(() => import('./pages/OnboardingProfile'));
+const Suggestion = lazyPage(() => import('./pages/Suggestion'));
+const Entreprise = lazyPage(() => import('./pages/Entreprise'));
+const CreateCompany = lazyPage(() => import('./pages/CreateCompany'));
+const CompanyManage = lazyPage(() => import('./pages/CompanyManage'));
+const CompanyDetail = lazyPage(() => import('./pages/CompanyDetail'));
+const CompanyJobOffersManage = lazyPage(() => import('./pages/CompanyJobOffersManage'));
+const MyMusalaRequests = lazyPage(() => import('./pages/MyMusalaRequests'));
+const EntrepriseOffres = lazyPage(() => import('./pages/EntrepriseOffres'));
+const EntrepriseMusala = lazyPage(() => import('./pages/EntrepriseMusala'));
+const Panier = lazyPage(() => import('./pages/Panier'));
+const Marketplace = lazyPage(() => import('./pages/Marketplace'));
+const CreateShop = lazyPage(() => import('./pages/CreateShop'));
+const ShopManage = lazyPage(() => import('./pages/ShopManage'));
+const DiscoverShops = lazyPage(() => import('./pages/DiscoverShops'));
+const ShopDetail = lazyPage(() => import('./pages/ShopDetail'));
+const ProductDetail = lazyPage(() => import('./pages/ProductDetail'));
+const MyProductOrders = lazyPage(() => import('./pages/MyProductOrders'));
+const ShopReceivedOrders = lazyPage(() => import('./pages/ShopReceivedOrders'));
+const Urgences = lazyPage(() => import('./pages/Urgences'));
+const UrgencesHopitaux = lazyPage(() => import('./pages/UrgencesHopitaux'));
+const UrgencesPolices = lazyPage(() => import('./pages/UrgencesPolices'));
+const UrgencesCasernes = lazyPage(() => import('./pages/UrgencesCasernes'));
+const UrgencePrestataires = lazyPage(() => import('./pages/urgences/UrgencePrestataires'));
+const Recherches = lazyPage(() => import('./pages/Recherches'));
+const Menu = lazyPage(() => import('./pages/Menu'));
+const UserProfilePage = lazyPage(() => import('./pages/UserProfile'));
+const PostDetail = lazyPage(() => import('./pages/PostDetail'));
+const ContactInfo = lazyPage(() => import('./pages/ContactInfo'));
+const FindProviders = lazyPage(() => import('./pages/FindProviders'));
+const AdminReports = lazyPage(() => import('./pages/AdminReports'));
+const ProvidersByCategory = lazyPage(() => import('./pages/ProvidersByCategory'));
 
-const Works = lazy(() => import('./pages/Works'));
-const ServiceRequests = lazy(() => import('./pages/ServiceRequests'));
-const ServiceRequestDetail = lazy(() => import('./pages/ServiceRequestDetail'));
-const ServiceOrder = lazy(() => import('./pages/ServiceOrder'));
-const Favorites = lazy(() => import('./pages/Favorites'));
+const Works = lazyPage(() => import('./pages/Works'));
+const ServiceRequests = lazyPage(() => import('./pages/ServiceRequests'));
+const ServiceRequestDetail = lazyPage(() => import('./pages/ServiceRequestDetail'));
+const ServiceOrder = lazyPage(() => import('./pages/ServiceOrder'));
+const Favorites = lazyPage(() => import('./pages/Favorites'));
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -81,12 +81,10 @@ import { NotificationsProvider } from './contexts/NotificationsContext';
 import { MessagesProvider } from './contexts/MessagesContext';
 import { CallProvider } from './contexts/CallContext';
 import { PresenceProvider } from './contexts/PresenceContext';
-const RoleChangeRequestPage = lazy(() => import('./pages/settings/RoleChangeRequestPage'));
-const BlockedContacts = lazy(() => import('./pages/settings/BlockedContacts'));
-const HelpSupport = lazy(() => import('./pages/settings/HelpSupport'));
-const AdminRoleRequests = lazy(() => import('./pages/admin/AdminRoleRequests'));
-
-const queryClient = new QueryClient();
+const RoleChangeRequestPage = lazyPage(() => import('./pages/settings/RoleChangeRequestPage'));
+const BlockedContacts = lazyPage(() => import('./pages/settings/BlockedContacts'));
+const HelpSupport = lazyPage(() => import('./pages/settings/HelpSupport'));
+const AdminRoleRequests = lazyPage(() => import('./pages/admin/AdminRoleRequests'));
 
 function ProtectedWithProfile({ children }: { children: JSX.Element }) {
   const { user, profile, loading } = useAuth();
@@ -260,8 +258,18 @@ function RoutePending() {
   );
 }
 
-const AppRoutes = () => (
-  <RouteLoadBoundary>
+registerPageRoute('/', Index);
+registerPageRoute('/onboarding', OnboardingProfile);
+registerPageRoute('/contact', PublicContact);
+for (const { path, element } of protectedRoutes) {
+  const page = element.type === AdminRoute ? element.props.children : element;
+  registerPageRoute(path, page.type);
+}
+
+const AppRoutes = () => {
+  const { pathname } = useLocation();
+  return (
+  <RouteLoadBoundary resetKey={pathname}>
   <Suspense fallback={<RoutePending />}>
   <Routes>
     <Route path="/" element={<Index />} />
@@ -285,10 +293,10 @@ const AppRoutes = () => (
   </Routes>
   </Suspense>
   </RouteLoadBoundary>
-);
+  );
+};
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
         <NotificationsProvider>
@@ -296,13 +304,12 @@ const App = () => (
             <PresenceProvider>
               <CallProvider>
                 <MissedCallsProvider>
-                  <TooltipProvider>
                     <Toaster />
 
                     <BrowserRouter future={{ v7_startTransition: true }}>
+                      <NavigationPrefetch />
                       <AppRoutes />
                     </BrowserRouter>
-                  </TooltipProvider>
                 </MissedCallsProvider>
               </CallProvider>
             </PresenceProvider>
@@ -310,7 +317,6 @@ const App = () => (
         </NotificationsProvider>
       </AuthProvider>
     </ThemeProvider>
-  </QueryClientProvider>
 );
 
 export default App;

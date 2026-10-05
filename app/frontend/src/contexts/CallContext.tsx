@@ -1,5 +1,7 @@
 import {
   createContext,
+  lazy,
+  Suspense,
   ReactNode,
   useCallback,
   useContext,
@@ -9,7 +11,7 @@ import {
 } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import CallModal from '@/components/CallModal';
+const CallModal = lazy(() => import('@/components/CallModal'));
 import { encodePayload } from '@/lib/message-format';
 
 type CallResultStatus = 'accepted' | 'rejected' | 'missed' | 'ended';
@@ -313,6 +315,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     <CallContext.Provider value={{ startCall, inCall: !!active }}>
       {children}
       {active && myId && (
+        <Suspense fallback={<div role="status" className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--loboko-bg)] text-[var(--loboko-text)]">Connexion à l’appel…</div>}>
         <CallModal
           key={active.callId}
           myId={myId}
@@ -324,6 +327,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
           initialOffer={active.initialOffer}
           onClose={handleClose}
         />
+        </Suspense>
       )}
     </CallContext.Provider>
   );

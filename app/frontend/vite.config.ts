@@ -67,7 +67,6 @@ export default defineConfig(({ command }) => {
             'router-vendor': ['react-router-dom'],
             'ui-vendor': [
               '@radix-ui/react-slot',
-              '@radix-ui/react-tooltip',
             ],
             'utils-vendor': [
               'clsx',
@@ -75,7 +74,6 @@ export default defineConfig(({ command }) => {
               'class-variance-authority',
               'lucide-react',
             ],
-            'query-vendor': ['@tanstack/react-query'],
           },
         },
       },

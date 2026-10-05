@@ -76,6 +76,7 @@ export default function RoleChangeRequestPage() {
 
   return (
     <Layout title="Changement de compte">
+      <h1 className="mb-4 text-2xl font-bold">Changement de compte</h1>
       <div className="space-y-4">
 
         <div className="bg-[var(--loboko-surface)] border border-[var(--loboko-border)] rounded-2xl p-4">
@@ -87,6 +88,7 @@ export default function RoleChangeRequestPage() {
           <div className="space-y-3">
 
             <select
+              aria-label="Type de compte demandé"
               value={requestedRole}
               onChange={(e) =>
                 setRequestedRole(
@@ -116,6 +118,7 @@ export default function RoleChangeRequestPage() {
             )}
 
             <textarea
+              aria-label="Motif du changement de compte"
               value={reason}
               onChange={(e) =>
                 setReason(e.target.value)

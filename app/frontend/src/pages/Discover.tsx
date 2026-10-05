@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useDeferredValue, useRef, useState } from 'react';
 import Layout from '@/components/Layout';
 import { Search, MessageCircle, Star, MapPin, SlidersHorizontal, ChevronDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { getMediaUrl } from '@/lib/storage-helpers';
-import { Profile } from '@/contexts/AuthContext';
+import { Profile, useAuth } from '@/contexts/AuthContext';
 import {
   getProvinceNames,
   getCitiesByProvince,
@@ -56,19 +56,38 @@ function ProfileCard({ profile, onMessage, onOpen, summary }: ProfileCardProps) 
   );
 }
 
+interface DiscoveryView {
+  search: string;
+  filter: 'all' | 'prestataire' | 'client';
+  availableOnly: boolean;
+  provinceFilter: string;
+  cityFilter: string;
+  communeFilter: string;
+  locationOpen: boolean;
+  visibleCount: number;
+}
+
+// Keep the expanded list and filters when returning from a profile in this tab.
+const discoveryViews = new Map<string, DiscoveryView>();
+
 export default function Discover() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { key } = useLocation();
+  const navigation = useNavigationType();
+  const viewKey = `${user?.id ?? 'guest'}:${key}`;
+  const previous = navigation === 'POP' ? discoveryViews.get(viewKey) : undefined;
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [ratingMap, setRatingMap] = useState<Record<string, { average: number; count: number }>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>('all');
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [provinceFilter, setProvinceFilter] = useState('');
-  const [cityFilter, setCityFilter] = useState('');
-  const [communeFilter, setCommuneFilter] = useState('');
-  const [locationOpen, setLocationOpen] = useState(false);
+  const [search, setSearch] = useState(previous?.search ?? '');
+  const [filter, setFilter] = useState<'all' | 'prestataire' | 'client'>(previous?.filter ?? 'all');
+  const [availableOnly, setAvailableOnly] = useState(previous?.availableOnly ?? false);
+  const [provinceFilter, setProvinceFilter] = useState(previous?.provinceFilter ?? '');
+  const [cityFilter, setCityFilter] = useState(previous?.cityFilter ?? '');
+  const [communeFilter, setCommuneFilter] = useState(previous?.communeFilter ?? '');
+  const [locationOpen, setLocationOpen] = useState(previous?.locationOpen ?? false);
 
   
   const provinces = getProvinceNames();
@@ -98,6 +117,7 @@ export default function Discover() {
         if (cancelled) return;
         const list = (data as Profile[]) || [];
         setProfiles(list);
+        setLoading(false);
         setLoadError(false);
         setRatingMap({});
 
@@ -148,8 +168,22 @@ export default function Discover() {
     };
   }, []);
 
+  const deferredSearch = useDeferredValue(search);
+  const [visibleCount, setVisibleCount] = useState(previous?.visibleCount ?? 24);
+  const filterKey = JSON.stringify([deferredSearch, filter, availableOnly, provinceFilter, cityFilter, communeFilter]);
+  const previousFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (previousFilterKey.current !== filterKey) setVisibleCount(24);
+    previousFilterKey.current = filterKey;
+  }, [filterKey]);
+  useEffect(() => {
+    discoveryViews.delete(viewKey);
+    discoveryViews.set(viewKey, { search, filter, availableOnly, provinceFilter, cityFilter, communeFilter, locationOpen, visibleCount });
+    if (discoveryViews.size > 50) discoveryViews.delete(discoveryViews.keys().next().value!);
+  }, [viewKey, search, filter, availableOnly, provinceFilter, cityFilter, communeFilter, locationOpen, visibleCount]);
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
   
     const result = profiles.filter((p) => {
       if (p.deleted_at || p.deactivated_at || p.banned || p.suspended) return false;
@@ -199,7 +233,7 @@ export default function Discover() {
     });
   }, [
     profiles,
-    search,
+    deferredSearch,
     filter,
     provinceFilter,
     cityFilter,
@@ -263,7 +297,7 @@ export default function Discover() {
         </div>
       ) : (
         <div className="grid grid-cols-2 items-stretch gap-2 sm:gap-3">
-          {filtered.map((p) => (
+          {filtered.slice(0, visibleCount).map((p) => (
             <ProfileCard
               key={p.id}
               profile={p}
@@ -273,6 +307,11 @@ export default function Discover() {
             />
           ))}
         </div>
+      )}
+      {!loading && !loadError && filtered.length > visibleCount && (
+        <button type="button" onClick={() => setVisibleCount((count) => count + 24)} className="mt-4 min-h-12 w-full rounded-xl border border-[var(--loboko-border)] bg-[var(--loboko-surface)] px-4 py-3 text-sm font-semibold">
+          Voir plus de profils ({Math.min(visibleCount, filtered.length)} sur {filtered.length})
+        </button>
       )}
     </Layout>
   );

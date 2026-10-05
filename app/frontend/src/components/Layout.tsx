@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
+import { usePageScroll } from '@/lib/use-page-scroll';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import LogoutConfirm from '@/components/LogoutConfirm';
 import { getMediaUrl } from '@/lib/storage-helpers';
@@ -61,7 +62,8 @@ const desktopNavItems = [
 ];
 
 export default function Layout({ children, title, hideMobileNav = false, fullScreenChat = false, hideHeaderTitle = false }: LayoutProps) {
-  const { logout, profile } = useAuth();
+  const { logout, profile, user } = useAuth();
+  usePageScroll(user?.id, fullScreenChat);
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessagesCount } = useMessages();
@@ -80,6 +82,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
   const [navHidden, setNavHidden] = useState(false);
 
   useEffect(() => {
+    setNavHidden(false);
     let lastY = window.scrollY;
     let ticking = false;
 
@@ -106,7 +109,7 @@ export default function Layout({ children, title, hideMobileNav = false, fullScr
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [pathname]);
 
   // Resolve avatar_key -> signed/public URL whenever the profile's avatar changes.
   useEffect(() => {

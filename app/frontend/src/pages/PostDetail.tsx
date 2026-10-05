@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBackNavigation } from '@/lib/use-back-navigation';
 import Layout from '@/components/Layout';
 import PostCard, { PostItem } from '@/components/PostCard';
-import CommentsModal from '@/components/CommentsModal';
+const CommentsModal = lazy(() => import('@/components/CommentsModal'));
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { readPostView, forgetPostView } from '@/lib/post-view-cache';
@@ -178,7 +178,8 @@ export default function PostDetail() {
             />
           </div>
           <div id="comments" ref={commentsRef} className="scroll-mt-4">
-            <CommentsModal
+            <Suspense fallback={<p role="status" className="py-4 text-sm text-[var(--loboko-text-secondary)]">Chargement des commentaires…</p>}>
+              <CommentsModal
               postId={post.id}
               postAuthorId={post.user_id}
               open={true}
@@ -189,6 +190,7 @@ export default function PostDetail() {
               highlightCommentId={highlightCommentId}
               inline
             />
+            </Suspense>
           </div>
         </>
       )}

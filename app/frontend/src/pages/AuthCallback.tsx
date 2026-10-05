@@ -1,30 +1,19 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-
+  const { user, profile, loading } = useAuth();
   useEffect(() => {
-    // Supabase auto-detects the session from URL hash on client init.
-    // Give it a brief moment then redirect the user into the app.
-    const t = setTimeout(async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        navigate('/', { replace: true });
-      } else {
-        navigate('/login', { replace: true });
-      }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [navigate]);
-
+    if (!loading) navigate(user ? (profile ? '/home' : '/onboarding') : '/', { replace: true });
+  }, [loading, user, profile, navigate]);
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <main role="status" className="min-h-[100dvh] flex items-center justify-center bg-[var(--loboko-bg)] p-6 text-[var(--loboko-text)]">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Processing authentication...</p>
+        <div aria-hidden="true" className="animate-spin rounded-full h-10 w-10 border-2 border-[var(--loboko-border)] border-t-[#2563eb] mx-auto mb-4" />
+        <p className="text-[var(--loboko-text-secondary)]">Vérification de votre connexion…</p>
       </div>
-    </div>
+    </main>
   );
 }

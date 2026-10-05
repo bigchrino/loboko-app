@@ -58,31 +58,47 @@ export default function ProductDetail() {
     setActiveImage(Math.round(el.scrollLeft / el.clientWidth));
   };
 
-  const load = async () => {
+  useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     setLoading(true);
-    const p = await fetchProduct(id);
-    setProduct(p);
+    setProduct(null);
+    setComments([]);
+    setCommentsLoading(true);
+    setCanRate(false);
     setQuantity(1);
     setActiveImage(0);
-    setLoading(false);
+    void Promise.allSettled([
+      (async () => {
+        try {
+          const item = await fetchProduct(id);
+          if (!cancelled) setProduct(item);
+        } finally { if (!cancelled) setLoading(false); }
+      })(),
+      (async () => {
+        try {
+          const list = await fetchProductComments(id);
+          if (!cancelled) setComments(list);
+        } finally { if (!cancelled) setCommentsLoading(false); }
+      })(),
+      (async () => {
+        if (!user?.id) return;
+        const { data, error } = await supabase.from('product_orders').select('id')
+          .eq('product_id', id).eq('client_id', user.id).eq('status', 'completed')
+          .limit(1).maybeSingle();
+        if (!cancelled && !error) setCanRate(Boolean(data));
+      })(),
+    ]).then((results) => {
+      if (!cancelled) results.forEach((result) => {
+        if (result.status === 'rejected') console.error(result.reason);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [id, user?.id]);
 
-    setCommentsLoading(true);
-    const list = await fetchProductComments(id);
-    setComments(list);
-    setCommentsLoading(false);
-    if (user?.id) {
-      const { data: completedOrder } = await supabase.from('product_orders').select('id').eq('product_id', id).eq('client_id', user.id).eq('status', 'completed').limit(1).maybeSingle();
-      setCanRate(Boolean(completedOrder));
-    } else {
-      setCanRate(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  useEffect(() => () => {
+    if (commentPhotoPreview) URL.revokeObjectURL(commentPhotoPreview);
+  }, [commentPhotoPreview]);
 
   const scrollToComments = () => {
     commentInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });

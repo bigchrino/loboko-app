@@ -1,16 +1,17 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { readPostView, savePostView, type PostAuthor } from '@/lib/post-view-cache';
 import { getMediaUrl } from '@/lib/storage-helpers';
 import { toast } from 'sonner';
-import LikesModal from './LikesModal';
-import CommentsModal from './CommentsModal';
+const LikesModal = lazy(() => import('./LikesModal'));
+const CommentsModal = lazy(() => import('./CommentsModal'));
 import PostMenu from './PostMenu';
 import MentionText from './MentionText';
-import SharePostDialog, { SharePostPreview } from './SharePostDialog';
-import MediaViewer from './MediaViewer';
+import type { SharePostPreview } from './SharePostDialog';
+const SharePostDialog = lazy(() => import('./SharePostDialog'));
+const MediaViewer = lazy(() => import('./MediaViewer'));
 import VideoWithPoster from './VideoWithPoster';
 import { createNotification } from '@/lib/notifications';
 import { formatPostTime } from '@/lib/format-time';
@@ -84,78 +85,49 @@ export default function PostCard({
     likesCount, commentsCount, sharesCount, currentUserId]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from('profile_directory')
+    let cancelled = false;
+    const update = (action: () => void) => { if (!cancelled) action(); };
+    // Independent author, counters and own-like requests run together.
+    void Promise.allSettled([
+      (async () => {
+        const { data, error } = await supabase.from('profile_directory')
           .select('username,display_name,metier,avatar_key,role,is_admin')
-          .eq('user_id', post.user_id)
-          .maybeSingle();
-        if (data) {
-          const authorData = data as PostAuthor & {
-            banned?: boolean;
-            suspended?: boolean;
-          };
-
-          if (authorData.banned || authorData.suspended) {
-            return;
-          }
-
-          setAuthor(authorData);
-
-          if (authorData.avatar_key) {
-            const url = await getMediaUrl(authorData.avatar_key);
-            setAvatarUrl(url);
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      try {
-        const { count: lc } = await supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
-        if (typeof lc === 'number') setLikesCount(lc);
-
-        const { count: cc } = await supabase
-          .from('comments')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
-        if (typeof cc === 'number') setCommentsCount(cc);
-
-        try {
-          const { count: sc, error: scErr } = await supabase
-            .from('post_shares')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id);
-          if (!scErr && typeof sc === 'number') setSharesCount(sc);
-        } catch {
-          /* ignore, table may not exist yet */
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      if (currentUserId) {
-        try {
-          const { data } = await supabase
-            .from('likes')
-            .select('id')
-            .eq('post_id', post.id)
-            .eq('user_id', currentUserId)
-            .maybeSingle();
-          if (data?.id) {
-            setLiked(true);
-            setLikeId(data.id as string);
-          } else {
-            setLiked(false);
-            setLikeId(null);
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    })();
+          .eq('user_id', post.user_id).maybeSingle();
+        if (error) throw error;
+        const authorData = data as PostAuthor | null;
+        const url = authorData?.avatar_key ? await getMediaUrl(authorData.avatar_key) : null;
+        update(() => { setAuthor(authorData); setAvatarUrl(url); });
+      })(),
+      (async () => {
+        const { count, error } = await supabase.from('likes')
+          .select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+        if (error) throw error;
+        if (typeof count === 'number') update(() => setLikesCount(count));
+      })(),
+      (async () => {
+        const { count, error } = await supabase.from('comments')
+          .select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+        if (error) throw error;
+        if (typeof count === 'number') update(() => setCommentsCount(count));
+      })(),
+      (async () => {
+        const { count, error } = await supabase.from('post_shares')
+          .select('*', { count: 'exact', head: true }).eq('post_id', post.id);
+        if (!error && typeof count === 'number') update(() => setSharesCount(count));
+      })(),
+      (async () => {
+        if (!currentUserId) return;
+        const { data, error } = await supabase.from('likes').select('id')
+          .eq('post_id', post.id).eq('user_id', currentUserId).maybeSingle();
+        if (error) throw error;
+        update(() => { setLiked(Boolean(data?.id)); setLikeId(data?.id ?? null); });
+      })(),
+    ]).then((results) => {
+      if (!cancelled) results.forEach((result) => {
+        if (result.status === 'rejected') console.error(result.reason);
+      });
+    });
+    return () => { cancelled = true; };
   }, [post.id, post.user_id, currentUserId]);
 
   useEffect(() => {
@@ -726,6 +698,7 @@ export default function PostCard({
         </footer>
       </article>
 
+      <Suspense fallback={<div role="status" className="fixed bottom-24 left-1/2 z-[210] -translate-x-1/2 rounded-xl bg-[var(--loboko-surface)] px-4 py-3 shadow-lg">Chargement…</div>}>
       {viewerIndex !== null && (
         <MediaViewer
           items={mediaUrls}
@@ -735,7 +708,7 @@ export default function PostCard({
         />
       )}
 
-      <LikesModal postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />
+      {showLikes && <LikesModal postId={post.id} open={showLikes} onClose={() => setShowLikes(false)} />}
       {showShare && currentUserId && (
         <SharePostDialogLoader
           open={showShare}
@@ -760,6 +733,7 @@ export default function PostCard({
           highlightCommentId={highlightCommentId || undefined}
         />
       )}
+      </Suspense>
     </>
   );
 }
